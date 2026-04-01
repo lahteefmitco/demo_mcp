@@ -3,7 +3,7 @@ import express from "express";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createExpenseManagerServer } from "./mcp/create-server.js";
 import { runExpenseChat } from "./services/chat-service.js";
-import expensesRouter from "./routes/expenses.js";
+import financeRouter from "./routes/finance.js";
 
 dotenv.config({ quiet: true });
 
@@ -13,11 +13,11 @@ const port = Number(process.env.PORT || 3000);
 app.use(express.json());
 
 app.get("/", (_req, res) => {
-  res.json({ message: "Welcome to the Expense Manager API" });
+  res.json({ message: "Welcome to the Personal Finance API" });
 });
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "expense-manager-api" });
+  res.json({ ok: true, service: "personal-finance-api" });
 });
 
 app.post("/api/chat", async (req, res, next) => {
@@ -81,7 +81,7 @@ app.delete("/mcp", (_req, res) => {
   });
 });
 
-app.use("/api/expenses", expensesRouter);
+app.use("/api", financeRouter);
 
 app.use((error, _req, res, _next) => {
   console.error(error);
@@ -92,5 +92,5 @@ app.use((error, _req, res, _next) => {
 });
 
 app.listen(port, () => {
-  console.log(`Expense manager API listening on http://localhost:${port}`);
+  console.log(`Personal finance API listening on http://localhost:${port}`);
 });

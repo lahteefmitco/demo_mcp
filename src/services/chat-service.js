@@ -1,10 +1,15 @@
 import {
+  createBudget,
+  createCategory,
   createExpense,
-  getMobileBootstrap,
-  getMonthlySummary,
+  createIncome,
+  getFinanceDashboard,
+  getPeriodSummary,
+  listBudgets,
   listCategories,
-  listExpenses
-} from "./expense-service.js";
+  listExpenses,
+  listIncomes
+} from "./finance-service.js";
 
 const openRouterApiKey = process.env.OPENROUTER_API_KEY;
 const openRouterModel = process.env.OPENROUTER_MODEL || "stepfun/step-3.5-flash:free";
@@ -13,15 +18,13 @@ const toolDefinitions = [
   {
     type: "function",
     function: {
-      name: "list_expenses",
-      description: "List expense records. Use filters when the user asks for category, date range, or recent expenses.",
+      name: "finance_dashboard",
+      description: "Get finance dashboard data including expenses, incomes, budgets, and categories for a month.",
       parameters: {
         type: "object",
+        required: ["month"],
         properties: {
-          category: { type: "string", description: "Optional category filter." },
-          from: { type: "string", description: "Optional start date in YYYY-MM-DD format." },
-          to: { type: "string", description: "Optional end date in YYYY-MM-DD format." },
-          limit: { type: "number", description: "Optional maximum number of results." }
+          month: { type: "string", description: "Month in YYYY-MM format." }
         }
       }
     }
@@ -29,26 +32,8 @@ const toolDefinitions = [
   {
     type: "function",
     function: {
-      name: "create_expense",
-      description: "Create a new expense from the provided details.",
-      parameters: {
-        type: "object",
-        required: ["title", "amount", "category", "spentOn"],
-        properties: {
-          title: { type: "string" },
-          amount: { type: "number" },
-          category: { type: "string" },
-          spentOn: { type: "string", description: "Date in YYYY-MM-DD format." },
-          notes: { type: "string" }
-        }
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "monthly_summary",
-      description: "Get a monthly expense summary grouped by category.",
+      name: "period_summary",
+      description: "Get monthly totals for expenses, incomes, and balance.",
       parameters: {
         type: "object",
         required: ["month"],
@@ -62,23 +47,129 @@ const toolDefinitions = [
     type: "function",
     function: {
       name: "list_categories",
-      description: "List the currently used expense categories.",
+      description: "List categories, optionally filtered by expense or income kind.",
       parameters: {
         type: "object",
-        properties: {}
+        properties: {
+          kind: { type: "string", description: "expense, income, or both" }
+        }
       }
     }
   },
   {
     type: "function",
     function: {
-      name: "dashboard_snapshot",
-      description: "Get dashboard data for a month including summary, categories, and recent expenses.",
+      name: "create_category",
+      description: "Create a category.",
       parameters: {
         type: "object",
-        required: ["month"],
+        required: ["name"],
         properties: {
-          month: { type: "string", description: "Month in YYYY-MM format." }
+          name: { type: "string" },
+          kind: { type: "string" },
+          color: { type: "string" },
+          icon: { type: "string" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_expenses",
+      description: "List expenses with optional filters.",
+      parameters: {
+        type: "object",
+        properties: {
+          categoryId: { type: "number" },
+          from: { type: "string" },
+          to: { type: "string" },
+          limit: { type: "number" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_expense",
+      description: "Create a new expense.",
+      parameters: {
+        type: "object",
+        required: ["title", "amount", "categoryId", "spentOn"],
+        properties: {
+          title: { type: "string" },
+          amount: { type: "number" },
+          categoryId: { type: "number" },
+          spentOn: { type: "string" },
+          notes: { type: "string" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_incomes",
+      description: "List incomes with optional filters.",
+      parameters: {
+        type: "object",
+        properties: {
+          categoryId: { type: "number" },
+          from: { type: "string" },
+          to: { type: "string" },
+          limit: { type: "number" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_income",
+      description: "Create a new income record.",
+      parameters: {
+        type: "object",
+        required: ["title", "amount", "categoryId", "receivedOn"],
+        properties: {
+          title: { type: "string" },
+          amount: { type: "number" },
+          categoryId: { type: "number" },
+          receivedOn: { type: "string" },
+          notes: { type: "string" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_budgets",
+      description: "List budgets for daily, weekly, monthly, or yearly periods.",
+      parameters: {
+        type: "object",
+        properties: {
+          period: { type: "string" },
+          categoryId: { type: "number" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_budget",
+      description: "Create a budget for a time period and optional category.",
+      parameters: {
+        type: "object",
+        required: ["name", "amount", "period", "startDate"],
+        properties: {
+          name: { type: "string" },
+          amount: { type: "number" },
+          period: { type: "string" },
+          startDate: { type: "string" },
+          categoryId: { type: "number" },
+          notes: { type: "string" }
         }
       }
     }
@@ -92,7 +183,7 @@ export async function runExpenseChat(history) {
 
   let messages = normalizeChatHistory(history);
 
-  for (let attempt = 0; attempt < 5; attempt += 1) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -105,7 +196,7 @@ export async function runExpenseChat(history) {
           {
             role: "system",
             content:
-              "You are a helpful personal expense assistant. Answer clearly and briefly. Use tools whenever you need current expense data or when the user asks you to create an expense."
+              "You are a helpful personal finance assistant. You help the user manage categories, expenses, incomes, and budgets for daily, weekly, monthly, and yearly periods. Keep answers concise and practical. Use tools whenever real data or write actions are needed."
           },
           ...messages
         ],
@@ -203,30 +294,44 @@ function normalizeChatHistory(history) {
 }
 
 async function executeTool(name, input) {
+  if (name === "finance_dashboard") {
+    return getFinanceDashboard(input.month);
+  }
+
+  if (name === "period_summary") {
+    return getPeriodSummary(input.month);
+  }
+
+  if (name === "list_categories") {
+    return listCategories(input);
+  }
+
+  if (name === "create_category") {
+    return createCategory(input);
+  }
+
   if (name === "list_expenses") {
     return listExpenses(input);
   }
 
   if (name === "create_expense") {
-    return createExpense({
-      title: input.title,
-      amount: input.amount,
-      category: input.category,
-      spentOn: input.spentOn,
-      notes: input.notes ?? ""
-    });
+    return createExpense(input);
   }
 
-  if (name === "monthly_summary") {
-    return getMonthlySummary(input.month);
+  if (name === "list_incomes") {
+    return listIncomes(input);
   }
 
-  if (name === "list_categories") {
-    return listCategories();
+  if (name === "create_income") {
+    return createIncome(input);
   }
 
-  if (name === "dashboard_snapshot") {
-    return getMobileBootstrap(input.month);
+  if (name === "list_budgets") {
+    return listBudgets(input);
+  }
+
+  if (name === "create_budget") {
+    return createBudget(input);
   }
 
   throw new Error(`Unknown tool: ${name}`);

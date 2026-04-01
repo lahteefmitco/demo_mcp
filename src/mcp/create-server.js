@@ -4,18 +4,23 @@ import {
   ListToolsRequestSchema
 } from "@modelcontextprotocol/sdk/types.js";
 import {
+  createBudget,
+  createCategory,
   createExpense,
-  getMobileBootstrap,
-  getMonthlySummary,
+  createIncome,
+  getFinanceDashboard,
+  getPeriodSummary,
+  listBudgets,
   listCategories,
-  listExpenses
-} from "../services/expense-service.js";
+  listExpenses,
+  listIncomes
+} from "../services/finance-service.js";
 
 export function createExpenseManagerServer() {
   const server = new Server(
     {
-      name: "expense-manager-mcp",
-      version: "1.0.0"
+      name: "personal-finance-mcp",
+      version: "2.0.0"
     },
     {
       capabilities: {
@@ -27,36 +32,19 @@ export function createExpenseManagerServer() {
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: [
       {
-        name: "list_expenses",
-        description: "List expenses with optional category, date, and limit filters.",
+        name: "finance_dashboard",
+        description: "Get finance dashboard data including expenses, incomes, budgets, and categories for a month.",
         inputSchema: {
           type: "object",
+          required: ["month"],
           properties: {
-            category: { type: "string", description: "Optional category filter." },
-            from: { type: "string", description: "Optional start date in YYYY-MM-DD." },
-            to: { type: "string", description: "Optional end date in YYYY-MM-DD." },
-            limit: { type: "number", description: "Optional result limit." }
+            month: { type: "string", description: "Month in YYYY-MM format." }
           }
         }
       },
       {
-        name: "create_expense",
-        description: "Create a new expense record.",
-        inputSchema: {
-          type: "object",
-          required: ["title", "amount", "category", "spentOn"],
-          properties: {
-            title: { type: "string" },
-            amount: { type: "number" },
-            category: { type: "string" },
-            spentOn: { type: "string", description: "Date in YYYY-MM-DD." },
-            notes: { type: "string" }
-          }
-        }
-      },
-      {
-        name: "monthly_summary",
-        description: "Get monthly expense summary grouped by category.",
+        name: "period_summary",
+        description: "Get totals for income, expenses, and balance for a month.",
         inputSchema: {
           type: "object",
           required: ["month"],
@@ -67,20 +55,108 @@ export function createExpenseManagerServer() {
       },
       {
         name: "list_categories",
-        description: "List all known expense categories.",
+        description: "List finance categories, optionally filtered by kind.",
         inputSchema: {
           type: "object",
-          properties: {}
+          properties: {
+            kind: { type: "string", description: "expense, income, or both" }
+          }
         }
       },
       {
-        name: "dashboard_snapshot",
-        description: "Get dashboard data with monthly summary, categories, and recent expenses.",
+        name: "create_category",
+        description: "Create a category for expenses, incomes, or both.",
         inputSchema: {
           type: "object",
-          required: ["month"],
+          required: ["name"],
           properties: {
-            month: { type: "string", description: "Month in YYYY-MM format." }
+            name: { type: "string" },
+            kind: { type: "string" },
+            color: { type: "string" },
+            icon: { type: "string" }
+          }
+        }
+      },
+      {
+        name: "list_expenses",
+        description: "List expense records with optional filters.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            categoryId: { type: "number" },
+            from: { type: "string" },
+            to: { type: "string" },
+            limit: { type: "number" }
+          }
+        }
+      },
+      {
+        name: "create_expense",
+        description: "Create a new expense record.",
+        inputSchema: {
+          type: "object",
+          required: ["title", "amount", "categoryId", "spentOn"],
+          properties: {
+            title: { type: "string" },
+            amount: { type: "number" },
+            categoryId: { type: "number" },
+            spentOn: { type: "string" },
+            notes: { type: "string" }
+          }
+        }
+      },
+      {
+        name: "list_incomes",
+        description: "List income records with optional filters.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            categoryId: { type: "number" },
+            from: { type: "string" },
+            to: { type: "string" },
+            limit: { type: "number" }
+          }
+        }
+      },
+      {
+        name: "create_income",
+        description: "Create a new income record.",
+        inputSchema: {
+          type: "object",
+          required: ["title", "amount", "categoryId", "receivedOn"],
+          properties: {
+            title: { type: "string" },
+            amount: { type: "number" },
+            categoryId: { type: "number" },
+            receivedOn: { type: "string" },
+            notes: { type: "string" }
+          }
+        }
+      },
+      {
+        name: "list_budgets",
+        description: "List budgets for daily, weekly, monthly, or yearly periods.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            period: { type: "string" },
+            categoryId: { type: "number" }
+          }
+        }
+      },
+      {
+        name: "create_budget",
+        description: "Create a budget for a period and optional category.",
+        inputSchema: {
+          type: "object",
+          required: ["name", "amount", "period", "startDate"],
+          properties: {
+            name: { type: "string" },
+            amount: { type: "number" },
+            period: { type: "string" },
+            startDate: { type: "string" },
+            categoryId: { type: "number" },
+            notes: { type: "string" }
           }
         }
       }
@@ -90,36 +166,44 @@ export function createExpenseManagerServer() {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args = {} } = request.params;
 
-    if (name === "list_expenses") {
-      const expenses = await listExpenses(args);
-      return jsonText(expenses);
+    if (name === "finance_dashboard") {
+      return jsonText(await getFinanceDashboard(args.month));
     }
 
-    if (name === "create_expense") {
-      const expense = await createExpense({
-        title: args.title,
-        amount: args.amount,
-        category: args.category,
-        spentOn: args.spentOn,
-        notes: args.notes ?? ""
-      });
-
-      return jsonText(expense);
-    }
-
-    if (name === "monthly_summary") {
-      const summary = await getMonthlySummary(args.month);
-      return jsonText(summary);
+    if (name === "period_summary") {
+      return jsonText(await getPeriodSummary(args.month));
     }
 
     if (name === "list_categories") {
-      const categories = await listCategories();
-      return jsonText(categories);
+      return jsonText(await listCategories(args));
     }
 
-    if (name === "dashboard_snapshot") {
-      const dashboard = await getMobileBootstrap(args.month);
-      return jsonText(dashboard);
+    if (name === "create_category") {
+      return jsonText(await createCategory(args));
+    }
+
+    if (name === "list_expenses") {
+      return jsonText(await listExpenses(args));
+    }
+
+    if (name === "create_expense") {
+      return jsonText(await createExpense(args));
+    }
+
+    if (name === "list_incomes") {
+      return jsonText(await listIncomes(args));
+    }
+
+    if (name === "create_income") {
+      return jsonText(await createIncome(args));
+    }
+
+    if (name === "list_budgets") {
+      return jsonText(await listBudgets(args));
+    }
+
+    if (name === "create_budget") {
+      return jsonText(await createBudget(args));
     }
 
     throw new Error(`Unknown tool: ${name}`);

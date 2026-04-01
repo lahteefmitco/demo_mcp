@@ -2,12 +2,11 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import '../models/bootstrap_data.dart';
-import '../models/expense.dart';
+import '../models/finance_models.dart';
 import '../models/mcp_tool.dart';
 
-class ExpenseMcpClient {
-  ExpenseMcpClient({http.Client? client})
+class FinanceMcpClient {
+  FinanceMcpClient({http.Client? client})
     : _client = client ?? http.Client(),
       baseUrl = const String.fromEnvironment(
         'API_BASE_URL',
@@ -33,7 +32,7 @@ class ExpenseMcpClient {
       'params': {
         'protocolVersion': '2025-11-25',
         'capabilities': {},
-        'clientInfo': {'name': 'expense-mobile-flutter', 'version': '1.0.0'},
+        'clientInfo': {'name': 'finance-mobile-flutter', 'version': '2.0.0'},
       },
     });
 
@@ -65,37 +64,95 @@ class ExpenseMcpClient {
         .toList();
   }
 
-  Future<BootstrapData> fetchDashboard(String month) async {
-    final data = await callTool('dashboard_snapshot', {'month': month});
-    return BootstrapData.fromJson(data as Map<String, dynamic>);
+  Future<FinanceDashboard> fetchDashboard(String month) async {
+    final data = await callTool('finance_dashboard', {'month': month});
+    return FinanceDashboard.fromJson(data as Map<String, dynamic>);
   }
 
-  Future<List<Expense>> fetchExpenses({int limit = 50}) async {
-    final data = await callTool('list_expenses', {'limit': limit});
+  Future<List<FinanceCategory>> fetchCategories({String? kind}) async {
+    final arguments = <String, dynamic>{};
+    if (kind != null) {
+      arguments['kind'] = kind;
+    }
+    final data = await callTool('list_categories', arguments);
     final items = data as List<dynamic>;
     return items
-        .map((item) => Expense.fromJson(item as Map<String, dynamic>))
+        .map((item) => FinanceCategory.fromJson(item as Map<String, dynamic>))
         .toList();
   }
 
-  Future<List<String>> fetchCategories() async {
-    final data = await callTool('list_categories', {});
+  Future<List<BudgetItem>> fetchBudgets({String? period}) async {
+    final arguments = <String, dynamic>{};
+    if (period != null) {
+      arguments['period'] = period;
+    }
+    final data = await callTool('list_budgets', arguments);
     final items = data as List<dynamic>;
-    return items.map((item) => item.toString()).toList();
+    return items
+        .map((item) => BudgetItem.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> createCategory({
+    required String name,
+    required String kind,
+    required String color,
+    required String icon,
+  }) async {
+    await callTool('create_category', {
+      'name': name,
+      'kind': kind,
+      'color': color,
+      'icon': icon,
+    });
   }
 
   Future<void> createExpense({
     required String title,
     required double amount,
-    required String category,
+    required int categoryId,
     required String spentOn,
     String notes = '',
   }) async {
     await callTool('create_expense', {
       'title': title,
       'amount': amount,
-      'category': category,
+      'categoryId': categoryId,
       'spentOn': spentOn,
+      'notes': notes,
+    });
+  }
+
+  Future<void> createIncome({
+    required String title,
+    required double amount,
+    required int categoryId,
+    required String receivedOn,
+    String notes = '',
+  }) async {
+    await callTool('create_income', {
+      'title': title,
+      'amount': amount,
+      'categoryId': categoryId,
+      'receivedOn': receivedOn,
+      'notes': notes,
+    });
+  }
+
+  Future<void> createBudget({
+    required String name,
+    required double amount,
+    required String period,
+    required String startDate,
+    int? categoryId,
+    String notes = '',
+  }) async {
+    await callTool('create_budget', {
+      'name': name,
+      'amount': amount,
+      'period': period,
+      'startDate': startDate,
+      'categoryId': categoryId,
       'notes': notes,
     });
   }
@@ -156,12 +213,6 @@ class ExpenseMcpClient {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
-  int _nextId() {
-    final id = _requestId;
-    _requestId += 1;
-    return id;
-  }
-
   Map<String, dynamic> _parseSseJson(String body) {
     final lines = body.split('\n');
     final dataLines = <String>[];
@@ -176,7 +227,12 @@ class ExpenseMcpClient {
       throw Exception('MCP SSE response did not include any data payload');
     }
 
-    final payload = dataLines.join('\n');
-    return jsonDecode(payload) as Map<String, dynamic>;
+    return jsonDecode(dataLines.join('\n')) as Map<String, dynamic>;
+  }
+
+  int _nextId() {
+    final id = _requestId;
+    _requestId += 1;
+    return id;
   }
 }

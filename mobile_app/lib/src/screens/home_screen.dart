@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../api/expense_mcp_client.dart';
-import '../models/bootstrap_data.dart';
-import '../models/expense.dart';
+import '../api/finance_mcp_client.dart';
+import '../models/finance_models.dart';
 import '../models/mcp_tool.dart';
-import 'add_expense_screen.dart';
+import 'add_budget_screen.dart';
+import 'add_category_screen.dart';
+import 'add_entry_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,7 +15,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final ExpenseMcpClient _client = ExpenseMcpClient();
+  final FinanceMcpClient _client = FinanceMcpClient();
   late Future<_HomeData> _future;
 
   @override
@@ -27,14 +28,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final month = _currentMonth();
     final results = await Future.wait([
       _client.fetchDashboard(month),
-      _client.fetchExpenses(limit: 50),
       _client.listTools(),
     ]);
 
     return _HomeData(
-      bootstrap: results[0] as BootstrapData,
-      expenses: results[1] as List<Expense>,
-      tools: results[2] as List<McpTool>,
+      dashboard: results[0] as FinanceDashboard,
+      tools: results[1] as List<McpTool>,
     );
   }
 
@@ -45,53 +44,178 @@ class _HomeScreenState extends State<HomeScreen> {
     await _future;
   }
 
-  Future<void> _openAddExpense(_HomeData data) async {
-    final payload = await Navigator.of(context).push<Map<String, dynamic>>(
-      MaterialPageRoute(
-        builder: (_) => AddExpenseScreen(
-          categories: data.bootstrap.categories.isEmpty
-              ? const ['Food', 'Transport', 'Bills', 'Shopping', 'General']
-              : data.bootstrap.categories,
+  Future<void> _openActionSheet(_HomeData data) async {
+    final navigator = Navigator.of(context);
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.remove_circle_outline),
+              title: const Text('Add expense'),
+              onTap: () => Navigator.pop(context, 'expense'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.add_card),
+              title: const Text('Add income'),
+              onTap: () => Navigator.pop(context, 'income'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.account_balance_wallet_outlined),
+              title: const Text('Add budget'),
+              onTap: () => Navigator.pop(context, 'budget'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.category_outlined),
+              title: const Text('Add category'),
+              onTap: () => Navigator.pop(context, 'category'),
+            ),
+          ],
         ),
       ),
     );
 
-    if (payload == null) {
+    if (!mounted || action == null) {
       return;
     }
 
-    try {
-      await _client.createExpense(
-        title: payload['title'] as String,
-        amount: payload['amount'] as double,
-        category: payload['category'] as String,
-        spentOn: payload['spentOn'] as String,
-        notes: payload['notes'] as String? ?? '',
+    if (action == 'expense') {
+      final categories = data.dashboard.categories
+          .where(
+            (category) => category.kind == 'expense' || category.kind == 'both',
+          )
+          .toList();
+      final payload = await Navigator.of(context).push<Map<String, dynamic>>(
+        MaterialPageRoute(
+          builder: (_) => AddEntryScreen(
+            title: 'Add Expense',
+            categories: categories,
+            dateLabel: 'Spent on',
+            dateKey: 'spentOn',
+          ),
+        ),
       );
 
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Expense created through MCP')),
-      );
-      await _refresh();
-    } catch (error) {
-      if (!mounted) {
-        return;
+      if (payload != null) {
+        await _client.createExpense(
+          title: payload['title'] as String,
+          amount: payload['amount'] as double,
+          categoryId: payload['categoryId'] as int,
+          spentOn: payload['spentOn'] as String,
+          notes: payload['notes'] as String? ?? '',
+        );
+        _showMessage('Expense added');
+        await _refresh();
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.toString())));
     }
+
+    if (action == 'income') {
+      final categories = data.dashboard.categories
+          .where(
+            (category) => category.kind == 'income' || category.kind == 'both',
+          )
+          .toList();
+      final payload = await navigator.push<Map<String, dynamic>>(
+        MaterialPageRoute(
+          builder: (_) => AddEntryScreen(
+            title: 'Add Income',
+            categories: categories,
+            dateLabel: 'Received on',
+            dateKey: 'receivedOn',
+          ),
+        ),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (payload != null) {
+        await _client.createIncome(
+          title: payload['title'] as String,
+          amount: payload['amount'] as double,
+          categoryId: payload['categoryId'] as int,
+          receivedOn: payload['receivedOn'] as String,
+          notes: payload['notes'] as String? ?? '',
+        );
+        _showMessage('Income added');
+        await _refresh();
+      }
+    }
+
+    if (action == 'budget') {
+      final categories = data.dashboard.categories
+          .where(
+            (category) => category.kind == 'expense' || category.kind == 'both',
+          )
+          .toList();
+      final payload = await navigator.push<Map<String, dynamic>>(
+        MaterialPageRoute(
+          builder: (_) => AddBudgetScreen(categories: categories),
+        ),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (payload != null) {
+        await _client.createBudget(
+          name: payload['name'] as String,
+          amount: payload['amount'] as double,
+          period: payload['period'] as String,
+          startDate: payload['startDate'] as String,
+          categoryId: payload['categoryId'] as int?,
+          notes: payload['notes'] as String? ?? '',
+        );
+        _showMessage('Budget added');
+        await _refresh();
+      }
+    }
+
+    if (action == 'category') {
+      final payload = await navigator.push<Map<String, dynamic>>(
+        MaterialPageRoute(builder: (_) => const AddCategoryScreen()),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (payload != null) {
+        await _client.createCategory(
+          name: payload['name'] as String,
+          kind: payload['kind'] as String,
+          color: payload['color'] as String,
+          icon: payload['icon'] as String,
+        );
+        _showMessage('Category added');
+        await _refresh();
+      }
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Expense Mobile'),
+        title: const Text('Finance Mobile'),
         actions: [
           IconButton(onPressed: _refresh, icon: const Icon(Icons.refresh)),
         ],
@@ -113,7 +237,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const Icon(Icons.cloud_off, size: 52),
                     const SizedBox(height: 12),
                     Text(
-                      'Could not load expenses',
+                      'Could not load finance data',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 8),
@@ -133,33 +257,81 @@ class _HomeScreenState extends State<HomeScreen> {
           }
 
           final data = snapshot.data!;
-          final summary = data.bootstrap.summary;
+          final dashboard = data.dashboard;
+          final summary = dashboard.summary;
 
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                _SummaryCard(summary: summary),
+                _BalanceCard(summary: summary),
                 const SizedBox(height: 16),
                 _McpBanner(toolCount: data.tools.length),
                 const SizedBox(height: 16),
-                _SectionTitle(title: 'Top Categories', subtitle: 'This month'),
+                _SectionTitle(
+                  title: 'Budgets',
+                  subtitle: '${dashboard.budgets.length} total',
+                ),
                 const SizedBox(height: 8),
-                if (summary.byCategory.isEmpty)
-                  const _EmptyCard(message: 'No spending this month yet.')
+                if (dashboard.budgets.isEmpty)
+                  const _EmptyCard(message: 'No budgets set yet.')
                 else
-                  ...summary.byCategory.take(4).map(_CategoryTile.new),
+                  ...dashboard.budgets.map(_BudgetTile.new),
+                const SizedBox(height: 16),
+                _SectionTitle(
+                  title: 'Categories',
+                  subtitle: '${dashboard.categories.length} total',
+                ),
+                const SizedBox(height: 8),
+                if (dashboard.categories.isEmpty)
+                  const _EmptyCard(message: 'No categories found.')
+                else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: dashboard.categories
+                        .map(
+                          (category) => Chip(
+                            label: Text('${category.name} • ${category.kind}'),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                const SizedBox(height: 16),
+                _SectionTitle(
+                  title: 'Recent Income',
+                  subtitle: '${dashboard.recentIncomes.length} items',
+                ),
+                const SizedBox(height: 8),
+                if (dashboard.recentIncomes.isEmpty)
+                  const _EmptyCard(message: 'No income records found.')
+                else
+                  ...dashboard.recentIncomes.map(
+                    (item) => _EntryTile(item: item, isIncome: true),
+                  ),
                 const SizedBox(height: 16),
                 _SectionTitle(
                   title: 'Recent Expenses',
-                  subtitle: '${data.expenses.length} loaded',
+                  subtitle: '${dashboard.recentExpenses.length} items',
                 ),
                 const SizedBox(height: 8),
-                if (data.expenses.isEmpty)
-                  const _EmptyCard(message: 'No expenses found.')
+                if (dashboard.recentExpenses.isEmpty)
+                  const _EmptyCard(message: 'No expense records found.')
                 else
-                  ...data.expenses.map(_ExpenseTile.new),
+                  ...dashboard.recentExpenses.map(
+                    (item) => _EntryTile(item: item, isIncome: false),
+                  ),
+                const SizedBox(height: 16),
+                _SectionTitle(
+                  title: 'Spending by Category',
+                  subtitle: summary.month,
+                ),
+                const SizedBox(height: 8),
+                if (summary.expenseByCategory.isEmpty)
+                  const _EmptyCard(message: 'No category spending yet.')
+                else
+                  ...summary.expenseByCategory.map(_CategorySpendTile.new),
               ],
             ),
           );
@@ -170,10 +342,10 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context, snapshot) {
           return FloatingActionButton.extended(
             onPressed: snapshot.hasData
-                ? () => _openAddExpense(snapshot.data!)
+                ? () => _openActionSheet(snapshot.data!)
                 : null,
             icon: const Icon(Icons.add),
-            label: const Text('Add Expense'),
+            label: const Text('Add'),
           );
         },
       ),
@@ -188,21 +360,16 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _HomeData {
-  const _HomeData({
-    required this.bootstrap,
-    required this.expenses,
-    required this.tools,
-  });
+  const _HomeData({required this.dashboard, required this.tools});
 
-  final BootstrapData bootstrap;
-  final List<Expense> expenses;
+  final FinanceDashboard dashboard;
   final List<McpTool> tools;
 }
 
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.summary});
+class _BalanceCard extends StatelessWidget {
+  const _BalanceCard({required this.summary});
 
-  final MonthlySummary summary;
+  final PeriodSummary summary;
 
   @override
   Widget build(BuildContext context) {
@@ -210,7 +377,7 @@ class _SummaryCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF0F766E), Color(0xFF0EA5A4)],
+          colors: [Color(0xFF0F766E), Color(0xFF155E75)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -225,17 +392,17 @@ class _SummaryCard extends StatelessWidget {
               context,
             ).textTheme.labelLarge?.copyWith(color: Colors.white70),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
-            '\$${summary.total.toStringAsFixed(2)}',
-            style: Theme.of(context).textTheme.displaySmall?.copyWith(
+            'Balance \$${summary.balance.toStringAsFixed(2)}',
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Text(
-            '${summary.expenseCount} expenses tracked',
+            'Income \$${summary.incomeTotal.toStringAsFixed(2)} • Expenses \$${summary.expenseTotal.toStringAsFixed(2)}',
             style: Theme.of(
               context,
             ).textTheme.bodyLarge?.copyWith(color: Colors.white),
@@ -267,18 +434,8 @@ class _McpBanner extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Connected through MCP',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text('$toolCount tools discovered from the remote MCP server'),
-              ],
+            child: Text(
+              '$toolCount MCP tools available for finance automation',
             ),
           ),
         ],
@@ -310,10 +467,88 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _CategoryTile extends StatelessWidget {
-  const _CategoryTile(this.item);
+class _BudgetTile extends StatelessWidget {
+  const _BudgetTile(this.budget);
 
-  final CategoryTotal item;
+  final BudgetItem budget;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = budget.amount == 0
+        ? 0.0
+        : (budget.spent / budget.amount).clamp(0, 1).toDouble();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    budget.name,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                Text('\$${budget.remaining.toStringAsFixed(2)} left'),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '${budget.period} • ${budget.categoryName ?? 'All categories'}',
+            ),
+            const SizedBox(height: 12),
+            LinearProgressIndicator(value: progress),
+            const SizedBox(height: 8),
+            Text(
+              'Spent \$${budget.spent.toStringAsFixed(2)} of \$${budget.amount.toStringAsFixed(2)}',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EntryTile extends StatelessWidget {
+  const _EntryTile({required this.item, required this.isIncome});
+
+  final FinanceEntry item;
+  final bool isIncome;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: isIncome
+              ? const Color(0xFFDCFCE7)
+              : const Color(0xFFFEE2E2),
+          child: Icon(
+            isIncome ? Icons.south_west : Icons.north_east,
+            color: isIncome ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
+          ),
+        ),
+        title: Text(item.title),
+        subtitle: Text('${item.categoryName} • ${item.date}'),
+        trailing: Text(
+          '${isIncome ? '+' : '-'}\$${item.amount.toStringAsFixed(2)}',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: isIncome ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategorySpendTile extends StatelessWidget {
+  const _CategorySpendTile(this.item);
+
+  final CategorySpend item;
 
   @override
   Widget build(BuildContext context) {
@@ -321,42 +556,7 @@ class _CategoryTile extends StatelessWidget {
       child: ListTile(
         leading: const CircleAvatar(child: Icon(Icons.pie_chart_outline)),
         title: Text(item.category),
-        trailing: Text(
-          '\$${item.total.toStringAsFixed(2)}',
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-      ),
-    );
-  }
-}
-
-class _ExpenseTile extends StatelessWidget {
-  const _ExpenseTile(this.expense);
-
-  final Expense expense;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: const Color(0xFFDFF7F4),
-          child: Text(
-            expense.category.isNotEmpty
-                ? expense.category[0].toUpperCase()
-                : '?',
-            style: const TextStyle(
-              color: Color(0xFF0F766E),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        title: Text(expense.title),
-        subtitle: Text('${expense.category} • ${expense.spentOn}'),
-        trailing: Text(
-          '\$${expense.amount.toStringAsFixed(2)}',
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
+        trailing: Text('\$${item.total.toStringAsFixed(2)}'),
       ),
     );
   }

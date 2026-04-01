@@ -5,6 +5,6 @@ void main() {
   testWidgets('renders app shell', (tester) async {
     await tester.pumpWidget(const ExpenseMobileApp());
 
-    expect(find.text('Expense Mobile'), findsOneWidget);
+    expect(find.text('Finance Mobile'), findsOneWidget);
   });
 }

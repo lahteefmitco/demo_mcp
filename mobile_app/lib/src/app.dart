@@ -10,7 +10,7 @@ class ExpenseMobileApp extends StatelessWidget {
     const seedColor = Color(0xFF0E7490);
 
     return MaterialApp(
-      title: 'Expense Mobile',
+      title: 'Finance Mobile',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(

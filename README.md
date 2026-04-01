@@ -1,19 +1,20 @@
-# Personal Expense Manager with MCP
+# Personal Finance Manager with MCP
 
 This project includes:
 
-- An Express.js REST API for managing personal expenses
-- PostgreSQL persistence with Sequelize
-- A sample MCP server that exposes expense tools over stdio
-- Claude Desktop connection instructions
+- An Express.js API for categories, expenses, incomes, and budgets
+- PostgreSQL with Sequelize raw SQL queries
+- MCP servers over `stdio` and remote HTTP
+- A Flutter mobile client
+- An OpenRouter-powered chat endpoint that can use finance tools
 
 ## Features
 
-- Create, list, update, and delete expenses
-- Filter expenses by category or date range
-- Monthly summary grouped by category
-- Reuse the same PostgreSQL database from both the API and the MCP server
-- Use Sequelize as the ORM while executing raw SQL queries
+- Manage expense and income categories
+- Track expenses and incomes
+- Create budgets for `daily`, `weekly`, `monthly`, and `yearly` periods
+- View finance dashboard totals for a month
+- Access the same finance data from REST, MCP, and chat
 
 ## Project Structure
 
@@ -22,374 +23,142 @@ src/
   app.js
   db.js
   schema.sql
-  routes/expenses.js
-  services/expense-service.js
+  routes/finance.js
+  services/finance-service.js
+  services/chat-service.js
   scripts/init-db.js
+  mcp/create-server.js
   mcp/server.js
+
+mobile_app/
+  lib/
 ```
 
-## 1. Install Dependencies
+## Environment
 
-```bash
-npm install
-```
-
-## 2. Start PostgreSQL
-
-The quickest option is Docker Compose:
-
-```bash
-docker compose up -d
-```
-
-You can also create the database manually with `psql` if PostgreSQL is already installed locally.
-
-## 3. Create PostgreSQL Database
-
-Example using `psql`:
-
-```bash
-createdb expense_manager
-```
-
-Copy the env file and update it if needed:
+Copy the example file:
 
 ```bash
 cp .env.example .env
 ```
 
-Example `.env`:
+Example values:
 
 ```env
 PORT=3000
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/expense_manager
+DATABASE_URL=postgresql://postgres:your_password@localhost:5432/expense_manager
+OPENROUTER_API_KEY=your_openrouter_api_key
+OPENROUTER_MODEL=stepfun/step-3.5-flash:free
 ```
 
-Initialize the database schema:
+## Initialize the Database
 
 ```bash
+npm install
 npm run db:init
 ```
 
-## 4. Run the Express API
+Important:
+
+- `db:init` recreates the finance schema
+- it is intended for a fresh demo environment
+- rerunning it will reset old local data
+
+## Run the API
 
 ```bash
 npm run dev
 ```
 
-Available endpoints:
+Useful endpoints:
 
 - `GET /health`
+- `GET /api/dashboard?month=2026-04`
+- `GET /api/summary?month=2026-04`
+- `GET /api/categories`
+- `POST /api/categories`
 - `GET /api/expenses`
-- `GET /api/expenses?limit=10`
-- `GET /api/expenses?category=Food&from=2026-04-01&to=2026-04-30`
-- `GET /api/expenses/categories`
-- `GET /api/expenses/bootstrap?month=2026-04`
-- `GET /api/expenses/summary?month=2026-04`
-- `GET /api/expenses/:id`
 - `POST /api/expenses`
-- `PUT /api/expenses/:id`
-- `DELETE /api/expenses/:id`
+- `GET /api/incomes`
+- `POST /api/incomes`
+- `GET /api/budgets`
+- `POST /api/budgets`
+- `POST /api/chat`
+- `POST /mcp`
 
-Example create request:
+## MCP
 
-```bash
-curl -X POST http://localhost:3000/api/expenses \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Groceries",
-    "amount": 42.50,
-    "category": "Food",
-    "spentOn": "2026-04-01",
-    "notes": "Weekly shopping"
-  }'
-```
-
-## 5. Run the MCP Server
-
-The MCP server uses stdio, which is the easiest way to connect from Claude Desktop:
+Local stdio MCP server:
 
 ```bash
 npm run mcp
 ```
 
-It exposes these tools:
-
-- `list_expenses`
-- `create_expense`
-- `monthly_summary`
-
-## 6. Connect to Claude Desktop
-
-Claude Desktop reads MCP server definitions from its config file.
-
-On macOS, open:
+Remote MCP endpoint:
 
 ```text
-~/Library/Application Support/Claude/claude_desktop_config.json
+POST /mcp
 ```
 
-Add a server entry like this and replace the paths with your local values:
+Main MCP tools:
 
-```json
-{
-  "mcpServers": {
-    "expense-manager": {
-      "command": "node",
-      "args": [
-        "/Users/mictco/Desktop/demo_mcp/src/mcp/server.js"
-      ],
-      "env": {
-        "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/expense_manager"
-      }
-    }
-  }
-}
-```
+- `finance_dashboard`
+- `period_summary`
+- `list_categories`
+- `create_category`
+- `list_expenses`
+- `create_expense`
+- `list_incomes`
+- `create_income`
+- `list_budgets`
+- `create_budget`
 
-If you prefer to launch through npm:
+## Render + Neon
 
-```json
-{
-  "mcpServers": {
-    "expense-manager": {
-      "command": "npm",
-      "args": [
-        "run",
-        "mcp"
-      ],
-      "cwd": "/Users/mictco/Desktop/demo_mcp",
-      "env": {
-        "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/expense_manager"
-      }
-    }
-  }
-}
-```
+Recommended production setup:
 
-After saving the file:
+- Render for the Node app
+- Neon for PostgreSQL
 
-1. Quit Claude Desktop completely
-2. Reopen Claude Desktop
-3. Start a new chat
-4. Confirm the `expense-manager` MCP server is available
+Render environment variables:
 
-## 7. Deploy to Render with Neon
+- `DATABASE_URL`
+- `OPENROUTER_API_KEY`
+- `OPENROUTER_MODEL=stepfun/step-3.5-flash:free`
 
-This project is a good fit for:
-
-- Render for hosting the Express API
-- Neon for hosting PostgreSQL
-- Claude Desktop connecting to the MCP server locally on your machine
-
-### Architecture
-
-- Render hosts the Express API from [src/app.js](/Users/mictco/Desktop/demo_mcp/src/app.js)
-- Neon hosts the PostgreSQL database
-- Claude Desktop connects to the local MCP server from [src/mcp/server.js](/Users/mictco/Desktop/demo_mcp/src/mcp/server.js)
-
-Hosting the Express API on Render does not replace the local MCP server. Claude Desktop still talks to the MCP server over local stdio.
-
-### 1. Prepare Neon
-
-1. Create a Neon project
-2. Copy the pooled connection string from the Neon dashboard
-3. Prefer `sslmode=verify-full` for production-style usage
-
-Example:
-
-```env
-DATABASE_URL=postgresql://neondb_owner:YOUR_PASSWORD@ep-example-pooler.us-east-1.aws.neon.tech/neondb?sslmode=verify-full&channel_binding=require
-```
-
-If you exposed your Neon password anywhere, rotate it before deploying.
-
-### 2. Push the Project to GitHub
-
-Render deploys this app cleanly from a GitHub repository, so push the full project first.
-
-### 3. Create a Render Web Service
-
-In Render:
-
-1. Create a new `Web Service`
-2. Select your GitHub repository
-3. Use these settings:
-
-- Environment: `Node`
-- Build Command: `npm install`
-- Start Command: `npm start`
-
-Render will provide the `PORT` environment variable automatically. This app already reads `PORT`, so no code changes are required for that.
-
-### 4. Add Environment Variables in Render
-
-Set this environment variable in the Render dashboard:
-
-```env
-DATABASE_URL=postgresql://neondb_owner:YOUR_PASSWORD@ep-example-pooler.us-east-1.aws.neon.tech/neondb?sslmode=verify-full&channel_binding=require
-```
-
-You do not usually need to set `PORT` manually on Render.
-
-### 5. Initialize the Database Schema
-
-Render will deploy the API, but it will not automatically create your tables unless you run the schema initialization step.
-
-Run this once against your Neon database:
+After deploying, initialize the schema once against Neon:
 
 ```bash
 npm run db:init
 ```
 
-You can run it locally as long as your local `.env` points to the same Neon `DATABASE_URL`.
+## Flutter App
 
-### 6. Verify the Deployment
+The Flutter client lives in [mobile_app](/Users/mictco/Desktop/demo_mcp/mobile_app).
 
-After Render finishes deploying, open:
+Run it with:
 
-- `https://YOUR-RENDER-SERVICE.onrender.com/`
-- `https://YOUR-RENDER-SERVICE.onrender.com/health`
-- `https://YOUR-RENDER-SERVICE.onrender.com/api/expenses`
-
-Expected responses:
-
-- `/` returns a welcome JSON message
-- `/health` returns API health status
-- `/api/expenses` returns your stored expense records
-
-### 7. Connect Claude Desktop to the Same Neon Database
-
-Keep the MCP server local on your Mac, but point it to the Neon database.
-
-Example Claude Desktop config on macOS:
-
-```json
-{
-  "mcpServers": {
-    "expense-manager": {
-      "command": "/opt/homebrew/bin/node",
-      "args": [
-        "/Users/mictco/Desktop/demo_mcp/src/mcp/server.js"
-      ],
-      "env": {
-        "DATABASE_URL": "postgresql://neondb_owner:YOUR_PASSWORD@ep-example-pooler.us-east-1.aws.neon.tech/neondb?sslmode=verify-full&channel_binding=require"
-      }
-    }
-  }
-}
+```bash
+cd mobile_app
+flutter pub get
+flutter run --dart-define=API_BASE_URL=https://your-render-url.onrender.com
 ```
 
-This lets:
+The app supports:
 
-- Render use Neon for the hosted API
-- Claude Desktop use the same Neon database through your local MCP server
+- finance dashboard
+- add expense
+- add income
+- add budget
+- add category
+- chat assistant
 
-### Production Notes
+## Chat
 
-- Use the Neon pooled connection string for hosted environments
-- Keep secrets only in `.env` locally and Render environment variables in production
-- Do not commit live credentials to Git
-- Rotate credentials if they were ever shared
-- Run `npm run db:init` whenever you need to initialize a fresh database
-- If you later add migrations, use migrations instead of running the full schema file repeatedly
+`POST /api/chat` uses OpenRouter with `stepfun/step-3.5-flash:free` by default and gives the model access to your finance tools.
 
-## 8. Build a Flutter Mobile Client with the REST API
+This lets the mobile chat tab handle prompts like:
 
-For a Flutter mobile app, using the hosted REST API is simpler than using MCP directly.
-
-Use your Render base URL:
-
-```text
-https://demo-mcp-l0rq.onrender.com
-```
-
-Recommended API calls for the app:
-
-- `GET /health`
-- `GET /api/expenses/bootstrap?month=2026-04`
-- `GET /api/expenses`
-- `GET /api/expenses/categories`
-- `POST /api/expenses`
-- `PUT /api/expenses/:id`
-- `DELETE /api/expenses/:id`
-
-The `bootstrap` endpoint is intended for a mobile home screen and returns:
-
-- monthly summary
-- category list
-- recent expenses
-
-Example Flutter `http` usage:
-
-```dart
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-
-class ExpenseApi {
-  final String baseUrl;
-
-  ExpenseApi(this.baseUrl);
-
-  Future<Map<String, dynamic>> fetchBootstrap(String month) async {
-    final uri = Uri.parse('$baseUrl/api/expenses/bootstrap?month=$month');
-    final response = await http.get(uri);
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to load bootstrap data: ${response.body}');
-    }
-
-    return jsonDecode(response.body) as Map<String, dynamic>;
-  }
-
-  Future<List<dynamic>> fetchExpenses() async {
-    final uri = Uri.parse('$baseUrl/api/expenses');
-    final response = await http.get(uri);
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to load expenses: ${response.body}');
-    }
-
-    return jsonDecode(response.body) as List<dynamic>;
-  }
-
-  Future<void> createExpense(Map<String, dynamic> payload) async {
-    final uri = Uri.parse('$baseUrl/api/expenses');
-    final response = await http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(payload),
-    );
-
-    if (response.statusCode != 201) {
-      throw Exception('Failed to create expense: ${response.body}');
-    }
-  }
-}
-```
-
-Example payload for `POST /api/expenses`:
-
-```json
-{
-  "title": "Lunch",
-  "amount": 12.5,
-  "category": "Food",
-  "spentOn": "2026-04-01",
-  "notes": "Team lunch"
-}
-```
-
-Suggested Flutter screens:
-
-- Login or splash screen if you later add auth
-- Dashboard screen using `/api/expenses/bootstrap`
-- Expense list screen using `/api/expenses`
-- Add or edit expense form using `POST` and `PUT`
-- Monthly insights screen using `/api/expenses/summary`
-
-## Notes
-
-- Claude Desktop must be able to find `node` on your machine if you use the `node` command directly.
-- The MCP server and the API both require PostgreSQL to be running.
-- If Claude Desktop does not load the server, check its logs and verify the absolute paths in the config.
+- "Add an income of 5000 for freelance today"
+- "Create a monthly food budget of 300"
+- "Show my balance for this month"

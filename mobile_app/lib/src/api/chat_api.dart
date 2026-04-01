@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 
 import 'package:http/http.dart' as http;
 
@@ -25,6 +26,7 @@ class ChatApi {
     );
 
     if (response.statusCode != 200) {
+      log('Chat API error: ${response.statusCode} - ${response.body}');
       throw Exception('Failed to chat: ${response.body}');
     }
 
