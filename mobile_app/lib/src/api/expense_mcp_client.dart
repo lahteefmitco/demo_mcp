@@ -148,6 +148,11 @@ class ExpenseMcpClient {
       return {};
     }
 
+    final contentType = response.headers['content-type'] ?? '';
+    if (contentType.contains('text/event-stream')) {
+      return _parseSseJson(response.body);
+    }
+
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
@@ -155,5 +160,23 @@ class ExpenseMcpClient {
     final id = _requestId;
     _requestId += 1;
     return id;
+  }
+
+  Map<String, dynamic> _parseSseJson(String body) {
+    final lines = body.split('\n');
+    final dataLines = <String>[];
+
+    for (final line in lines) {
+      if (line.startsWith('data:')) {
+        dataLines.add(line.substring(5).trimLeft());
+      }
+    }
+
+    if (dataLines.isEmpty) {
+      throw Exception('MCP SSE response did not include any data payload');
+    }
+
+    final payload = dataLines.join('\n');
+    return jsonDecode(payload) as Map<String, dynamic>;
   }
 }
