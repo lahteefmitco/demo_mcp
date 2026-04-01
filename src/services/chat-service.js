@@ -14,8 +14,6 @@ import {
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const geminiModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const geminiApiBaseUrl = "https://generativelanguage.googleapis.com/v1beta";
-const systemInstruction =
-  "You are a helpful personal finance assistant. You help the user manage categories, expenses, incomes, and budgets for daily, weekly, monthly, and yearly periods. Keep answers concise and practical. Use tools whenever real data or write actions are needed.";
 
 const toolDefinitions = [
   {
@@ -185,6 +183,7 @@ export async function runExpenseChat(history) {
   }
 
   let contents = normalizeChatHistory(history);
+  const systemInstruction = buildSystemInstruction();
 
   for (let attempt = 0; attempt < 6; attempt += 1) {
     const response = await fetch(`${geminiApiBaseUrl}/models/${geminiModel}:generateContent`, {
@@ -314,6 +313,21 @@ function extractText(message) {
     .map((part) => part.text)
     .join("")
     .trim();
+}
+
+function buildSystemInstruction() {
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const currentMonth = today.slice(0, 7);
+
+  return [
+    "You are a helpful personal finance assistant.",
+    "You help the user manage categories, expenses, incomes, and budgets for daily, weekly, monthly, and yearly periods.",
+    "Keep answers concise and practical. Use tools whenever real data or write actions are needed.",
+    `Today's date is ${today}. The current month is ${currentMonth}.`,
+    "When the user says relative dates like today, yesterday, tomorrow, this week, or this month, resolve them automatically using today's date.",
+    "Do not ask the user to restate dates in YYYY-MM-DD format unless the request is genuinely ambiguous."
+  ].join(" ");
 }
 
 function normalizeFunctionResponse(value) {
