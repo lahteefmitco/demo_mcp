@@ -171,6 +171,126 @@ After saving the file:
 3. Start a new chat
 4. Confirm the `expense-manager` MCP server is available
 
+## 7. Deploy to Render with Neon
+
+This project is a good fit for:
+
+- Render for hosting the Express API
+- Neon for hosting PostgreSQL
+- Claude Desktop connecting to the MCP server locally on your machine
+
+### Architecture
+
+- Render hosts the Express API from [src/app.js](/Users/mictco/Desktop/demo_mcp/src/app.js)
+- Neon hosts the PostgreSQL database
+- Claude Desktop connects to the local MCP server from [src/mcp/server.js](/Users/mictco/Desktop/demo_mcp/src/mcp/server.js)
+
+Hosting the Express API on Render does not replace the local MCP server. Claude Desktop still talks to the MCP server over local stdio.
+
+### 1. Prepare Neon
+
+1. Create a Neon project
+2. Copy the pooled connection string from the Neon dashboard
+3. Prefer `sslmode=verify-full` for production-style usage
+
+Example:
+
+```env
+DATABASE_URL=postgresql://neondb_owner:YOUR_PASSWORD@ep-example-pooler.us-east-1.aws.neon.tech/neondb?sslmode=verify-full&channel_binding=require
+```
+
+If you exposed your Neon password anywhere, rotate it before deploying.
+
+### 2. Push the Project to GitHub
+
+Render deploys this app cleanly from a GitHub repository, so push the full project first.
+
+### 3. Create a Render Web Service
+
+In Render:
+
+1. Create a new `Web Service`
+2. Select your GitHub repository
+3. Use these settings:
+
+- Environment: `Node`
+- Build Command: `npm install`
+- Start Command: `npm start`
+
+Render will provide the `PORT` environment variable automatically. This app already reads `PORT`, so no code changes are required for that.
+
+### 4. Add Environment Variables in Render
+
+Set this environment variable in the Render dashboard:
+
+```env
+DATABASE_URL=postgresql://neondb_owner:YOUR_PASSWORD@ep-example-pooler.us-east-1.aws.neon.tech/neondb?sslmode=verify-full&channel_binding=require
+```
+
+You do not usually need to set `PORT` manually on Render.
+
+### 5. Initialize the Database Schema
+
+Render will deploy the API, but it will not automatically create your tables unless you run the schema initialization step.
+
+Run this once against your Neon database:
+
+```bash
+npm run db:init
+```
+
+You can run it locally as long as your local `.env` points to the same Neon `DATABASE_URL`.
+
+### 6. Verify the Deployment
+
+After Render finishes deploying, open:
+
+- `https://YOUR-RENDER-SERVICE.onrender.com/`
+- `https://YOUR-RENDER-SERVICE.onrender.com/health`
+- `https://YOUR-RENDER-SERVICE.onrender.com/api/expenses`
+
+Expected responses:
+
+- `/` returns a welcome JSON message
+- `/health` returns API health status
+- `/api/expenses` returns your stored expense records
+
+### 7. Connect Claude Desktop to the Same Neon Database
+
+Keep the MCP server local on your Mac, but point it to the Neon database.
+
+Example Claude Desktop config on macOS:
+
+```json
+{
+  "mcpServers": {
+    "expense-manager": {
+      "command": "/opt/homebrew/bin/node",
+      "args": [
+        "/Users/mictco/Desktop/demo_mcp/src/mcp/server.js"
+      ],
+      "env": {
+        "DATABASE_URL": "postgresql://neondb_owner:YOUR_PASSWORD@ep-example-pooler.us-east-1.aws.neon.tech/neondb?sslmode=verify-full&channel_binding=require"
+      }
+    }
+  }
+}
+```
+
+This lets:
+
+- Render use Neon for the hosted API
+- Claude Desktop use the same Neon database through your local MCP server
+
+### Production Notes
+
+- Use the Neon pooled connection string for hosted environments
+- Keep secrets only in `.env` locally and Render environment variables in production
+- Do not commit live credentials to Git
+- Rotate credentials if they were ever shared
+- Run `npm run db:init` whenever you need to initialize a fresh database
+- If you later add migrations, use migrations instead of running the full schema file repeatedly
+
 ## Notes
 
 - Claude Desktop must be able to find `node` on your machine if you use the `node` command directly.
