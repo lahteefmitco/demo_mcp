@@ -6,7 +6,7 @@ This project includes:
 - PostgreSQL with Sequelize raw SQL queries
 - MCP servers over `stdio` and remote HTTP
 - A Flutter mobile client
-- An OpenRouter-powered chat endpoint that can use finance tools
+- A Gemini-powered chat endpoint that can use finance tools
 
 ## Features
 
@@ -47,8 +47,8 @@ Example values:
 ```env
 PORT=3000
 DATABASE_URL=postgresql://postgres:your_password@localhost:5432/expense_manager
-OPENROUTER_API_KEY=your_openrouter_api_key
-OPENROUTER_MODEL=stepfun/step-3.5-flash:free
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
 ## Initialize the Database
@@ -123,8 +123,8 @@ Recommended production setup:
 Render environment variables:
 
 - `DATABASE_URL`
-- `OPENROUTER_API_KEY`
-- `OPENROUTER_MODEL=stepfun/step-3.5-flash:free`
+- `GEMINI_API_KEY`
+- `GEMINI_MODEL=gemini-2.5-flash`
 
 After deploying, initialize the schema once against Neon:
 
@@ -155,7 +155,7 @@ The app supports:
 
 ## Chat
 
-`POST /api/chat` uses OpenRouter with `stepfun/step-3.5-flash:free` by default and gives the model access to your finance tools.
+`POST /api/chat` uses Gemini with `gemini-2.5-flash` by default and gives the model access to your finance tools.
 
 This lets the mobile chat tab handle prompts like:
 

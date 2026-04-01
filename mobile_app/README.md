@@ -28,8 +28,8 @@ Quick checks:
 
 For the chat tab:
 
-- `OPENROUTER_API_KEY`
-- `OPENROUTER_MODEL=stepfun/step-3.5-flash:free`
+- `GEMINI_API_KEY`
+- `GEMINI_MODEL=gemini-2.5-flash`
 
 ## Run
 

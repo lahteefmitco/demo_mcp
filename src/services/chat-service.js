@@ -11,8 +11,11 @@ import {
   listIncomes
 } from "./finance-service.js";
 
-const openRouterApiKey = process.env.OPENROUTER_API_KEY;
-const openRouterModel = process.env.OPENROUTER_MODEL || "stepfun/step-3.5-flash:free";
+const geminiApiKey = process.env.GEMINI_API_KEY;
+const geminiModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const geminiApiBaseUrl = "https://generativelanguage.googleapis.com/v1beta";
+const systemInstruction =
+  "You are a helpful personal finance assistant. You help the user manage categories, expenses, incomes, and budgets for daily, weekly, monthly, and yearly periods. Keep answers concise and practical. Use tools whenever real data or write actions are needed.";
 
 const toolDefinitions = [
   {
@@ -177,99 +180,105 @@ const toolDefinitions = [
 ];
 
 export async function runExpenseChat(history) {
-  if (!openRouterApiKey) {
-    throw new Error("OPENROUTER_API_KEY is required to use chat.");
+  if (!geminiApiKey) {
+    throw new Error("GEMINI_API_KEY is required to use chat.");
   }
 
-  let messages = normalizeChatHistory(history);
+  let contents = normalizeChatHistory(history);
 
   for (let attempt = 0; attempt < 6; attempt += 1) {
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetch(`${geminiApiBaseUrl}/models/${geminiModel}:generateContent`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${openRouterApiKey}`,
+        "x-goog-api-key": geminiApiKey,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: openRouterModel,
-        messages: [
+        system_instruction: {
+          parts: [{ text: systemInstruction }]
+        },
+        contents,
+        tools: [
           {
-            role: "system",
-            content:
-              "You are a helpful personal finance assistant. You help the user manage categories, expenses, incomes, and budgets for daily, weekly, monthly, and yearly periods. Keep answers concise and practical. Use tools whenever real data or write actions are needed."
-          },
-          ...messages
+            functionDeclarations: toolDefinitions.map((tool) => tool.function)
+          }
         ],
-        tools: toolDefinitions,
-        tool_choice: "auto",
-        temperature: 0.2
+        toolConfig: {
+          functionCallingConfig: {
+            mode: "AUTO"
+          }
+        },
+        generationConfig: {
+          temperature: 0.2
+        }
       })
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`OpenRouter API error ${response.status}: ${errorText}`);
+      throw new Error(`Gemini API error ${response.status}: ${errorText}`);
     }
 
     const data = await response.json();
-    const choice = data.choices?.[0];
-    const assistantMessage = choice?.message;
+    const candidate = data.candidates?.[0];
+    const assistantMessage = candidate?.content;
 
     if (!assistantMessage) {
-      throw new Error("OpenRouter returned no assistant message.");
+      throw new Error("Gemini returned no assistant message.");
     }
 
-    messages = [
-      ...messages,
-      {
-        role: "assistant",
-        content: assistantMessage.content || "",
-        tool_calls: assistantMessage.tool_calls
-      }
-    ];
+    contents = [...contents, assistantMessage];
 
-    const toolCalls = assistantMessage.tool_calls || [];
+    const toolCalls = extractFunctionCalls(assistantMessage);
     if (!toolCalls.length) {
       return {
-        reply: assistantMessage.content || "",
-        model: data.model ?? openRouterModel,
-        usage: data.usage ?? null
+        reply: extractText(assistantMessage),
+        model: data.modelVersion ?? geminiModel,
+        usage: data.usageMetadata ?? null
       };
     }
 
     for (const toolCall of toolCalls) {
-      let parsedArguments = {};
+      const parsedArguments = toolCall.args ?? {};
 
       try {
-        parsedArguments = JSON.parse(toolCall.function.arguments || "{}");
-      } catch {
-        parsedArguments = {};
-      }
-
-      try {
-        const result = await executeTool(toolCall.function.name, parsedArguments);
-        messages = [
-          ...messages,
+        const result = await executeTool(toolCall.name, parsedArguments);
+        contents = [
+          ...contents,
           {
-            role: "tool",
-            tool_call_id: toolCall.id,
-            content: JSON.stringify(result)
+            role: "user",
+            parts: [
+              {
+                functionResponse: {
+                  id: toolCall.id,
+                  name: toolCall.name,
+                  response: result
+                }
+              }
+            ]
           }
         ];
       } catch (error) {
-        messages = [
-          ...messages,
+        contents = [
+          ...contents,
           {
-            role: "tool",
-            tool_call_id: toolCall.id,
-            content: JSON.stringify({ error: error.message })
+            role: "user",
+            parts: [
+              {
+                functionResponse: {
+                  id: toolCall.id,
+                  name: toolCall.name,
+                  response: { error: error.message }
+                }
+              }
+            ]
           }
         ];
       }
     }
   }
 
-  throw new Error("The OpenRouter tool loop did not finish in time.");
+  throw new Error("The Gemini tool loop did not finish in time.");
 }
 
 function normalizeChatHistory(history) {
@@ -287,10 +296,24 @@ function normalizeChatHistory(history) {
     }
 
     return {
-      role: message.role,
-      content: message.content
+      role: message.role === "assistant" ? "model" : "user",
+      parts: [{ text: message.content }]
     };
   });
+}
+
+function extractFunctionCalls(message) {
+  return (message.parts || [])
+    .map((part) => part.functionCall)
+    .filter(Boolean);
+}
+
+function extractText(message) {
+  return (message.parts || [])
+    .filter((part) => typeof part.text === "string")
+    .map((part) => part.text)
+    .join("")
+    .trim();
 }
 
 async function executeTool(name, input) {
