@@ -252,7 +252,7 @@ export async function runExpenseChat(history) {
                 functionResponse: {
                   id: toolCall.id,
                   name: toolCall.name,
-                  response: result
+                  response: normalizeFunctionResponse(result)
                 }
               }
             ]
@@ -314,6 +314,14 @@ function extractText(message) {
     .map((part) => part.text)
     .join("")
     .trim();
+}
+
+function normalizeFunctionResponse(value) {
+  if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+    return value;
+  }
+
+  return { result: value };
 }
 
 async function executeTool(name, input) {
