@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../api/expense_api.dart';
+import '../api/expense_mcp_client.dart';
 import '../models/bootstrap_data.dart';
 import '../models/expense.dart';
+import '../models/mcp_tool.dart';
 import 'add_expense_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -13,7 +14,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final ExpenseApi _api = ExpenseApi();
+  final ExpenseMcpClient _client = ExpenseMcpClient();
   late Future<_HomeData> _future;
 
   @override
@@ -25,13 +26,15 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<_HomeData> _load() async {
     final month = _currentMonth();
     final results = await Future.wait([
-      _api.fetchBootstrap(month),
-      _api.fetchExpenses(limit: 50),
+      _client.fetchDashboard(month),
+      _client.fetchExpenses(limit: 50),
+      _client.listTools(),
     ]);
 
     return _HomeData(
       bootstrap: results[0] as BootstrapData,
       expenses: results[1] as List<Expense>,
+      tools: results[2] as List<McpTool>,
     );
   }
 
@@ -58,7 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     try {
-      await _api.createExpense(
+      await _client.createExpense(
         title: payload['title'] as String,
         amount: payload['amount'] as double,
         category: payload['category'] as String,
@@ -71,7 +74,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Expense created successfully')),
+        const SnackBar(content: Text('Expense created through MCP')),
       );
       await _refresh();
     } catch (error) {
@@ -139,6 +142,8 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 _SummaryCard(summary: summary),
                 const SizedBox(height: 16),
+                _McpBanner(toolCount: data.tools.length),
+                const SizedBox(height: 16),
                 _SectionTitle(title: 'Top Categories', subtitle: 'This month'),
                 const SizedBox(height: 8),
                 if (summary.byCategory.isEmpty)
@@ -183,10 +188,15 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _HomeData {
-  const _HomeData({required this.bootstrap, required this.expenses});
+  const _HomeData({
+    required this.bootstrap,
+    required this.expenses,
+    required this.tools,
+  });
 
   final BootstrapData bootstrap;
   final List<Expense> expenses;
+  final List<McpTool> tools;
 }
 
 class _SummaryCard extends StatelessWidget {
@@ -229,6 +239,47 @@ class _SummaryCard extends StatelessWidget {
             style: Theme.of(
               context,
             ).textTheme.bodyLarge?.copyWith(color: Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _McpBanner extends StatelessWidget {
+  const _McpBanner({required this.toolCount});
+
+  final int toolCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            backgroundColor: Color(0xFFDFF7F4),
+            child: Icon(Icons.hub_outlined, color: Color(0xFF0F766E)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Connected through MCP',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text('$toolCount tools discovered from the remote MCP server'),
+              ],
+            ),
           ),
         ],
       ),
