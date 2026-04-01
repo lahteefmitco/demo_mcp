@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import express from "express";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createExpenseManagerServer } from "./mcp/create-server.js";
+import { runExpenseChat } from "./services/chat-service.js";
 import expensesRouter from "./routes/expenses.js";
 
 dotenv.config({ quiet: true });
@@ -17,6 +18,15 @@ app.get("/", (_req, res) => {
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "expense-manager-api" });
+});
+
+app.post("/api/chat", async (req, res, next) => {
+  try {
+    const result = await runExpenseChat(req.body.messages);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.post("/mcp", async (req, res) => {
