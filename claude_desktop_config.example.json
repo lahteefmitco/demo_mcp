@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "expense-manager": {
+      "command": "npm",
+      "args": [
+        "run",
+        "mcp"
+      ],
+      "cwd": "/Users/mictco/Desktop/demo_mcp",
+      "env": {
+        "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/expense_manager"
+      }
+    }
+  }
+}
