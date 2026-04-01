@@ -16,6 +16,7 @@ function normalizeExpense(row) {
 export async function listExpenses(filters = {}) {
   const conditions = [];
   const values = [];
+  const limit = filters.limit ? Number(filters.limit) : null;
 
   if (filters.category) {
     values.push(filters.category);
@@ -38,9 +39,11 @@ export async function listExpenses(filters = {}) {
     FROM expenses
     ${whereClause}
     ORDER BY spent_on DESC, id DESC
+    ${limit ? `LIMIT $${values.length + 1}` : ""}
   `;
 
-  const rows = await query(sql, values, { type: QueryTypes.SELECT });
+  const bindValues = limit ? [...values, limit] : values;
+  const rows = await query(sql, bindValues, { type: QueryTypes.SELECT });
   return rows.map(normalizeExpense);
 }
 
@@ -127,5 +130,35 @@ export async function getMonthlySummary(month) {
       category: row.category,
       total: Number(row.total)
     }))
+  };
+}
+
+export async function listCategories() {
+  const rows = await query(
+    `
+      SELECT DISTINCT category
+      FROM expenses
+      WHERE category IS NOT NULL AND category <> ''
+      ORDER BY category ASC
+    `,
+    [],
+    { type: QueryTypes.SELECT }
+  );
+
+  return rows.map((row) => row.category);
+}
+
+export async function getMobileBootstrap(month) {
+  const [summary, recentExpenses, categories] = await Promise.all([
+    getMonthlySummary(month),
+    listExpenses({ limit: 10 }),
+    listCategories()
+  ]);
+
+  return {
+    month,
+    summary,
+    categories,
+    recentExpenses
   };
 }

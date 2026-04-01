@@ -81,7 +81,10 @@ Available endpoints:
 
 - `GET /health`
 - `GET /api/expenses`
+- `GET /api/expenses?limit=10`
 - `GET /api/expenses?category=Food&from=2026-04-01&to=2026-04-30`
+- `GET /api/expenses/categories`
+- `GET /api/expenses/bootstrap?month=2026-04`
 - `GET /api/expenses/summary?month=2026-04`
 - `GET /api/expenses/:id`
 - `POST /api/expenses`
@@ -290,6 +293,100 @@ This lets:
 - Rotate credentials if they were ever shared
 - Run `npm run db:init` whenever you need to initialize a fresh database
 - If you later add migrations, use migrations instead of running the full schema file repeatedly
+
+## 8. Build a Flutter Mobile Client with the REST API
+
+For a Flutter mobile app, using the hosted REST API is simpler than using MCP directly.
+
+Use your Render base URL:
+
+```text
+https://demo-mcp-l0rq.onrender.com
+```
+
+Recommended API calls for the app:
+
+- `GET /health`
+- `GET /api/expenses/bootstrap?month=2026-04`
+- `GET /api/expenses`
+- `GET /api/expenses/categories`
+- `POST /api/expenses`
+- `PUT /api/expenses/:id`
+- `DELETE /api/expenses/:id`
+
+The `bootstrap` endpoint is intended for a mobile home screen and returns:
+
+- monthly summary
+- category list
+- recent expenses
+
+Example Flutter `http` usage:
+
+```dart
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+class ExpenseApi {
+  final String baseUrl;
+
+  ExpenseApi(this.baseUrl);
+
+  Future<Map<String, dynamic>> fetchBootstrap(String month) async {
+    final uri = Uri.parse('$baseUrl/api/expenses/bootstrap?month=$month');
+    final response = await http.get(uri);
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load bootstrap data: ${response.body}');
+    }
+
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<List<dynamic>> fetchExpenses() async {
+    final uri = Uri.parse('$baseUrl/api/expenses');
+    final response = await http.get(uri);
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load expenses: ${response.body}');
+    }
+
+    return jsonDecode(response.body) as List<dynamic>;
+  }
+
+  Future<void> createExpense(Map<String, dynamic> payload) async {
+    final uri = Uri.parse('$baseUrl/api/expenses');
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode != 201) {
+      throw Exception('Failed to create expense: ${response.body}');
+    }
+  }
+}
+```
+
+Example payload for `POST /api/expenses`:
+
+```json
+{
+  "title": "Lunch",
+  "amount": 12.5,
+  "category": "Food",
+  "spentOn": "2026-04-01",
+  "notes": "Team lunch"
+}
+```
+
+Suggested Flutter screens:
+
+- Login or splash screen if you later add auth
+- Dashboard screen using `/api/expenses/bootstrap`
+- Expense list screen using `/api/expenses`
+- Add or edit expense form using `POST` and `PUT`
+- Monthly insights screen using `/api/expenses/summary`
 
 ## Notes
 

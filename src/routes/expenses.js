@@ -3,7 +3,9 @@ import {
   createExpense,
   deleteExpense,
   getExpenseById,
+  getMobileBootstrap,
   getMonthlySummary,
+  listCategories,
   listExpenses,
   updateExpense
 } from "../services/expense-service.js";
@@ -51,9 +53,33 @@ router.get("/", async (req, res, next) => {
     const expenses = await listExpenses({
       category: req.query.category,
       from: req.query.from,
-      to: req.query.to
+      to: req.query.to,
+      limit: req.query.limit
     });
     res.json(expenses);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/categories", async (_req, res, next) => {
+  try {
+    const categories = await listCategories();
+    res.json(categories);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/bootstrap", async (req, res, next) => {
+  try {
+    const month = req.query.month;
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+      return res.status(400).json({ error: "month must be in YYYY-MM format" });
+    }
+
+    const bootstrap = await getMobileBootstrap(month);
+    res.json(bootstrap);
   } catch (error) {
     next(error);
   }
