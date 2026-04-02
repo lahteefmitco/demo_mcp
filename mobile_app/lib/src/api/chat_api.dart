@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import '../models/chat_message.dart';
 
 class ChatApi {
-  ChatApi({http.Client? client})
+  ChatApi({required this.token, http.Client? client})
     : _client = client ?? http.Client(),
       baseUrl = const String.fromEnvironment(
         'API_BASE_URL',
@@ -15,6 +15,7 @@ class ChatApi {
 
   final http.Client _client;
   final String baseUrl;
+  final String token;
 
   Future<String> sendMessage(
     List<ChatMessage> messages, {
@@ -22,7 +23,10 @@ class ChatApi {
   }) async {
     final response = await _client.post(
       Uri.parse('$baseUrl/api/chat'),
-      headers: const {'Content-Type': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
       body: jsonEncode({
         'provider': provider,
         'messages': messages.map((message) => message.toJson()).toList(),

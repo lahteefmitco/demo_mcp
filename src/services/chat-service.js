@@ -219,11 +219,11 @@ const toolDefinitions = [
   }
 ];
 
-export async function runExpenseChat(history, provider = "gemini") {
+export async function runExpenseChat(history, provider = "gemini", user) {
   const normalizedProvider = normalizeProvider(provider);
 
   if (normalizedProvider === "gemini") {
-    return runGeminiChat(history);
+    return runGeminiChat(history, user);
   }
 
   if (normalizedProvider === "mistral") {
@@ -231,7 +231,7 @@ export async function runExpenseChat(history, provider = "gemini") {
       throw new Error("MISTRAL_API_KEY is required to use Mistral chat.");
     }
 
-    return runOpenAiCompatibleChat(history, {
+    return runOpenAiCompatibleChat(history, user, {
       provider: "mistral",
       apiKey: mistralApiKey,
       model: mistralModel,
@@ -243,7 +243,7 @@ export async function runExpenseChat(history, provider = "gemini") {
     throw new Error("OPENROUTER_API_KEY is required to use OpenRouter chat.");
   }
 
-  return runOpenAiCompatibleChat(history, {
+  return runOpenAiCompatibleChat(history, user, {
     provider: "openrouter",
     apiKey: openRouterApiKey,
     model: openRouterModel,
@@ -255,7 +255,7 @@ export async function runExpenseChat(history, provider = "gemini") {
   });
 }
 
-async function runGeminiChat(history) {
+async function runGeminiChat(history, user) {
   if (!geminiApiKey) {
     throw new Error("GEMINI_API_KEY is required to use Gemini chat.");
   }
@@ -319,7 +319,7 @@ async function runGeminiChat(history) {
       const parsedArguments = toolCall.args ?? {};
 
       try {
-        const result = await executeTool(toolCall.name, parsedArguments);
+        const result = await executeTool(user, toolCall.name, parsedArguments);
         contents = [
           ...contents,
           {
@@ -360,6 +360,7 @@ async function runGeminiChat(history) {
 
 async function runOpenAiCompatibleChat(
   history,
+  user,
   { provider, apiKey, model, apiBaseUrl, extraHeaders = {} }
 ) {
   const messages = [
@@ -412,7 +413,7 @@ async function runOpenAiCompatibleChat(
 
       try {
         const parsedArguments = JSON.parse(toolCall.function.arguments || "{}");
-        const result = await executeTool(toolCall.function.name, parsedArguments);
+        const result = await executeTool(user, toolCall.function.name, parsedArguments);
         toolResponse = normalizeFunctionResponse(result);
       } catch (error) {
         toolResponse = { error: error.message };
@@ -530,53 +531,55 @@ function normalizeProvider(provider) {
   throw new Error("provider must be one of gemini, mistral, or openrouter");
 }
 
-async function executeTool(name, input) {
+async function executeTool(user, name, input) {
+  const userId = user.id;
+
   if (name === "finance_dashboard") {
-    return getFinanceDashboard(input.month);
+    return getFinanceDashboard(userId, input.month);
   }
 
   if (name === "period_summary") {
-    return getPeriodSummary(input.month);
+    return getPeriodSummary(userId, input.month);
   }
 
   if (name === "list_categories") {
-    return listCategories(input);
+    return listCategories(userId, input);
   }
 
   if (name === "create_category") {
-    return createCategory(input);
+    return createCategory(userId, input);
   }
 
   if (name === "list_expenses") {
-    return listExpenses(input);
+    return listExpenses(userId, input);
   }
 
   if (name === "create_expense") {
-    return createExpense(input);
+    return createExpense(userId, input);
   }
 
   if (name === "update_expense") {
-    return updateExpense(input.id, input);
+    return updateExpense(userId, input.id, input);
   }
 
   if (name === "delete_expense") {
-    return { deleted: await deleteExpense(input.id) };
+    return { deleted: await deleteExpense(userId, input.id) };
   }
 
   if (name === "list_incomes") {
-    return listIncomes(input);
+    return listIncomes(userId, input);
   }
 
   if (name === "create_income") {
-    return createIncome(input);
+    return createIncome(userId, input);
   }
 
   if (name === "list_budgets") {
-    return listBudgets(input);
+    return listBudgets(userId, input);
   }
 
   if (name === "create_budget") {
-    return createBudget(input);
+    return createBudget(userId, input);
   }
 
   throw new Error(`Unknown tool: ${name}`);

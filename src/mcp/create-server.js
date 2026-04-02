@@ -18,7 +18,8 @@ import {
   updateExpense
 } from "../services/finance-service.js";
 
-export function createExpenseManagerServer() {
+export function createExpenseManagerServer({ user }) {
+  const userId = user.id;
   const server = new Server(
     {
       name: "personal-finance-mcp",
@@ -196,51 +197,51 @@ export function createExpenseManagerServer() {
     const { name, arguments: args = {} } = request.params;
 
     if (name === "finance_dashboard") {
-      return jsonText(await getFinanceDashboard(args.month));
+      return jsonText(await getFinanceDashboard(userId, args.month));
     }
 
     if (name === "period_summary") {
-      return jsonText(await getPeriodSummary(args.month));
+      return jsonText(await getPeriodSummary(userId, args.month));
     }
 
     if (name === "list_categories") {
-      return jsonText(await listCategories(args));
+      return jsonText(await listCategories(userId, args));
     }
 
     if (name === "create_category") {
-      return jsonText(await createCategory(args));
+      return jsonText(await createCategory(userId, args));
     }
 
     if (name === "list_expenses") {
-      return jsonText(await listExpenses(args));
+      return jsonText(await listExpenses(userId, args));
     }
 
     if (name === "create_expense") {
-      return jsonText(await createExpense(args));
+      return jsonText(await createExpense(userId, args));
     }
 
     if (name === "update_expense") {
-      return jsonText(await updateExpense(args.id, args));
+      return jsonText(await updateExpense(userId, args.id, args));
     }
 
     if (name === "delete_expense") {
-      return jsonText({ deleted: await deleteExpense(args.id) });
+      return jsonText({ deleted: await deleteExpense(userId, args.id) });
     }
 
     if (name === "list_incomes") {
-      return jsonText(await listIncomes(args));
+      return jsonText(await listIncomes(userId, args));
     }
 
     if (name === "create_income") {
-      return jsonText(await createIncome(args));
+      return jsonText(await createIncome(userId, args));
     }
 
     if (name === "list_budgets") {
-      return jsonText(await listBudgets(args));
+      return jsonText(await listBudgets(userId, args));
     }
 
     if (name === "create_budget") {
-      return jsonText(await createBudget(args));
+      return jsonText(await createBudget(userId, args));
     }
 
     throw new Error(`Unknown tool: ${name}`);

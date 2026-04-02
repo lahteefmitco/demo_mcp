@@ -6,7 +6,7 @@ import '../models/finance_models.dart';
 import '../models/mcp_tool.dart';
 
 class FinanceMcpClient {
-  FinanceMcpClient({http.Client? client})
+  FinanceMcpClient({required this.token, http.Client? client})
     : _client = client ?? http.Client(),
       baseUrl = const String.fromEnvironment(
         'API_BASE_URL',
@@ -15,6 +15,7 @@ class FinanceMcpClient {
 
   final http.Client _client;
   final String baseUrl;
+  final String token;
   int _requestId = 1;
   bool _initialized = false;
 
@@ -210,29 +211,32 @@ class FinanceMcpClient {
     Map<String, dynamic> payload, {
     bool expectBody = true,
   }) async {
-    final response = await _client.post(
+    final authorizedResponse = await _client.post(
       _mcpUri,
-      headers: const {
+      headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json, text/event-stream',
+        'Authorization': 'Bearer $token',
       },
       body: jsonEncode(payload),
     );
 
-    if (response.statusCode >= 400) {
-      throw Exception('HTTP ${response.statusCode}: ${response.body}');
+    if (authorizedResponse.statusCode >= 400) {
+      throw Exception(
+        'HTTP ${authorizedResponse.statusCode}: ${authorizedResponse.body}',
+      );
     }
 
-    if (!expectBody || response.body.trim().isEmpty) {
+    if (!expectBody || authorizedResponse.body.trim().isEmpty) {
       return {};
     }
 
-    final contentType = response.headers['content-type'] ?? '';
+    final contentType = authorizedResponse.headers['content-type'] ?? '';
     if (contentType.contains('text/event-stream')) {
-      return _parseSseJson(response.body);
+      return _parseSseJson(authorizedResponse.body);
     }
 
-    return jsonDecode(response.body) as Map<String, dynamic>;
+    return jsonDecode(authorizedResponse.body) as Map<String, dynamic>;
   }
 
   Map<String, dynamic> _parseSseJson(String body) {

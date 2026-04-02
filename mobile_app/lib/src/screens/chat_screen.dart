@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 
 import '../api/chat_api.dart';
+import '../models/auth_session.dart';
 import '../models/chat_message.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  const ChatScreen({required this.session, required this.onLogout, super.key});
+
+  final AuthSession session;
+  final Future<void> Function() onLogout;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final ChatApi _chatApi = ChatApi();
+  late final ChatApi _chatApi;
   final TextEditingController _controller = TextEditingController();
   static const _providers = <String, String>{
     'gemini': 'Gemini',
@@ -27,6 +31,12 @@ class _ChatScreenState extends State<ChatScreen> {
   ].toList();
   bool _isSending = false;
   String _selectedProvider = 'gemini';
+
+  @override
+  void initState() {
+    super.initState();
+    _chatApi = ChatApi(token: widget.session.token);
+  }
 
   @override
   void dispose() {
@@ -83,7 +93,25 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Chat')),
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Chat'),
+            Text(
+              widget.session.user.name,
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            onPressed: widget.onLogout,
+            icon: const Icon(Icons.logout),
+            tooltip: 'Log out',
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(

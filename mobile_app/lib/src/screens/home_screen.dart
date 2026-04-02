@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../api/finance_mcp_client.dart';
+import '../models/auth_session.dart';
 import '../models/finance_models.dart';
 import '../models/mcp_tool.dart';
 import 'add_budget_screen.dart';
@@ -8,19 +9,23 @@ import 'add_category_screen.dart';
 import 'add_entry_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({required this.session, required this.onLogout, super.key});
+
+  final AuthSession session;
+  final Future<void> Function() onLogout;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final FinanceMcpClient _client = FinanceMcpClient();
+  late final FinanceMcpClient _client;
   late Future<_HomeData> _future;
 
   @override
   void initState() {
     super.initState();
+    _client = FinanceMcpClient(token: widget.session.token);
     _future = _load();
   }
 
@@ -44,10 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await _future;
   }
 
-  Future<void> _openExpenseActions(
-    _HomeData data,
-    FinanceEntry expense,
-  ) async {
+  Future<void> _openExpenseActions(_HomeData data, FinanceEntry expense) async {
     final action = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -319,9 +321,23 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Finance Mobile'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Finance Mobile'),
+            Text(
+              widget.session.user.email,
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+          ],
+        ),
         actions: [
           IconButton(onPressed: _refresh, icon: const Icon(Icons.refresh)),
+          IconButton(
+            onPressed: widget.onLogout,
+            icon: const Icon(Icons.logout),
+            tooltip: 'Log out',
+          ),
         ],
       ),
       body: FutureBuilder<_HomeData>(
@@ -621,11 +637,7 @@ class _BudgetTile extends StatelessWidget {
 }
 
 class _EntryTile extends StatelessWidget {
-  const _EntryTile({
-    required this.item,
-    required this.isIncome,
-    this.onTap,
-  });
+  const _EntryTile({required this.item, required this.isIncome, this.onTap});
 
   final FinanceEntry item;
   final bool isIncome;

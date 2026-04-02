@@ -169,7 +169,7 @@ router.get("/dashboard", async (req, res, next) => {
       return res.status(400).json({ error: "month must be in MM-YYYY or YYYY-MM format" });
     }
 
-    res.json(await getFinanceDashboard(month));
+    res.json(await getFinanceDashboard(req.user.id, month));
   } catch (error) {
     next(error);
   }
@@ -182,7 +182,7 @@ router.get("/summary", async (req, res, next) => {
       return res.status(400).json({ error: "month must be in MM-YYYY or YYYY-MM format" });
     }
 
-    res.json(await getPeriodSummary(month));
+    res.json(await getPeriodSummary(req.user.id, month));
   } catch (error) {
     next(error);
   }
@@ -190,7 +190,7 @@ router.get("/summary", async (req, res, next) => {
 
 router.get("/categories", async (req, res, next) => {
   try {
-    res.json(await listCategories({ kind: req.query.kind }));
+    res.json(await listCategories(req.user.id, { kind: req.query.kind }));
   } catch (error) {
     next(error);
   }
@@ -203,7 +203,7 @@ router.post("/categories", async (req, res, next) => {
       return res.status(400).json({ errors });
     }
 
-    res.status(201).json(await createCategory(value));
+    res.status(201).json(await createCategory(req.user.id, value));
   } catch (error) {
     next(error);
   }
@@ -212,7 +212,7 @@ router.post("/categories", async (req, res, next) => {
 router.get("/expenses", async (req, res, next) => {
   try {
     res.json(
-      await listExpenses({
+      await listExpenses(req.user.id, {
         categoryId: req.query.categoryId,
         from: req.query.from,
         to: req.query.to,
@@ -231,7 +231,7 @@ router.post("/expenses", async (req, res, next) => {
       return res.status(400).json({ errors });
     }
 
-    res.status(201).json(await createExpense(value));
+    res.status(201).json(await createExpense(req.user.id, value));
   } catch (error) {
     next(error);
   }
@@ -249,7 +249,7 @@ router.put("/expenses/:id", async (req, res, next) => {
       return res.status(400).json({ errors });
     }
 
-    const expense = await updateExpense(id, value);
+    const expense = await updateExpense(req.user.id, id, value);
     if (!expense) {
       return res.status(404).json({ error: "Expense not found" });
     }
@@ -267,7 +267,7 @@ router.delete("/expenses/:id", async (req, res, next) => {
       return res.status(400).json({ error: "id must be a positive integer" });
     }
 
-    const deleted = await deleteExpense(id);
+    const deleted = await deleteExpense(req.user.id, id);
     if (!deleted) {
       return res.status(404).json({ error: "Expense not found" });
     }
@@ -281,7 +281,7 @@ router.delete("/expenses/:id", async (req, res, next) => {
 router.get("/incomes", async (req, res, next) => {
   try {
     res.json(
-      await listIncomes({
+      await listIncomes(req.user.id, {
         categoryId: req.query.categoryId,
         from: req.query.from,
         to: req.query.to,
@@ -300,7 +300,7 @@ router.post("/incomes", async (req, res, next) => {
       return res.status(400).json({ errors });
     }
 
-    res.status(201).json(await createIncome(value));
+    res.status(201).json(await createIncome(req.user.id, value));
   } catch (error) {
     next(error);
   }
@@ -318,7 +318,7 @@ router.put("/incomes/:id", async (req, res, next) => {
       return res.status(400).json({ errors });
     }
 
-    const income = await updateIncome(id, value);
+    const income = await updateIncome(req.user.id, id, value);
     if (!income) {
       return res.status(404).json({ error: "Income not found" });
     }
@@ -336,7 +336,7 @@ router.delete("/incomes/:id", async (req, res, next) => {
       return res.status(400).json({ error: "id must be a positive integer" });
     }
 
-    const deleted = await deleteIncome(id);
+    const deleted = await deleteIncome(req.user.id, id);
     if (!deleted) {
       return res.status(404).json({ error: "Income not found" });
     }
@@ -350,7 +350,7 @@ router.delete("/incomes/:id", async (req, res, next) => {
 router.get("/budgets", async (req, res, next) => {
   try {
     res.json(
-      await listBudgets({
+      await listBudgets(req.user.id, {
         period: req.query.period,
         categoryId: req.query.categoryId
       })
@@ -367,7 +367,7 @@ router.post("/budgets", async (req, res, next) => {
       return res.status(400).json({ errors });
     }
 
-    res.status(201).json(await createBudget(value));
+    res.status(201).json(await createBudget(req.user.id, value));
   } catch (error) {
     next(error);
   }
@@ -385,7 +385,7 @@ router.put("/budgets/:id", async (req, res, next) => {
       return res.status(400).json({ errors });
     }
 
-    const budget = await updateBudget(id, value);
+    const budget = await updateBudget(req.user.id, id, value);
     if (!budget) {
       return res.status(404).json({ error: "Budget not found" });
     }
@@ -403,7 +403,7 @@ router.delete("/budgets/:id", async (req, res, next) => {
       return res.status(400).json({ error: "id must be a positive integer" });
     }
 
-    const deleted = await deleteBudget(id);
+    const deleted = await deleteBudget(req.user.id, id);
     if (!deleted) {
       return res.status(404).json({ error: "Budget not found" });
     }

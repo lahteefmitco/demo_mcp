@@ -2,7 +2,9 @@ import dotenv from "dotenv";
 import express from "express";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createExpenseManagerServer } from "./mcp/create-server.js";
+import { authenticateRequest, requireAuth, unauthorizedJsonRpcResponse } from "./middleware/auth-middleware.js";
 import { runExpenseChat } from "./services/chat-service.js";
+import authRouter from "./routes/auth.js";
 import financeRouter from "./routes/finance.js";
 
 dotenv.config({ quiet: true });
@@ -20,9 +22,11 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "personal-finance-api" });
 });
 
-app.post("/api/chat", async (req, res, next) => {
+app.use("/api", authRouter);
+
+app.post("/api/chat", requireAuth, async (req, res, next) => {
   try {
-    const result = await runExpenseChat(req.body.messages, req.body.provider);
+    const result = await runExpenseChat(req.body.messages, req.body.provider, req.user);
     res.json(result);
   } catch (error) {
     next(error);
@@ -30,32 +34,37 @@ app.post("/api/chat", async (req, res, next) => {
 });
 
 app.post("/mcp", async (req, res) => {
-  const server = createExpenseManagerServer();
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined
-  });
-
   try {
+    const user = await authenticateRequest(req);
+    const server = createExpenseManagerServer({ user });
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined
+    });
+
     await server.connect(transport);
     await transport.handleRequest(req, res, req.body);
-  } catch (error) {
-    console.error("MCP request failed", error);
 
-    if (!res.headersSent) {
-      res.status(500).json({
-        jsonrpc: "2.0",
-        error: {
-          code: -32603,
-          message: "Internal server error"
-        },
-        id: null
-      });
-    }
-  } finally {
     res.on("close", () => {
       transport.close().catch(() => {});
       server.close().catch(() => {});
     });
+  } catch (error) {
+    console.error("MCP request failed", error);
+
+    if (!res.headersSent) {
+      if (error.statusCode === 401) {
+        res.status(401).json(unauthorizedJsonRpcResponse(error.message));
+      } else {
+        res.status(500).json({
+          jsonrpc: "2.0",
+          error: {
+            code: -32603,
+            message: "Internal server error"
+          },
+          id: null
+        });
+      }
+    }
   }
 });
 
@@ -81,12 +90,13 @@ app.delete("/mcp", (_req, res) => {
   });
 });
 
-app.use("/api", financeRouter);
+app.use("/api", requireAuth, financeRouter);
 
 app.use((error, _req, res, _next) => {
   console.error(error);
-  res.status(500).json({
-    error: "Internal server error",
+  const statusCode = error.statusCode || 500;
+  res.status(statusCode).json({
+    error: statusCode === 401 ? "Unauthorized" : "Internal server error",
     details: error.message
   });
 });
