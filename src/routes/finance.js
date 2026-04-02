@@ -17,6 +17,10 @@ import {
   updateExpense,
   updateIncome
 } from "../services/finance-service.js";
+import {
+  parseProjectDateToIso,
+  parseProjectMonth
+} from "../utils/date-utils.js";
 
 const router = express.Router();
 const validBudgetPeriods = ["daily", "weekly", "monthly", "yearly"];
@@ -53,6 +57,7 @@ function validateExpensePayload(payload) {
   const errors = [];
   const amount = Number(payload.amount);
   const categoryId = Number(payload.categoryId);
+  const spentOn = parseProjectDateToIso(payload.spentOn);
 
   if (!payload.title || typeof payload.title !== "string") {
     errors.push("title is required");
@@ -66,8 +71,8 @@ function validateExpensePayload(payload) {
     errors.push("categoryId must be a positive integer");
   }
 
-  if (!payload.spentOn || Number.isNaN(Date.parse(payload.spentOn))) {
-    errors.push("spentOn must be a valid date");
+  if (!spentOn) {
+    errors.push("spentOn must be a valid date in dd-MM-yyyy format");
   }
 
   return {
@@ -76,7 +81,7 @@ function validateExpensePayload(payload) {
       title: payload.title?.trim(),
       amount,
       categoryId,
-      spentOn: payload.spentOn,
+      spentOn,
       notes: payload.notes?.trim() ?? ""
     }
   };
@@ -86,6 +91,7 @@ function validateIncomePayload(payload) {
   const errors = [];
   const amount = Number(payload.amount);
   const categoryId = Number(payload.categoryId);
+  const receivedOn = parseProjectDateToIso(payload.receivedOn);
 
   if (!payload.title || typeof payload.title !== "string") {
     errors.push("title is required");
@@ -99,8 +105,8 @@ function validateIncomePayload(payload) {
     errors.push("categoryId must be a positive integer");
   }
 
-  if (!payload.receivedOn || Number.isNaN(Date.parse(payload.receivedOn))) {
-    errors.push("receivedOn must be a valid date");
+  if (!receivedOn) {
+    errors.push("receivedOn must be a valid date in dd-MM-yyyy format");
   }
 
   return {
@@ -109,7 +115,7 @@ function validateIncomePayload(payload) {
       title: payload.title?.trim(),
       amount,
       categoryId,
-      receivedOn: payload.receivedOn,
+      receivedOn,
       notes: payload.notes?.trim() ?? ""
     }
   };
@@ -118,6 +124,7 @@ function validateIncomePayload(payload) {
 function validateBudgetPayload(payload) {
   const errors = [];
   const amount = Number(payload.amount);
+  const startDate = parseProjectDateToIso(payload.startDate);
   const categoryId = payload.categoryId === null || payload.categoryId === undefined || payload.categoryId === ""
     ? null
     : Number(payload.categoryId);
@@ -134,8 +141,8 @@ function validateBudgetPayload(payload) {
     errors.push("period must be daily, weekly, monthly, or yearly");
   }
 
-  if (!payload.startDate || Number.isNaN(Date.parse(payload.startDate))) {
-    errors.push("startDate must be a valid date");
+  if (!startDate) {
+    errors.push("startDate must be a valid date in dd-MM-yyyy format");
   }
 
   if (categoryId !== null && (!Number.isInteger(categoryId) || categoryId <= 0)) {
@@ -148,7 +155,7 @@ function validateBudgetPayload(payload) {
       name: payload.name?.trim(),
       amount,
       period: payload.period,
-      startDate: payload.startDate,
+      startDate,
       categoryId,
       notes: payload.notes?.trim() ?? ""
     }
@@ -157,9 +164,9 @@ function validateBudgetPayload(payload) {
 
 router.get("/dashboard", async (req, res, next) => {
   try {
-    const month = req.query.month;
-    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
-      return res.status(400).json({ error: "month must be in YYYY-MM format" });
+    const month = parseProjectMonth(req.query.month);
+    if (!month) {
+      return res.status(400).json({ error: "month must be in MM-YYYY or YYYY-MM format" });
     }
 
     res.json(await getFinanceDashboard(month));
@@ -170,9 +177,9 @@ router.get("/dashboard", async (req, res, next) => {
 
 router.get("/summary", async (req, res, next) => {
   try {
-    const month = req.query.month;
-    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
-      return res.status(400).json({ error: "month must be in YYYY-MM format" });
+    const month = parseProjectMonth(req.query.month);
+    if (!month) {
+      return res.status(400).json({ error: "month must be in MM-YYYY or YYYY-MM format" });
     }
 
     res.json(await getPeriodSummary(month));

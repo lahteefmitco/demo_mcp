@@ -12,10 +12,17 @@ import {
   listIncomes,
   updateExpense
 } from "./finance-service.js";
+import { formatProjectDate } from "../utils/date-utils.js";
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const geminiModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const geminiApiBaseUrl = "https://generativelanguage.googleapis.com/v1beta";
+const mistralApiKey = process.env.MISTRAL_API_KEY;
+const mistralModel = process.env.MISTRAL_MODEL || "mistral-small-latest";
+const mistralApiBaseUrl = "https://api.mistral.ai/v1";
+const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+const openRouterModel = process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini";
+const openRouterApiBaseUrl = "https://openrouter.ai/api/v1";
 
 const toolDefinitions = [
   {
@@ -212,12 +219,48 @@ const toolDefinitions = [
   }
 ];
 
-export async function runExpenseChat(history) {
-  if (!geminiApiKey) {
-    throw new Error("GEMINI_API_KEY is required to use chat.");
+export async function runExpenseChat(history, provider = "gemini") {
+  const normalizedProvider = normalizeProvider(provider);
+
+  if (normalizedProvider === "gemini") {
+    return runGeminiChat(history);
   }
 
-  let contents = normalizeChatHistory(history);
+  if (normalizedProvider === "mistral") {
+    if (!mistralApiKey) {
+      throw new Error("MISTRAL_API_KEY is required to use Mistral chat.");
+    }
+
+    return runOpenAiCompatibleChat(history, {
+      provider: "mistral",
+      apiKey: mistralApiKey,
+      model: mistralModel,
+      apiBaseUrl: mistralApiBaseUrl
+    });
+  }
+
+  if (!openRouterApiKey) {
+    throw new Error("OPENROUTER_API_KEY is required to use OpenRouter chat.");
+  }
+
+  return runOpenAiCompatibleChat(history, {
+    provider: "openrouter",
+    apiKey: openRouterApiKey,
+    model: openRouterModel,
+    apiBaseUrl: openRouterApiBaseUrl,
+    extraHeaders: {
+      "HTTP-Referer": process.env.OPENROUTER_HTTP_REFERER || "http://localhost:3000",
+      "X-Title": process.env.OPENROUTER_APP_TITLE || "Personal Finance Mobile"
+    }
+  });
+}
+
+async function runGeminiChat(history) {
+  if (!geminiApiKey) {
+    throw new Error("GEMINI_API_KEY is required to use Gemini chat.");
+  }
+
+  let contents = normalizeGeminiChatHistory(history);
   const systemInstruction = buildSystemInstruction();
 
   for (let attempt = 0; attempt < 6; attempt += 1) {
@@ -254,8 +297,7 @@ export async function runExpenseChat(history) {
     }
 
     const data = await response.json();
-    const candidate = data.candidates?.[0];
-    const assistantMessage = candidate?.content;
+    const assistantMessage = data.candidates?.[0]?.content;
 
     if (!assistantMessage) {
       throw new Error("Gemini returned no assistant message.");
@@ -263,10 +305,11 @@ export async function runExpenseChat(history) {
 
     contents = [...contents, assistantMessage];
 
-    const toolCalls = extractFunctionCalls(assistantMessage);
+    const toolCalls = extractGeminiFunctionCalls(assistantMessage);
     if (!toolCalls.length) {
       return {
-        reply: extractText(assistantMessage),
+        reply: extractGeminiText(assistantMessage),
+        provider: "gemini",
         model: data.modelVersion ?? geminiModel,
         usage: data.usageMetadata ?? null
       };
@@ -315,12 +358,101 @@ export async function runExpenseChat(history) {
   throw new Error("The Gemini tool loop did not finish in time.");
 }
 
-function normalizeChatHistory(history) {
+async function runOpenAiCompatibleChat(
+  history,
+  { provider, apiKey, model, apiBaseUrl, extraHeaders = {} }
+) {
+  const messages = [
+    { role: "system", content: buildSystemInstruction() },
+    ...normalizeOpenAiChatHistory(history)
+  ];
+
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const response = await fetch(`${apiBaseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        ...extraHeaders
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        tools: toolDefinitions,
+        tool_choice: "auto",
+        temperature: 0.2
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`${provider} API error ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    const assistantMessage = data.choices?.[0]?.message;
+
+    if (!assistantMessage) {
+      throw new Error(`${provider} returned no assistant message.`);
+    }
+
+    messages.push(assistantMessage);
+
+    if (!assistantMessage.tool_calls?.length) {
+      return {
+        reply: extractOpenAiText(assistantMessage),
+        provider,
+        model: data.model ?? model,
+        usage: data.usage ?? null
+      };
+    }
+
+    for (const toolCall of assistantMessage.tool_calls) {
+      let toolResponse;
+
+      try {
+        const parsedArguments = JSON.parse(toolCall.function.arguments || "{}");
+        const result = await executeTool(toolCall.function.name, parsedArguments);
+        toolResponse = normalizeFunctionResponse(result);
+      } catch (error) {
+        toolResponse = { error: error.message };
+      }
+
+      messages.push({
+        role: "tool",
+        tool_call_id: toolCall.id,
+        content: JSON.stringify(toolResponse)
+      });
+    }
+  }
+
+  throw new Error(`The ${provider} tool loop did not finish in time.`);
+}
+
+function normalizeGeminiChatHistory(history) {
+  validateChatHistory(history);
+
+  return history.map((message) => ({
+    role: message.role === "assistant" ? "model" : "user",
+    parts: [{ text: message.content }]
+  }));
+}
+
+function normalizeOpenAiChatHistory(history) {
+  validateChatHistory(history);
+
+  return history.map((message) => ({
+    role: message.role,
+    content: message.content
+  }));
+}
+
+function validateChatHistory(history) {
   if (!Array.isArray(history) || history.length === 0) {
     throw new Error("messages must be a non-empty array");
   }
 
-  return history.map((message) => {
+  for (const message of history) {
     if (!["user", "assistant"].includes(message.role)) {
       throw new Error("message role must be either user or assistant");
     }
@@ -328,21 +460,16 @@ function normalizeChatHistory(history) {
     if (typeof message.content !== "string") {
       throw new Error("message content must be a string");
     }
-
-    return {
-      role: message.role === "assistant" ? "model" : "user",
-      parts: [{ text: message.content }]
-    };
-  });
+  }
 }
 
-function extractFunctionCalls(message) {
+function extractGeminiFunctionCalls(message) {
   return (message.parts || [])
     .map((part) => part.functionCall)
     .filter(Boolean);
 }
 
-function extractText(message) {
+function extractGeminiText(message) {
   return (message.parts || [])
     .filter((part) => typeof part.text === "string")
     .map((part) => part.text)
@@ -350,10 +477,26 @@ function extractText(message) {
     .trim();
 }
 
+function extractOpenAiText(message) {
+  if (typeof message.content === "string") {
+    return message.content.trim();
+  }
+
+  if (Array.isArray(message.content)) {
+    return message.content
+      .filter((part) => typeof part?.text === "string")
+      .map((part) => part.text)
+      .join("")
+      .trim();
+  }
+
+  return "";
+}
+
 function buildSystemInstruction() {
   const now = new Date();
-  const today = now.toISOString().slice(0, 10);
-  const currentMonth = today.slice(0, 7);
+  const today = formatProjectDate(now);
+  const currentMonth = `${String(now.getUTCMonth() + 1).padStart(2, "0")}-${now.getUTCFullYear()}`;
 
   return [
     "You are a helpful personal finance assistant.",
@@ -361,7 +504,8 @@ function buildSystemInstruction() {
     "Keep answers concise and practical. Use tools whenever real data or write actions are needed.",
     `Today's date is ${today}. The current month is ${currentMonth}.`,
     "When the user says relative dates like today, yesterday, tomorrow, this week, or this month, resolve them automatically using today's date.",
-    "Do not ask the user to restate dates in YYYY-MM-DD format unless the request is genuinely ambiguous."
+    "Use dd-MM-yyyy for all full dates in conversation and tool arguments.",
+    "For month-only filters in finance_dashboard and period_summary, convert the month internally to YYYY-MM."
   ].join(" ");
 }
 
@@ -371,6 +515,19 @@ function normalizeFunctionResponse(value) {
   }
 
   return { result: value };
+}
+
+function normalizeProvider(provider) {
+  if (typeof provider !== "string" || !provider.trim()) {
+    return "gemini";
+  }
+
+  const normalized = provider.trim().toLowerCase();
+  if (["gemini", "mistral", "openrouter"].includes(normalized)) {
+    return normalized;
+  }
+
+  throw new Error("provider must be one of gemini, mistral, or openrouter");
 }
 
 async function executeTool(name, input) {

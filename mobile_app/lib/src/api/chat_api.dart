@@ -16,11 +16,15 @@ class ChatApi {
   final http.Client _client;
   final String baseUrl;
 
-  Future<String> sendMessage(List<ChatMessage> messages) async {
+  Future<String> sendMessage(
+    List<ChatMessage> messages, {
+    required String provider,
+  }) async {
     final response = await _client.post(
       Uri.parse('$baseUrl/api/chat'),
       headers: const {'Content-Type': 'application/json'},
       body: jsonEncode({
+        'provider': provider,
         'messages': messages.map((message) => message.toJson()).toList(),
       }),
     );

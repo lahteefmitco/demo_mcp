@@ -1,4 +1,10 @@
 import { QueryTypes, query } from "../db.js";
+import {
+  formatProjectDate,
+  formatProjectMonth,
+  parseProjectDateToIso,
+  parseProjectMonth
+} from "../utils/date-utils.js";
 
 function normalizeCategory(row) {
   return {
@@ -20,7 +26,7 @@ function normalizeExpense(row) {
     categoryId: row.category_id,
     categoryName: row.category_name,
     categoryColor: row.category_color,
-    spentOn: row.spent_on,
+    spentOn: formatProjectDate(row.spent_on),
     notes: row.notes,
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -35,7 +41,7 @@ function normalizeIncome(row) {
     categoryId: row.category_id,
     categoryName: row.category_name,
     categoryColor: row.category_color,
-    receivedOn: row.received_on,
+    receivedOn: formatProjectDate(row.received_on),
     notes: row.notes,
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -48,8 +54,8 @@ function normalizeBudget(row) {
     name: row.name,
     amount: Number(row.amount),
     period: row.period,
-    startDate: row.start_date,
-    endDate: row.end_date,
+    startDate: formatProjectDate(row.start_date),
+    endDate: formatProjectDate(row.end_date),
     notes: row.notes,
     categoryId: row.category_id,
     categoryName: row.category_name,
@@ -111,19 +117,21 @@ export async function listExpenses(filters = {}) {
   const conditions = [];
   const values = [];
   const limit = normalizeListLimit(filters.limit);
+  const from = parseProjectDateToIso(filters.from);
+  const to = parseProjectDateToIso(filters.to);
 
   if (filters.categoryId) {
     values.push(filters.categoryId);
     conditions.push(`e.category_id = $${values.length}`);
   }
 
-  if (filters.from) {
-    values.push(filters.from);
+  if (from) {
+    values.push(from);
     conditions.push(`e.spent_on >= $${values.length}`);
   }
 
-  if (filters.to) {
-    values.push(filters.to);
+  if (to) {
+    values.push(to);
     conditions.push(`e.spent_on <= $${values.length}`);
   }
 
@@ -155,13 +163,14 @@ export async function listExpenses(filters = {}) {
 }
 
 export async function createExpense({ title, amount, categoryId, spentOn, notes = "" }) {
+  const normalizedSpentOn = parseProjectDateToIso(spentOn) ?? spentOn;
   const rows = await query(
     `
       INSERT INTO expenses (title, amount, category_id, spent_on, notes)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING id, title, amount, category_id, spent_on, notes, created_at, updated_at
     `,
-    [title, amount, categoryId, spentOn, notes]
+    [title, amount, categoryId, normalizedSpentOn, notes]
   );
 
   const expense = await getExpenseById(rows[0].id);
@@ -169,6 +178,7 @@ export async function createExpense({ title, amount, categoryId, spentOn, notes 
 }
 
 export async function updateExpense(id, { title, amount, categoryId, spentOn, notes = "" }) {
+  const normalizedSpentOn = parseProjectDateToIso(spentOn) ?? spentOn;
   const rows = await query(
     `
       UPDATE expenses
@@ -180,7 +190,7 @@ export async function updateExpense(id, { title, amount, categoryId, spentOn, no
       WHERE id = $1
       RETURNING id
     `,
-    [id, title, amount, categoryId, spentOn, notes]
+    [id, title, amount, categoryId, normalizedSpentOn, notes]
   );
 
   if (!rows[0]) {
@@ -224,19 +234,21 @@ export async function listIncomes(filters = {}) {
   const conditions = [];
   const values = [];
   const limit = normalizeListLimit(filters.limit);
+  const from = parseProjectDateToIso(filters.from);
+  const to = parseProjectDateToIso(filters.to);
 
   if (filters.categoryId) {
     values.push(filters.categoryId);
     conditions.push(`i.category_id = $${values.length}`);
   }
 
-  if (filters.from) {
-    values.push(filters.from);
+  if (from) {
+    values.push(from);
     conditions.push(`i.received_on >= $${values.length}`);
   }
 
-  if (filters.to) {
-    values.push(filters.to);
+  if (to) {
+    values.push(to);
     conditions.push(`i.received_on <= $${values.length}`);
   }
 
@@ -268,19 +280,21 @@ export async function listIncomes(filters = {}) {
 }
 
 export async function createIncome({ title, amount, categoryId, receivedOn, notes = "" }) {
+  const normalizedReceivedOn = parseProjectDateToIso(receivedOn) ?? receivedOn;
   const rows = await query(
     `
       INSERT INTO incomes (title, amount, category_id, received_on, notes)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING id
     `,
-    [title, amount, categoryId, receivedOn, notes]
+    [title, amount, categoryId, normalizedReceivedOn, notes]
   );
 
   return getIncomeById(rows[0].id);
 }
 
 export async function updateIncome(id, { title, amount, categoryId, receivedOn, notes = "" }) {
+  const normalizedReceivedOn = parseProjectDateToIso(receivedOn) ?? receivedOn;
   const rows = await query(
     `
       UPDATE incomes
@@ -292,7 +306,7 @@ export async function updateIncome(id, { title, amount, categoryId, receivedOn, 
       WHERE id = $1
       RETURNING id
     `,
-    [id, title, amount, categoryId, receivedOn, notes]
+    [id, title, amount, categoryId, normalizedReceivedOn, notes]
   );
 
   if (!rows[0]) {
@@ -394,19 +408,21 @@ export async function listBudgets(filters = {}) {
 }
 
 export async function createBudget({ name, amount, period, startDate, categoryId = null, notes = "" }) {
+  const normalizedStartDate = parseProjectDateToIso(startDate) ?? startDate;
   const rows = await query(
     `
       INSERT INTO budgets (name, amount, period, start_date, category_id, notes)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id
     `,
-    [name, amount, period, startDate, categoryId, notes]
+    [name, amount, period, normalizedStartDate, categoryId, notes]
   );
 
   return getBudgetById(rows[0].id);
 }
 
 export async function updateBudget(id, { name, amount, period, startDate, categoryId = null, notes = "" }) {
+  const normalizedStartDate = parseProjectDateToIso(startDate) ?? startDate;
   const rows = await query(
     `
       UPDATE budgets
@@ -419,7 +435,7 @@ export async function updateBudget(id, { name, amount, period, startDate, catego
       WHERE id = $1
       RETURNING id
     `,
-    [id, name, amount, period, startDate, categoryId, notes]
+    [id, name, amount, period, normalizedStartDate, categoryId, notes]
   );
 
   if (!rows[0]) {
@@ -440,13 +456,14 @@ export async function deleteBudget(id) {
 }
 
 export async function getPeriodSummary(month) {
+  const normalizedMonth = parseProjectMonth(month) ?? month;
   const expenseTotals = await query(
     `
       SELECT COALESCE(SUM(amount), 0)::numeric(12, 2) AS total, COUNT(*)::int AS item_count
       FROM expenses
       WHERE TO_CHAR(spent_on, 'YYYY-MM') = $1
     `,
-    [month],
+    [normalizedMonth],
     { type: QueryTypes.SELECT }
   );
 
@@ -456,7 +473,7 @@ export async function getPeriodSummary(month) {
       FROM incomes
       WHERE TO_CHAR(received_on, 'YYYY-MM') = $1
     `,
-    [month],
+    [normalizedMonth],
     { type: QueryTypes.SELECT }
   );
 
@@ -469,12 +486,12 @@ export async function getPeriodSummary(month) {
       GROUP BY c.name, c.color
       ORDER BY total DESC, c.name ASC
     `,
-    [month],
+    [normalizedMonth],
     { type: QueryTypes.SELECT }
   );
 
   return {
-    month,
+    month: formatProjectMonth(normalizedMonth),
     expenseTotal: Number(expenseTotals[0].total),
     expenseCount: expenseTotals[0].item_count,
     incomeTotal: Number(incomeTotals[0].total),
@@ -489,8 +506,9 @@ export async function getPeriodSummary(month) {
 }
 
 export async function getFinanceDashboard(month) {
+  const normalizedMonth = parseProjectMonth(month) ?? month;
   const [summary, recentExpenses, recentIncomes, categories, budgets] = await Promise.all([
-    getPeriodSummary(month),
+    getPeriodSummary(normalizedMonth),
     listExpenses({ limit: 8 }),
     listIncomes({ limit: 8 }),
     listCategories({}),
@@ -498,7 +516,7 @@ export async function getFinanceDashboard(month) {
   ]);
 
   return {
-    month,
+    month: formatProjectMonth(normalizedMonth),
     summary,
     categories,
     recentExpenses,

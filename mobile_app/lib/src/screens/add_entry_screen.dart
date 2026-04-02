@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/finance_models.dart';
+import '../utils/app_date_utils.dart';
 
 class AddEntryScreen extends StatefulWidget {
   const AddEntryScreen({
@@ -43,7 +44,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     _amountController.text = initialEntry?.amount.toString() ?? '';
     _notesController.text = initialEntry?.notes ?? '';
     _dateController = TextEditingController(
-      text: initialEntry?.date ?? _formatDate(DateTime.now()),
+      text: initialEntry?.date ?? formatAppDate(DateTime.now()),
     );
   }
 
@@ -60,13 +61,13 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     final now = DateTime.now();
     final selected = await showDatePicker(
       context: context,
-      initialDate: DateTime.tryParse(_dateController.text) ?? now,
+      initialDate: parseAppDate(_dateController.text) ?? now,
       firstDate: DateTime(now.year - 5),
       lastDate: DateTime(now.year + 5),
     );
 
     if (selected != null) {
-      _dateController.text = _formatDate(selected);
+      _dateController.text = formatAppDate(selected);
       setState(() {});
     }
   }
@@ -156,19 +157,10 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
               maxLines: 4,
             ),
             const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _submit,
-              child: Text(widget.saveLabel),
-            ),
+            FilledButton(onPressed: _submit, child: Text(widget.saveLabel)),
           ],
         ),
       ),
     );
-  }
-
-  String _formatDate(DateTime value) {
-    final month = value.month.toString().padLeft(2, '0');
-    final day = value.day.toString().padLeft(2, '0');
-    return '${value.year}-$month-$day';
   }
 }

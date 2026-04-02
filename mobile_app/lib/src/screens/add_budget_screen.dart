@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/finance_models.dart';
+import '../utils/app_date_utils.dart';
 
 class AddBudgetScreen extends StatefulWidget {
   const AddBudgetScreen({super.key, required this.categories});
@@ -23,7 +24,9 @@ class _AddBudgetScreenState extends State<AddBudgetScreen> {
   @override
   void initState() {
     super.initState();
-    _dateController = TextEditingController(text: _formatDate(DateTime.now()));
+    _dateController = TextEditingController(
+      text: formatAppDate(DateTime.now()),
+    );
   }
 
   @override
@@ -39,13 +42,13 @@ class _AddBudgetScreenState extends State<AddBudgetScreen> {
     final now = DateTime.now();
     final selected = await showDatePicker(
       context: context,
-      initialDate: DateTime.tryParse(_dateController.text) ?? now,
+      initialDate: parseAppDate(_dateController.text) ?? now,
       firstDate: DateTime(now.year - 5),
       lastDate: DateTime(now.year + 5),
     );
 
     if (selected != null) {
-      _dateController.text = _formatDate(selected);
+      _dateController.text = formatAppDate(selected);
       setState(() {});
     }
   }
@@ -160,11 +163,5 @@ class _AddBudgetScreenState extends State<AddBudgetScreen> {
         ),
       ),
     );
-  }
-
-  String _formatDate(DateTime value) {
-    final month = value.month.toString().padLeft(2, '0');
-    final day = value.day.toString().padLeft(2, '0');
-    return '${value.year}-$month-$day';
   }
 }

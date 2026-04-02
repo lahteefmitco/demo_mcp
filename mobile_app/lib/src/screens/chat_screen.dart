@@ -13,6 +13,11 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final ChatApi _chatApi = ChatApi();
   final TextEditingController _controller = TextEditingController();
+  static const _providers = <String, String>{
+    'gemini': 'Gemini',
+    'mistral': 'Mistral',
+    'openrouter': 'OpenRouter',
+  };
   final List<ChatMessage> _messages = const [
     ChatMessage(
       role: 'assistant',
@@ -21,6 +26,7 @@ class _ChatScreenState extends State<ChatScreen> {
     ),
   ].toList();
   bool _isSending = false;
+  String _selectedProvider = 'gemini';
 
   @override
   void dispose() {
@@ -41,7 +47,10 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     try {
-      final reply = await _chatApi.sendMessage(_messages);
+      final reply = await _chatApi.sendMessage(
+        _messages,
+        provider: _selectedProvider,
+      );
       if (!mounted) {
         return;
       }
@@ -77,6 +86,42 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: AppBar(title: const Text('Chat')),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              children: [
+                const Text('Agent'),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _selectedProvider,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: _providers.entries
+                        .map(
+                          (entry) => DropdownMenuItem<String>(
+                            value: entry.key,
+                            child: Text(entry.value),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: _isSending
+                        ? null
+                        : (value) {
+                            if (value == null) {
+                              return;
+                            }
+                            setState(() {
+                              _selectedProvider = value;
+                            });
+                          },
+                  ),
+                ),
+              ],
+            ),
+          ),
           Expanded(
             child: ListView.builder(
               reverse: true,
@@ -124,7 +169,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) => _send(),
                     decoration: const InputDecoration(
-                      hintText: 'Ask like: add lunch 250 rupees today',
+                      hintText: 'Ask like: add lunch 250 rupees 02-04-2026',
                       border: OutlineInputBorder(),
                     ),
                   ),

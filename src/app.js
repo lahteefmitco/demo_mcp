@@ -22,7 +22,7 @@ app.get("/health", (_req, res) => {
 
 app.post("/api/chat", async (req, res, next) => {
   try {
-    const result = await runExpenseChat(req.body.messages);
+    const result = await runExpenseChat(req.body.messages, req.body.provider);
     res.json(result);
   } catch (error) {
     next(error);
