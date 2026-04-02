@@ -44,6 +44,110 @@ class _HomeScreenState extends State<HomeScreen> {
     await _future;
   }
 
+  Future<void> _openExpenseActions(
+    _HomeData data,
+    FinanceEntry expense,
+  ) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Edit expense'),
+              onTap: () => Navigator.pop(context, 'edit'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline),
+              title: const Text('Delete expense'),
+              onTap: () => Navigator.pop(context, 'delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted || action == null) {
+      return;
+    }
+
+    if (action == 'edit') {
+      await _editExpense(data, expense);
+    }
+
+    if (action == 'delete') {
+      await _confirmDeleteExpense(expense);
+    }
+  }
+
+  Future<void> _editExpense(_HomeData data, FinanceEntry expense) async {
+    final categories = data.dashboard.categories
+        .where(
+          (category) => category.kind == 'expense' || category.kind == 'both',
+        )
+        .toList();
+    final payload = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(
+        builder: (_) => AddEntryScreen(
+          title: 'Edit Expense',
+          categories: categories,
+          dateLabel: 'Spent on',
+          dateKey: 'spentOn',
+          initialEntry: expense,
+          saveLabel: 'Update',
+        ),
+      ),
+    );
+
+    if (!mounted || payload == null) {
+      return;
+    }
+
+    await _client.updateExpense(
+      id: expense.id,
+      title: payload['title'] as String,
+      amount: payload['amount'] as double,
+      categoryId: payload['categoryId'] as int,
+      spentOn: payload['spentOn'] as String,
+      notes: payload['notes'] as String? ?? '',
+    );
+    _showMessage('Expense updated');
+    await _refresh();
+  }
+
+  Future<void> _confirmDeleteExpense(FinanceEntry expense) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete expense?'),
+        content: Text(
+          'Delete "${expense.title}" for \$${expense.amount.toStringAsFixed(2)}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    await _client.deleteExpense(expense.id);
+    _showMessage('Expense deleted');
+    await _refresh();
+  }
+
   Future<void> _openActionSheet(_HomeData data) async {
     final navigator = Navigator.of(context);
     final action = await showModalBottomSheet<String>(
@@ -320,7 +424,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   const _EmptyCard(message: 'No expense records found.')
                 else
                   ...dashboard.recentExpenses.map(
-                    (item) => _EntryTile(item: item, isIncome: false),
+                    (item) => _EntryTile(
+                      item: item,
+                      isIncome: false,
+                      onTap: () => _openExpenseActions(data, item),
+                    ),
                   ),
                 const SizedBox(height: 16),
                 _SectionTitle(
@@ -513,15 +621,21 @@ class _BudgetTile extends StatelessWidget {
 }
 
 class _EntryTile extends StatelessWidget {
-  const _EntryTile({required this.item, required this.isIncome});
+  const _EntryTile({
+    required this.item,
+    required this.isIncome,
+    this.onTap,
+  });
 
   final FinanceEntry item;
   final bool isIncome;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
+        onTap: onTap,
         leading: CircleAvatar(
           backgroundColor: isIncome
               ? const Color(0xFFDCFCE7)

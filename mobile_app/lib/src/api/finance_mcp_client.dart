@@ -123,6 +123,28 @@ class FinanceMcpClient {
     });
   }
 
+  Future<void> updateExpense({
+    required int id,
+    required String title,
+    required double amount,
+    required int categoryId,
+    required String spentOn,
+    String notes = '',
+  }) async {
+    await callTool('update_expense', {
+      'id': id,
+      'title': title,
+      'amount': amount,
+      'categoryId': categoryId,
+      'spentOn': spentOn,
+      'notes': notes,
+    });
+  }
+
+  Future<void> deleteExpense(int id) async {
+    await callTool('delete_expense', {'id': id});
+  }
+
   Future<void> createIncome({
     required String title,
     required double amount,

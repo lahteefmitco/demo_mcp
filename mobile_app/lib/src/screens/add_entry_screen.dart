@@ -9,12 +9,16 @@ class AddEntryScreen extends StatefulWidget {
     required this.categories,
     required this.dateLabel,
     required this.dateKey,
+    this.initialEntry,
+    this.saveLabel = 'Save',
   });
 
   final String title;
   final String dateLabel;
   final String dateKey;
   final List<FinanceCategory> categories;
+  final FinanceEntry? initialEntry;
+  final String saveLabel;
 
   @override
   State<AddEntryScreen> createState() => _AddEntryScreenState();
@@ -31,10 +35,16 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedCategoryId = widget.categories.isNotEmpty
-        ? widget.categories.first.id
-        : 0;
-    _dateController = TextEditingController(text: _formatDate(DateTime.now()));
+    final initialEntry = widget.initialEntry;
+    _selectedCategoryId =
+        initialEntry?.categoryId ??
+        (widget.categories.isNotEmpty ? widget.categories.first.id : 0);
+    _titleController.text = initialEntry?.title ?? '';
+    _amountController.text = initialEntry?.amount.toString() ?? '';
+    _notesController.text = initialEntry?.notes ?? '';
+    _dateController = TextEditingController(
+      text: initialEntry?.date ?? _formatDate(DateTime.now()),
+    );
   }
 
   @override
@@ -146,7 +156,10 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
               maxLines: 4,
             ),
             const SizedBox(height: 24),
-            FilledButton(onPressed: _submit, child: const Text('Save')),
+            FilledButton(
+              onPressed: _submit,
+              child: Text(widget.saveLabel),
+            ),
           ],
         ),
       ),

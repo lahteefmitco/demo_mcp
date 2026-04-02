@@ -8,12 +8,14 @@ import {
   createCategory,
   createExpense,
   createIncome,
+  deleteExpense,
   getFinanceDashboard,
   getPeriodSummary,
   listBudgets,
   listCategories,
   listExpenses,
-  listIncomes
+  listIncomes,
+  updateExpense
 } from "../services/finance-service.js";
 
 export function createExpenseManagerServer() {
@@ -106,6 +108,33 @@ export function createExpenseManagerServer() {
         }
       },
       {
+        name: "update_expense",
+        description: "Update an existing expense record.",
+        inputSchema: {
+          type: "object",
+          required: ["id", "title", "amount", "categoryId", "spentOn"],
+          properties: {
+            id: { type: "number" },
+            title: { type: "string" },
+            amount: { type: "number" },
+            categoryId: { type: "number" },
+            spentOn: { type: "string" },
+            notes: { type: "string" }
+          }
+        }
+      },
+      {
+        name: "delete_expense",
+        description: "Delete an expense record.",
+        inputSchema: {
+          type: "object",
+          required: ["id"],
+          properties: {
+            id: { type: "number" }
+          }
+        }
+      },
+      {
         name: "list_incomes",
         description: "List income records with optional filters.",
         inputSchema: {
@@ -188,6 +217,14 @@ export function createExpenseManagerServer() {
 
     if (name === "create_expense") {
       return jsonText(await createExpense(args));
+    }
+
+    if (name === "update_expense") {
+      return jsonText(await updateExpense(args.id, args));
+    }
+
+    if (name === "delete_expense") {
+      return jsonText({ deleted: await deleteExpense(args.id) });
     }
 
     if (name === "list_incomes") {

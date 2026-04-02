@@ -3,12 +3,14 @@ import {
   createCategory,
   createExpense,
   createIncome,
+  deleteExpense,
   getFinanceDashboard,
   getPeriodSummary,
   listBudgets,
   listCategories,
   listExpenses,
-  listIncomes
+  listIncomes,
+  updateExpense
 } from "./finance-service.js";
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
@@ -104,6 +106,39 @@ const toolDefinitions = [
           categoryId: { type: "number" },
           spentOn: { type: "string" },
           notes: { type: "string" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_expense",
+      description: "Update an existing expense.",
+      parameters: {
+        type: "object",
+        required: ["id", "title", "amount", "categoryId", "spentOn"],
+        properties: {
+          id: { type: "number" },
+          title: { type: "string" },
+          amount: { type: "number" },
+          categoryId: { type: "number" },
+          spentOn: { type: "string" },
+          notes: { type: "string" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_expense",
+      description: "Delete an expense.",
+      parameters: {
+        type: "object",
+        required: ["id"],
+        properties: {
+          id: { type: "number" }
         }
       }
     }
@@ -361,6 +396,14 @@ async function executeTool(name, input) {
 
   if (name === "create_expense") {
     return createExpense(input);
+  }
+
+  if (name === "update_expense") {
+    return updateExpense(input.id, input);
+  }
+
+  if (name === "delete_expense") {
+    return { deleted: await deleteExpense(input.id) };
   }
 
   if (name === "list_incomes") {
