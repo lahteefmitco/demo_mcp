@@ -8,6 +8,7 @@ import {
   createCategory,
   createExpense,
   createIncome,
+  deleteIncome,
   deleteExpense,
   getFinanceDashboard,
   getPeriodSummary,
@@ -15,6 +16,7 @@ import {
   listCategories,
   listExpenses,
   listIncomes,
+  updateIncome,
   updateExpense
 } from "../services/finance-service.js";
 
@@ -164,6 +166,33 @@ export function createExpenseManagerServer({ user }) {
         }
       },
       {
+        name: "update_income",
+        description: "Update an existing income record.",
+        inputSchema: {
+          type: "object",
+          required: ["id", "title", "amount", "categoryId", "receivedOn"],
+          properties: {
+            id: { type: "number" },
+            title: { type: "string" },
+            amount: { type: "number" },
+            categoryId: { type: "number" },
+            receivedOn: { type: "string" },
+            notes: { type: "string" }
+          }
+        }
+      },
+      {
+        name: "delete_income",
+        description: "Delete an income record.",
+        inputSchema: {
+          type: "object",
+          required: ["id"],
+          properties: {
+            id: { type: "number" }
+          }
+        }
+      },
+      {
         name: "list_budgets",
         description: "List budgets for daily, weekly, monthly, or yearly periods.",
         inputSchema: {
@@ -234,6 +263,14 @@ export function createExpenseManagerServer({ user }) {
 
     if (name === "create_income") {
       return jsonText(await createIncome(userId, args));
+    }
+
+    if (name === "update_income") {
+      return jsonText(await updateIncome(userId, args.id, args));
+    }
+
+    if (name === "delete_income") {
+      return jsonText({ deleted: await deleteIncome(userId, args.id) });
     }
 
     if (name === "list_budgets") {

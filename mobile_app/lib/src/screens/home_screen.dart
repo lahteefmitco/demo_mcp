@@ -3,49 +3,44 @@ import 'package:flutter/material.dart';
 import '../api/finance_mcp_client.dart';
 import '../models/auth_session.dart';
 import '../models/finance_models.dart';
-import '../models/mcp_tool.dart';
-import 'add_budget_screen.dart';
-import 'add_category_screen.dart';
 import 'add_entry_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     required this.session,
-    required this.onLogout,
     required this.onOpenProfile,
     super.key,
   });
 
   final AuthSession session;
-  final Future<void> Function() onLogout;
   final Future<void> Function() onOpenProfile;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
   late final FinanceMcpClient _client;
-  late Future<_HomeData> _future;
+  late Future<FinanceDashboard> _future;
+  late final TabController _tabController;
 
   @override
   void initState() {
     super.initState();
     _client = FinanceMcpClient(token: widget.session.token);
+    _tabController = TabController(length: 2, vsync: this);
     _future = _load();
   }
 
-  Future<_HomeData> _load() async {
-    final month = _currentMonth();
-    final results = await Future.wait([
-      _client.fetchDashboard(month),
-      _client.listTools(),
-    ]);
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
-    return _HomeData(
-      dashboard: results[0] as FinanceDashboard,
-      tools: results[1] as List<McpTool>,
-    );
+  Future<FinanceDashboard> _load() async {
+    return _client.fetchDashboard(_currentMonth());
   }
 
   Future<void> _refresh() async {
@@ -55,7 +50,10 @@ class _HomeScreenState extends State<HomeScreen> {
     await _future;
   }
 
-  Future<void> _openExpenseActions(_HomeData data, FinanceEntry expense) async {
+  Future<void> _openExpenseActions(
+    FinanceDashboard dashboard,
+    FinanceEntry expense,
+  ) async {
     final action = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -83,7 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (action == 'edit') {
-      await _editExpense(data, expense);
+      await _editExpense(dashboard, expense);
     }
 
     if (action == 'delete') {
@@ -91,8 +89,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _editExpense(_HomeData data, FinanceEntry expense) async {
-    final categories = data.dashboard.categories
+  Future<void> _editExpense(
+    FinanceDashboard dashboard,
+    FinanceEntry expense,
+  ) async {
+    final categories = dashboard.categories
         .where(
           (category) => category.kind == 'expense' || category.kind == 'both',
         )
@@ -156,7 +157,114 @@ class _HomeScreenState extends State<HomeScreen> {
     await _refresh();
   }
 
-  Future<void> _openActionSheet(_HomeData data) async {
+  Future<void> _openIncomeActions(
+    FinanceDashboard dashboard,
+    FinanceEntry income,
+  ) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Edit income'),
+              onTap: () => Navigator.pop(context, 'edit'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline),
+              title: const Text('Delete income'),
+              onTap: () => Navigator.pop(context, 'delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted || action == null) {
+      return;
+    }
+
+    if (action == 'edit') {
+      await _editIncome(dashboard, income);
+    }
+
+    if (action == 'delete') {
+      await _confirmDeleteIncome(income);
+    }
+  }
+
+  Future<void> _editIncome(
+    FinanceDashboard dashboard,
+    FinanceEntry income,
+  ) async {
+    final categories = dashboard.categories
+        .where(
+          (category) => category.kind == 'income' || category.kind == 'both',
+        )
+        .toList();
+    final payload = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(
+        builder: (_) => AddEntryScreen(
+          title: 'Edit Income',
+          categories: categories,
+          dateLabel: 'Received on',
+          dateKey: 'receivedOn',
+          initialEntry: income,
+          saveLabel: 'Update',
+        ),
+      ),
+    );
+
+    if (!mounted || payload == null) {
+      return;
+    }
+
+    await _client.updateIncome(
+      id: income.id,
+      title: payload['title'] as String,
+      amount: payload['amount'] as double,
+      categoryId: payload['categoryId'] as int,
+      receivedOn: payload['receivedOn'] as String,
+      notes: payload['notes'] as String? ?? '',
+    );
+    _showMessage('Income updated');
+    await _refresh();
+  }
+
+  Future<void> _confirmDeleteIncome(FinanceEntry income) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete income?'),
+        content: Text(
+          'Delete "${income.title}" for \$${income.amount.toStringAsFixed(2)}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    await _client.deleteIncome(income.id);
+    _showMessage('Income deleted');
+    await _refresh();
+  }
+
+  Future<void> _openActionSheet(FinanceDashboard dashboard) async {
     final navigator = Navigator.of(context);
     final action = await showModalBottomSheet<String>(
       context: context,
@@ -175,16 +283,6 @@ class _HomeScreenState extends State<HomeScreen> {
               title: const Text('Add income'),
               onTap: () => Navigator.pop(context, 'income'),
             ),
-            ListTile(
-              leading: const Icon(Icons.account_balance_wallet_outlined),
-              title: const Text('Add budget'),
-              onTap: () => Navigator.pop(context, 'budget'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.category_outlined),
-              title: const Text('Add category'),
-              onTap: () => Navigator.pop(context, 'category'),
-            ),
           ],
         ),
       ),
@@ -195,12 +293,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (action == 'expense') {
-      final categories = data.dashboard.categories
+      final categories = dashboard.categories
           .where(
             (category) => category.kind == 'expense' || category.kind == 'both',
           )
           .toList();
-      final payload = await Navigator.of(context).push<Map<String, dynamic>>(
+      final payload = await navigator.push<Map<String, dynamic>>(
         MaterialPageRoute(
           builder: (_) => AddEntryScreen(
             title: 'Add Expense',
@@ -229,7 +327,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (action == 'income') {
-      final categories = data.dashboard.categories
+      final categories = dashboard.categories
           .where(
             (category) => category.kind == 'income' || category.kind == 'both',
           )
@@ -261,63 +359,13 @@ class _HomeScreenState extends State<HomeScreen> {
         await _refresh();
       }
     }
-
-    if (action == 'budget') {
-      final categories = data.dashboard.categories
-          .where(
-            (category) => category.kind == 'expense' || category.kind == 'both',
-          )
-          .toList();
-      final payload = await navigator.push<Map<String, dynamic>>(
-        MaterialPageRoute(
-          builder: (_) => AddBudgetScreen(categories: categories),
-        ),
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      if (payload != null) {
-        await _client.createBudget(
-          name: payload['name'] as String,
-          amount: payload['amount'] as double,
-          period: payload['period'] as String,
-          startDate: payload['startDate'] as String,
-          categoryId: payload['categoryId'] as int?,
-          notes: payload['notes'] as String? ?? '',
-        );
-        _showMessage('Budget added');
-        await _refresh();
-      }
-    }
-
-    if (action == 'category') {
-      final payload = await navigator.push<Map<String, dynamic>>(
-        MaterialPageRoute(builder: (_) => const AddCategoryScreen()),
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      if (payload != null) {
-        await _client.createCategory(
-          name: payload['name'] as String,
-          kind: payload['kind'] as String,
-          color: payload['color'] as String,
-          icon: payload['icon'] as String,
-        );
-        _showMessage('Category added');
-        await _refresh();
-      }
-    }
   }
 
   void _showMessage(String message) {
     if (!mounted) {
       return;
     }
+
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
@@ -330,7 +378,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Finance Mobile'),
+            const Text('Gulfon Finance'),
             Text(
               widget.session.user.email,
               style: Theme.of(context).textTheme.labelSmall,
@@ -344,14 +392,9 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Profile',
           ),
           IconButton(onPressed: _refresh, icon: const Icon(Icons.refresh)),
-          IconButton(
-            onPressed: widget.onLogout,
-            icon: const Icon(Icons.logout),
-            tooltip: 'Log out',
-          ),
         ],
       ),
-      body: FutureBuilder<_HomeData>(
+      body: FutureBuilder<FinanceDashboard>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
@@ -387,8 +430,7 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           }
 
-          final data = snapshot.data!;
-          final dashboard = data.dashboard;
+          final dashboard = snapshot.data!;
           final summary = dashboard.summary;
 
           return RefreshIndicator(
@@ -398,65 +440,51 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 _BalanceCard(summary: summary),
                 const SizedBox(height: 16),
-                _McpBanner(toolCount: data.tools.length),
-                const SizedBox(height: 16),
                 _SectionTitle(
-                  title: 'Budgets',
-                  subtitle: '${dashboard.budgets.length} total',
+                  title: 'Recent Activity',
+                  subtitle:
+                      '${dashboard.recentExpenses.length + dashboard.recentIncomes.length} items',
                 ),
                 const SizedBox(height: 8),
-                if (dashboard.budgets.isEmpty)
-                  const _EmptyCard(message: 'No budgets set yet.')
-                else
-                  ...dashboard.budgets.map(_BudgetTile.new),
-                const SizedBox(height: 16),
-                _SectionTitle(
-                  title: 'Categories',
-                  subtitle: '${dashboard.categories.length} total',
-                ),
-                const SizedBox(height: 8),
-                if (dashboard.categories.isEmpty)
-                  const _EmptyCard(message: 'No categories found.')
-                else
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: dashboard.categories
-                        .map(
-                          (category) => Chip(
-                            label: Text('${category.name} • ${category.kind}'),
-                          ),
-                        )
-                        .toList(),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                const SizedBox(height: 16),
-                _SectionTitle(
-                  title: 'Recent Income',
-                  subtitle: '${dashboard.recentIncomes.length} items',
-                ),
-                const SizedBox(height: 8),
-                if (dashboard.recentIncomes.isEmpty)
-                  const _EmptyCard(message: 'No income records found.')
-                else
-                  ...dashboard.recentIncomes.map(
-                    (item) => _EntryTile(item: item, isIncome: true),
+                  child: Column(
+                    children: [
+                      TabBar(
+                        controller: _tabController,
+                        tabs: const [
+                          Tab(text: 'Expenses'),
+                          Tab(text: 'Income'),
+                        ],
+                      ),
+                      SizedBox(
+                        height: 360,
+                        child: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            _EntryList(
+                              items: dashboard.recentExpenses,
+                              isIncome: false,
+                              emptyMessage: 'No expense records found.',
+                              onTap: (item) =>
+                                  _openExpenseActions(dashboard, item),
+                            ),
+                            _EntryList(
+                              items: dashboard.recentIncomes,
+                              isIncome: true,
+                              emptyMessage: 'No income records found.',
+                              onTap: (item) =>
+                                  _openIncomeActions(dashboard, item),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                const SizedBox(height: 16),
-                _SectionTitle(
-                  title: 'Recent Expenses',
-                  subtitle: '${dashboard.recentExpenses.length} items',
                 ),
-                const SizedBox(height: 8),
-                if (dashboard.recentExpenses.isEmpty)
-                  const _EmptyCard(message: 'No expense records found.')
-                else
-                  ...dashboard.recentExpenses.map(
-                    (item) => _EntryTile(
-                      item: item,
-                      isIncome: false,
-                      onTap: () => _openExpenseActions(data, item),
-                    ),
-                  ),
                 const SizedBox(height: 16),
                 _SectionTitle(
                   title: 'Spending by Category',
@@ -472,10 +500,11 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         },
       ),
-      floatingActionButton: FutureBuilder<_HomeData>(
+      floatingActionButton: FutureBuilder<FinanceDashboard>(
         future: _future,
         builder: (context, snapshot) {
           return FloatingActionButton.extended(
+            heroTag: 'home_fab',
             onPressed: snapshot.hasData
                 ? () => _openActionSheet(snapshot.data!)
                 : null,
@@ -492,13 +521,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final month = now.month.toString().padLeft(2, '0');
     return '${now.year}-$month';
   }
-}
-
-class _HomeData {
-  const _HomeData({required this.dashboard, required this.tools});
-
-  final FinanceDashboard dashboard;
-  final List<McpTool> tools;
 }
 
 class _BalanceCard extends StatelessWidget {
@@ -548,37 +570,6 @@ class _BalanceCard extends StatelessWidget {
   }
 }
 
-class _McpBanner extends StatelessWidget {
-  const _McpBanner({required this.toolCount});
-
-  final int toolCount;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          const CircleAvatar(
-            backgroundColor: Color(0xFFDFF7F4),
-            child: Icon(Icons.hub_outlined, color: Color(0xFF0F766E)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              '$toolCount MCP tools available for finance automation',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({required this.title, required this.subtitle});
 
@@ -602,47 +593,39 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _BudgetTile extends StatelessWidget {
-  const _BudgetTile(this.budget);
+class _EntryList extends StatelessWidget {
+  const _EntryList({
+    required this.items,
+    required this.isIncome,
+    required this.emptyMessage,
+    required this.onTap,
+  });
 
-  final BudgetItem budget;
+  final List<FinanceEntry> items;
+  final bool isIncome;
+  final String emptyMessage;
+  final ValueChanged<FinanceEntry> onTap;
 
   @override
   Widget build(BuildContext context) {
-    final progress = budget.amount == 0
-        ? 0.0
-        : (budget.spent / budget.amount).clamp(0, 1).toDouble();
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    budget.name,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-                Text('\$${budget.remaining.toStringAsFixed(2)} left'),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '${budget.period} • ${budget.categoryName ?? 'All categories'}',
-            ),
-            const SizedBox(height: 12),
-            LinearProgressIndicator(value: progress),
-            const SizedBox(height: 8),
-            Text(
-              'Spent \$${budget.spent.toStringAsFixed(2)} of \$${budget.amount.toStringAsFixed(2)}',
-            ),
-          ],
-        ),
-      ),
+    if (items.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(12),
+        child: _EmptyCard(message: emptyMessage),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return _EntryTile(
+          item: item,
+          isIncome: isIncome,
+          onTap: () => onTap(item),
+        );
+      },
     );
   }
 }

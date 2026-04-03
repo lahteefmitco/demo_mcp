@@ -7,13 +7,11 @@ import '../models/chat_message.dart';
 class ChatScreen extends StatefulWidget {
   const ChatScreen({
     required this.session,
-    required this.onLogout,
     required this.onOpenProfile,
     super.key,
   });
 
   final AuthSession session;
-  final Future<void> Function() onLogout;
   final Future<void> Function() onOpenProfile;
 
   @override
@@ -115,11 +113,6 @@ class _ChatScreenState extends State<ChatScreen> {
             onPressed: widget.onOpenProfile,
             icon: const Icon(Icons.person_outline),
             tooltip: 'Profile',
-          ),
-          IconButton(
-            onPressed: widget.onLogout,
-            icon: const Icon(Icons.logout),
-            tooltip: 'Log out',
           ),
         ],
       ),

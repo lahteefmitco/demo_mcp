@@ -187,6 +187,39 @@ const toolDefinitions = [
   {
     type: "function",
     function: {
+      name: "update_income",
+      description: "Update an existing income.",
+      parameters: {
+        type: "object",
+        required: ["id", "title", "amount", "categoryId", "receivedOn"],
+        properties: {
+          id: { type: "number" },
+          title: { type: "string" },
+          amount: { type: "number" },
+          categoryId: { type: "number" },
+          receivedOn: { type: "string" },
+          notes: { type: "string" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_income",
+      description: "Delete an income.",
+      parameters: {
+        type: "object",
+        required: ["id"],
+        properties: {
+          id: { type: "number" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "list_budgets",
       description: "List budgets for daily, weekly, monthly, or yearly periods.",
       parameters: {

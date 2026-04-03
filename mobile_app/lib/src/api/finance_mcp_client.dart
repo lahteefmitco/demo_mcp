@@ -82,6 +82,62 @@ class FinanceMcpClient {
         .toList();
   }
 
+  Future<List<FinanceEntry>> listExpenses({
+    int? categoryId,
+    String? from,
+    String? to,
+    int? limit,
+  }) async {
+    final arguments = <String, dynamic>{};
+    if (categoryId != null) {
+      arguments['categoryId'] = categoryId;
+    }
+    if (from != null) {
+      arguments['from'] = from;
+    }
+    if (to != null) {
+      arguments['to'] = to;
+    }
+    if (limit != null) {
+      arguments['limit'] = limit;
+    }
+    final data = await callTool('list_expenses', arguments);
+    final items = data as List<dynamic>;
+    return items
+        .map(
+          (item) => FinanceEntry.fromExpenseJson(item as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
+  Future<List<FinanceEntry>> listIncomes({
+    int? categoryId,
+    String? from,
+    String? to,
+    int? limit,
+  }) async {
+    final arguments = <String, dynamic>{};
+    if (categoryId != null) {
+      arguments['categoryId'] = categoryId;
+    }
+    if (from != null) {
+      arguments['from'] = from;
+    }
+    if (to != null) {
+      arguments['to'] = to;
+    }
+    if (limit != null) {
+      arguments['limit'] = limit;
+    }
+    final data = await callTool('list_incomes', arguments);
+    final items = data as List<dynamic>;
+    return items
+        .map(
+          (item) => FinanceEntry.fromIncomeJson(item as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
   Future<List<BudgetItem>> fetchBudgets({String? period}) async {
     final arguments = <String, dynamic>{};
     if (period != null) {
@@ -160,6 +216,61 @@ class FinanceMcpClient {
       'receivedOn': receivedOn,
       'notes': notes,
     });
+  }
+
+  Future<void> updateIncome({
+    required int id,
+    required String title,
+    required double amount,
+    required int categoryId,
+    required String receivedOn,
+    String notes = '',
+  }) async {
+    try {
+      await callTool('update_income', {
+        'id': id,
+        'title': title,
+        'amount': amount,
+        'categoryId': categoryId,
+        'receivedOn': receivedOn,
+        'notes': notes,
+      });
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'update_income')) {
+        rethrow;
+      }
+
+      final response = await _client.put(
+        Uri.parse('$baseUrl/api/finance/incomes/$id'),
+        headers: _jsonHeaders,
+        body: jsonEncode({
+          'title': title,
+          'amount': amount,
+          'categoryId': categoryId,
+          'receivedOn': receivedOn,
+          'notes': notes,
+        }),
+      );
+
+      _throwIfRequestFailed(response);
+    }
+  }
+
+  Future<void> deleteIncome(int id) async {
+    try {
+      await callTool('delete_income', {'id': id});
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'delete_income')) {
+        rethrow;
+      }
+
+      final response = await _client.delete(
+        Uri.parse('$baseUrl/api/finance/incomes/$id'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      _throwIfRequestFailed(response);
+    }
   }
 
   Future<void> createBudget({
@@ -254,6 +365,39 @@ class FinanceMcpClient {
     }
 
     return jsonDecode(dataLines.join('\n')) as Map<String, dynamic>;
+  }
+
+  Map<String, String> get _jsonHeaders => {
+    'Authorization': 'Bearer $token',
+    'Content-Type': 'application/json',
+  };
+
+  bool _isUnknownToolError(Object error, String toolName) {
+    final message = error.toString();
+    return message.contains('Unknown tool: $toolName');
+  }
+
+  void _throwIfRequestFailed(http.Response response) {
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return;
+    }
+
+    throw Exception(_extractErrorMessage(response));
+  }
+
+  String _extractErrorMessage(http.Response response) {
+    try {
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      if (body['error'] is String) {
+        return body['error'] as String;
+      }
+
+      if (body['errors'] is List) {
+        return (body['errors'] as List<dynamic>).join(', ');
+      }
+    } catch (_) {}
+
+    return 'Request failed (${response.statusCode})';
   }
 
   int _nextId() {

@@ -7,6 +7,7 @@ import 'screens/auth_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/settings_screen.dart';
 
 class ExpenseMobileApp extends StatefulWidget {
   const ExpenseMobileApp({super.key});
@@ -151,7 +152,6 @@ class _AppShellState extends State<AppShell> {
     final screens = [
       HomeScreen(
         session: widget.session,
-        onLogout: widget.onLogout,
         onOpenProfile: () async {
           await Navigator.of(context).push(
             MaterialPageRoute(
@@ -164,6 +164,19 @@ class _AppShellState extends State<AppShell> {
         },
       ),
       ChatScreen(
+        session: widget.session,
+        onOpenProfile: () async {
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ProfileScreen(
+                session: widget.session,
+                onSessionUpdated: widget.onSessionUpdated,
+              ),
+            ),
+          );
+        },
+      ),
+      SettingsScreen(
         session: widget.session,
         onLogout: widget.onLogout,
         onOpenProfile: () async {
@@ -198,6 +211,11 @@ class _AppShellState extends State<AppShell> {
             icon: Icon(Icons.chat_bubble_outline),
             selectedIcon: Icon(Icons.chat_bubble),
             label: 'Chat',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: 'Settings',
           ),
         ],
       ),
