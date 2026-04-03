@@ -2,17 +2,21 @@ import 'package:flutter/material.dart';
 
 import '../api/finance_mcp_client.dart';
 import '../models/auth_session.dart';
+import '../models/currency_option.dart';
 import '../models/finance_models.dart';
 import 'add_entry_screen.dart';
+import '../utils/currency_utils.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     required this.session,
+    required this.currency,
     required this.onOpenProfile,
     super.key,
   });
 
   final AuthSession session;
+  final CurrencyOption currency;
   final Future<void> Function() onOpenProfile;
 
   @override
@@ -133,7 +137,7 @@ class _HomeScreenState extends State<HomeScreen>
       builder: (context) => AlertDialog(
         title: const Text('Delete expense?'),
         content: Text(
-          'Delete "${expense.title}" for \$${expense.amount.toStringAsFixed(2)}?',
+          'Delete "${expense.title}" for ${formatMoney(widget.currency, expense.amount)}?',
         ),
         actions: [
           TextButton(
@@ -240,7 +244,7 @@ class _HomeScreenState extends State<HomeScreen>
       builder: (context) => AlertDialog(
         title: const Text('Delete income?'),
         content: Text(
-          'Delete "${income.title}" for \$${income.amount.toStringAsFixed(2)}?',
+          'Delete "${income.title}" for ${formatMoney(widget.currency, income.amount)}?',
         ),
         actions: [
           TextButton(
@@ -438,7 +442,7 @@ class _HomeScreenState extends State<HomeScreen>
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                _BalanceCard(summary: summary),
+                _BalanceCard(summary: summary, currency: widget.currency),
                 const SizedBox(height: 16),
                 _SectionTitle(
                   title: 'Recent Activity',
@@ -466,6 +470,7 @@ class _HomeScreenState extends State<HomeScreen>
                           controller: _tabController,
                           children: [
                             _EntryList(
+                              currency: widget.currency,
                               items: dashboard.recentExpenses,
                               isIncome: false,
                               emptyMessage: 'No expense records found.',
@@ -473,6 +478,7 @@ class _HomeScreenState extends State<HomeScreen>
                                   _openExpenseActions(dashboard, item),
                             ),
                             _EntryList(
+                              currency: widget.currency,
                               items: dashboard.recentIncomes,
                               isIncome: true,
                               emptyMessage: 'No income records found.',
@@ -494,7 +500,12 @@ class _HomeScreenState extends State<HomeScreen>
                 if (summary.expenseByCategory.isEmpty)
                   const _EmptyCard(message: 'No category spending yet.')
                 else
-                  ...summary.expenseByCategory.map(_CategorySpendTile.new),
+                  ...summary.expenseByCategory.map(
+                    (item) => _CategorySpendTile(
+                      item: item,
+                      currency: widget.currency,
+                    ),
+                  ),
               ],
             ),
           );
@@ -524,9 +535,10 @@ class _HomeScreenState extends State<HomeScreen>
 }
 
 class _BalanceCard extends StatelessWidget {
-  const _BalanceCard({required this.summary});
+  const _BalanceCard({required this.summary, required this.currency});
 
   final PeriodSummary summary;
+  final CurrencyOption currency;
 
   @override
   Widget build(BuildContext context) {
@@ -551,7 +563,7 @@ class _BalanceCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Balance \$${summary.balance.toStringAsFixed(2)}',
+            'Balance ${formatMoney(currency, summary.balance)}',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w700,
@@ -559,7 +571,7 @@ class _BalanceCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'Income \$${summary.incomeTotal.toStringAsFixed(2)} • Expenses \$${summary.expenseTotal.toStringAsFixed(2)}',
+            'Income ${formatMoney(currency, summary.incomeTotal)} • Expenses ${formatMoney(currency, summary.expenseTotal)}',
             style: Theme.of(
               context,
             ).textTheme.bodyLarge?.copyWith(color: Colors.white),
@@ -595,12 +607,14 @@ class _SectionTitle extends StatelessWidget {
 
 class _EntryList extends StatelessWidget {
   const _EntryList({
+    required this.currency,
     required this.items,
     required this.isIncome,
     required this.emptyMessage,
     required this.onTap,
   });
 
+  final CurrencyOption currency;
   final List<FinanceEntry> items;
   final bool isIncome;
   final String emptyMessage;
@@ -621,6 +635,7 @@ class _EntryList extends StatelessWidget {
       itemBuilder: (context, index) {
         final item = items[index];
         return _EntryTile(
+          currency: currency,
           item: item,
           isIncome: isIncome,
           onTap: () => onTap(item),
@@ -631,8 +646,14 @@ class _EntryList extends StatelessWidget {
 }
 
 class _EntryTile extends StatelessWidget {
-  const _EntryTile({required this.item, required this.isIncome, this.onTap});
+  const _EntryTile({
+    required this.currency,
+    required this.item,
+    required this.isIncome,
+    this.onTap,
+  });
 
+  final CurrencyOption currency;
   final FinanceEntry item;
   final bool isIncome;
   final VoidCallback? onTap;
@@ -654,7 +675,7 @@ class _EntryTile extends StatelessWidget {
         title: Text(item.title),
         subtitle: Text('${item.categoryName} • ${item.date}'),
         trailing: Text(
-          '${isIncome ? '+' : '-'}\$${item.amount.toStringAsFixed(2)}',
+          formatSignedMoney(currency, item.amount, isPositive: isIncome),
           style: TextStyle(
             fontWeight: FontWeight.w700,
             color: isIncome ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
@@ -666,9 +687,10 @@ class _EntryTile extends StatelessWidget {
 }
 
 class _CategorySpendTile extends StatelessWidget {
-  const _CategorySpendTile(this.item);
+  const _CategorySpendTile({required this.item, required this.currency});
 
   final CategorySpend item;
+  final CurrencyOption currency;
 
   @override
   Widget build(BuildContext context) {
@@ -676,7 +698,7 @@ class _CategorySpendTile extends StatelessWidget {
       child: ListTile(
         leading: const CircleAvatar(child: Icon(Icons.pie_chart_outline)),
         title: Text(item.category),
-        trailing: Text('\$${item.total.toStringAsFixed(2)}'),
+        trailing: Text(formatMoney(currency, item.total)),
       ),
     );
   }

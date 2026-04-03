@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api/chat_api.dart';
 import '../models/auth_session.dart';
 import '../models/chat_message.dart';
+import '../settings/app_preferences_storage.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({
@@ -20,12 +21,14 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   late final ChatApi _chatApi;
+  final AppPreferencesStorage _preferencesStorage = AppPreferencesStorage();
   final TextEditingController _controller = TextEditingController();
   static const _providers = <String, String>{
     'gemini': 'Gemini',
     'mistral': 'Mistral',
     'openrouter': 'OpenRouter',
   };
+  static const _defaultProvider = 'gemini';
   final List<ChatMessage> _messages = const [
     ChatMessage(
       role: 'assistant',
@@ -34,18 +37,41 @@ class _ChatScreenState extends State<ChatScreen> {
     ),
   ].toList();
   bool _isSending = false;
-  String _selectedProvider = 'gemini';
+  String _selectedProvider = _defaultProvider;
 
   @override
   void initState() {
     super.initState();
     _chatApi = ChatApi(token: widget.session.token);
+    _restoreSelectedProvider();
   }
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _restoreSelectedProvider() async {
+    final savedProvider = await _preferencesStorage.readChatAgent();
+    if (!mounted || savedProvider == null || !_providers.containsKey(savedProvider)) {
+      return;
+    }
+
+    setState(() {
+      _selectedProvider = savedProvider;
+    });
+  }
+
+  Future<void> _setSelectedProvider(String value) async {
+    await _preferencesStorage.writeChatAgent(value);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedProvider = value;
+    });
   }
 
   Future<void> _send() async {
@@ -141,13 +167,11 @@ class _ChatScreenState extends State<ChatScreen> {
                         .toList(),
                     onChanged: _isSending
                         ? null
-                        : (value) {
+                        : (value) async {
                             if (value == null) {
                               return;
                             }
-                            setState(() {
-                              _selectedProvider = value;
-                            });
+                            await _setSelectedProvider(value);
                           },
                   ),
                 ),

@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 import 'api/auth_api.dart';
 import 'auth/auth_storage.dart';
 import 'models/auth_session.dart';
+import 'models/currency_option.dart';
 import 'screens/auth_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/settings_screen.dart';
+import 'settings/app_preferences_storage.dart';
+import 'utils/currency_utils.dart';
 
 class ExpenseMobileApp extends StatefulWidget {
   const ExpenseMobileApp({super.key});
@@ -19,9 +22,11 @@ class ExpenseMobileApp extends StatefulWidget {
 class _ExpenseMobileAppState extends State<ExpenseMobileApp> {
   static const _seedColor = Color(0xFF0E7490);
   final AuthStorage _authStorage = AuthStorage();
+  final AppPreferencesStorage _preferencesStorage = AppPreferencesStorage();
   final AuthApi _authApi = AuthApi();
   AuthSession? _session;
   bool _isLoadingSession = true;
+  CurrencyOption _selectedCurrency = defaultCurrency;
 
   @override
   void initState() {
@@ -31,6 +36,11 @@ class _ExpenseMobileAppState extends State<ExpenseMobileApp> {
 
   Future<void> _restoreSession() async {
     try {
+      final storedCurrencyCode = await _preferencesStorage.readCurrencyCode();
+      if (storedCurrencyCode == null || storedCurrencyCode.isEmpty) {
+        await _preferencesStorage.writeCurrencyCode(defaultCurrency.code);
+      }
+      final storedCurrency = currencyFromCode(storedCurrencyCode);
       final stored = await _authStorage.readSession();
       if (stored == null) {
         if (!mounted) {
@@ -38,6 +48,7 @@ class _ExpenseMobileAppState extends State<ExpenseMobileApp> {
         }
 
         setState(() {
+          _selectedCurrency = storedCurrency;
           _isLoadingSession = false;
         });
         return;
@@ -50,6 +61,7 @@ class _ExpenseMobileAppState extends State<ExpenseMobileApp> {
 
       setState(() {
         _session = AuthSession(token: stored.token, user: currentUser);
+        _selectedCurrency = storedCurrency;
         _isLoadingSession = false;
       });
     } catch (_) {
@@ -60,9 +72,21 @@ class _ExpenseMobileAppState extends State<ExpenseMobileApp> {
 
       setState(() {
         _session = null;
+        _selectedCurrency = defaultCurrency;
         _isLoadingSession = false;
       });
     }
+  }
+
+  Future<void> _handleCurrencyChanged(CurrencyOption currency) async {
+    await _preferencesStorage.writeCurrencyCode(currency.code);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedCurrency = currency;
+    });
   }
 
   Future<void> _handleAuthenticated(AuthSession session) async {
@@ -123,6 +147,8 @@ class _ExpenseMobileAppState extends State<ExpenseMobileApp> {
               session: _session!,
               onLogout: _logout,
               onSessionUpdated: _handleSessionUpdated,
+              selectedCurrency: _selectedCurrency,
+              onCurrencyChanged: _handleCurrencyChanged,
             ),
     );
   }
@@ -133,12 +159,16 @@ class AppShell extends StatefulWidget {
     required this.session,
     required this.onLogout,
     required this.onSessionUpdated,
+    required this.selectedCurrency,
+    required this.onCurrencyChanged,
     super.key,
   });
 
   final AuthSession session;
   final Future<void> Function() onLogout;
   final Future<void> Function(AuthSession session) onSessionUpdated;
+  final CurrencyOption selectedCurrency;
+  final Future<void> Function(CurrencyOption currency) onCurrencyChanged;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -152,6 +182,7 @@ class _AppShellState extends State<AppShell> {
     final screens = [
       HomeScreen(
         session: widget.session,
+        currency: widget.selectedCurrency,
         onOpenProfile: () async {
           await Navigator.of(context).push(
             MaterialPageRoute(
@@ -178,6 +209,8 @@ class _AppShellState extends State<AppShell> {
       ),
       SettingsScreen(
         session: widget.session,
+        currency: widget.selectedCurrency,
+        onCurrencyChanged: widget.onCurrencyChanged,
         onLogout: widget.onLogout,
         onOpenProfile: () async {
           await Navigator.of(context).push(

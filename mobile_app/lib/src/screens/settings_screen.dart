@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../api/finance_mcp_client.dart';
 import '../models/auth_session.dart';
+import '../models/currency_option.dart';
 import '../models/finance_models.dart';
 import '../models/mcp_tool.dart';
+import '../utils/currency_utils.dart';
 import 'add_budget_screen.dart';
 import 'add_category_screen.dart';
 import 'category_entries_screen.dart';
@@ -11,12 +13,16 @@ import 'category_entries_screen.dart';
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
     required this.session,
+    required this.currency,
+    required this.onCurrencyChanged,
     required this.onLogout,
     required this.onOpenProfile,
     super.key,
   });
 
   final AuthSession session;
+  final CurrencyOption currency;
+  final Future<void> Function(CurrencyOption currency) onCurrencyChanged;
   final Future<void> Function() onLogout;
   final Future<void> Function() onOpenProfile;
 
@@ -58,10 +64,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _openCategoryEntries(FinanceCategory category) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) =>
-            CategoryEntriesScreen(session: widget.session, category: category),
+        builder: (_) => CategoryEntriesScreen(
+          session: widget.session,
+          category: category,
+          currency: widget.currency,
+        ),
       ),
     );
+  }
+
+  Future<void> _selectCurrency() async {
+    final selected = await showModalBottomSheet<CurrencyOption>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: currencyOptions
+              .map(
+                (option) => ListTile(
+                  leading: CircleAvatar(
+                    child: Text(
+                      option.symbol,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  title: Text(option.label),
+                  subtitle: Text('${option.code} • ${option.symbol}'),
+                  trailing: option.code == widget.currency.code
+                      ? const Icon(Icons.check)
+                      : null,
+                  onTap: () => Navigator.pop(context, option),
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    );
+
+    if (!mounted || selected == null || selected.code == widget.currency.code) {
+      return;
+    }
+
+    await widget.onCurrencyChanged(selected);
+    if (!mounted) {
+      return;
+    }
+
+    _showMessage('${selected.currency} selected');
   }
 
   Future<void> _openActionSheet(_SettingsData data) async {
@@ -246,6 +296,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           icon: const Icon(Icons.person_outline),
                           label: const Text('Open profile'),
                         ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: _selectCurrency,
+                          icon: const Icon(Icons.currency_exchange),
+                          label: Text(
+                            'Currency: ${widget.currency.code} (${widget.currency.symbol})',
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -273,6 +331,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ...topExpenseCategories.map(
                     (item) => _CategoryTotalTile(
                       category: item.category,
+                      currency: widget.currency,
                       spend: item.spend,
                       onTap: item.category.id == -1
                           ? null
@@ -288,7 +347,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 if (dashboard.budgets.isEmpty)
                   const _EmptyCard(message: 'No budgets set yet.')
                 else
-                  ...dashboard.budgets.map(_BudgetTile.new),
+                  ...dashboard.budgets.map(
+                    (budget) =>
+                        _BudgetTile(budget: budget, currency: widget.currency),
+                  ),
                 const SizedBox(height: 16),
                 _SectionTitle(
                   title: 'Categories',
@@ -400,9 +462,10 @@ class _InfoCard extends StatelessWidget {
 }
 
 class _BudgetTile extends StatelessWidget {
-  const _BudgetTile(this.budget);
+  const _BudgetTile({required this.budget, required this.currency});
 
   final BudgetItem budget;
+  final CurrencyOption currency;
 
   @override
   Widget build(BuildContext context) {
@@ -424,7 +487,7 @@ class _BudgetTile extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
-                Text('\$${budget.remaining.toStringAsFixed(2)} left'),
+                Text('${formatMoney(currency, budget.remaining)} left'),
               ],
             ),
             const SizedBox(height: 6),
@@ -435,7 +498,7 @@ class _BudgetTile extends StatelessWidget {
             LinearProgressIndicator(value: progress),
             const SizedBox(height: 8),
             Text(
-              'Spent \$${budget.spent.toStringAsFixed(2)} of \$${budget.amount.toStringAsFixed(2)}',
+              'Spent ${formatMoney(currency, budget.spent)} of ${formatMoney(currency, budget.amount)}',
             ),
           ],
         ),
@@ -447,11 +510,13 @@ class _BudgetTile extends StatelessWidget {
 class _CategoryTotalTile extends StatelessWidget {
   const _CategoryTotalTile({
     required this.category,
+    required this.currency,
     required this.spend,
     this.onTap,
   });
 
   final FinanceCategory category;
+  final CurrencyOption currency;
   final CategorySpend spend;
   final VoidCallback? onTap;
 
@@ -477,7 +542,7 @@ class _CategoryTotalTile extends StatelessWidget {
               : 'Tap to view entries',
         ),
         trailing: Text(
-          '\$${spend.total.toStringAsFixed(2)}',
+          formatMoney(currency, spend.total),
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),

@@ -2,17 +2,21 @@ import 'package:flutter/material.dart';
 
 import '../api/finance_mcp_client.dart';
 import '../models/auth_session.dart';
+import '../models/currency_option.dart';
 import '../models/finance_models.dart';
+import '../utils/currency_utils.dart';
 
 class CategoryEntriesScreen extends StatefulWidget {
   const CategoryEntriesScreen({
     required this.session,
     required this.category,
+    required this.currency,
     super.key,
   });
 
   final AuthSession session;
   final FinanceCategory category;
+  final CurrencyOption currency;
 
   @override
   State<CategoryEntriesScreen> createState() => _CategoryEntriesScreenState();
@@ -137,12 +141,14 @@ class _CategoryEntriesScreenState extends State<CategoryEntriesScreen>
               controller: _tabController,
               children: [
                 _CategoryEntryList(
+                  currency: widget.currency,
                   entries: data.expenses,
                   isIncome: false,
                   emptyMessage: 'No expense records in this category.',
                   onRefresh: _refresh,
                 ),
                 _CategoryEntryList(
+                  currency: widget.currency,
                   entries: data.incomes,
                   isIncome: true,
                   emptyMessage: 'No income records in this category.',
@@ -153,6 +159,7 @@ class _CategoryEntriesScreenState extends State<CategoryEntriesScreen>
           }
 
           return _CategoryEntryList(
+            currency: widget.currency,
             entries: category.kind == 'income' ? data.incomes : data.expenses,
             isIncome: category.kind == 'income',
             emptyMessage: category.kind == 'income'
@@ -175,12 +182,14 @@ class _CategoryEntriesData {
 
 class _CategoryEntryList extends StatelessWidget {
   const _CategoryEntryList({
+    required this.currency,
     required this.entries,
     required this.isIncome,
     required this.emptyMessage,
     required this.onRefresh,
   });
 
+  final CurrencyOption currency;
   final List<FinanceEntry> entries;
   final bool isIncome;
   final String emptyMessage;
@@ -216,7 +225,11 @@ class _CategoryEntryList extends StatelessWidget {
                     title: Text(item.title),
                     subtitle: Text(item.date),
                     trailing: Text(
-                      '${isIncome ? '+' : '-'}\$${item.amount.toStringAsFixed(2)}',
+                      formatSignedMoney(
+                        currency,
+                        item.amount,
+                        isPositive: isIncome,
+                      ),
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         color: isIncome
