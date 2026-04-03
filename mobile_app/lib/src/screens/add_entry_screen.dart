@@ -31,15 +31,13 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   final _amountController = TextEditingController();
   final _notesController = TextEditingController();
   late final TextEditingController _dateController;
-  late int _selectedCategoryId;
+  int? _selectedCategoryId;
 
   @override
   void initState() {
     super.initState();
     final initialEntry = widget.initialEntry;
-    _selectedCategoryId =
-        initialEntry?.categoryId ??
-        (widget.categories.isNotEmpty ? widget.categories.first.id : 0);
+    _selectedCategoryId = initialEntry?.categoryId;
     _titleController.text = initialEntry?.title ?? '';
     _amountController.text = initialEntry?.amount.toString() ?? '';
     _notesController.text = initialEntry?.notes ?? '';
@@ -80,7 +78,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     Navigator.of(context).pop({
       'title': _titleController.text.trim(),
       'amount': double.parse(_amountController.text.trim()),
-      'categoryId': _selectedCategoryId,
+      'categoryId': _selectedCategoryId!,
       widget.dateKey: _dateController.text.trim(),
       'notes': _notesController.text.trim(),
     });
@@ -118,9 +116,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<int>(
-              initialValue: _selectedCategoryId == 0
-                  ? null
-                  : _selectedCategoryId,
+              initialValue: _selectedCategoryId,
               decoration: const InputDecoration(labelText: 'Category'),
               items: widget.categories
                   .map(
@@ -131,11 +127,9 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                   )
                   .toList(),
               onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _selectedCategoryId = value;
-                  });
-                }
+                setState(() {
+                  _selectedCategoryId = value;
+                });
               },
               validator: (value) => value == null ? 'Select a category' : null,
             ),
