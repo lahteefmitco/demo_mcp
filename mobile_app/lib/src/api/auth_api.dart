@@ -15,7 +15,7 @@ class AuthApi {
   final http.Client _client;
   final String baseUrl;
 
-  Future<AuthSession> register({
+  Future<String> register({
     required String name,
     required String email,
     required String password,
@@ -26,7 +26,7 @@ class AuthApi {
       body: jsonEncode({'name': name, 'email': email, 'password': password}),
     );
 
-    return _parseSession(response);
+    return _parseMessage(response);
   }
 
   Future<AuthSession> login({
@@ -39,7 +39,33 @@ class AuthApi {
       body: jsonEncode({'email': email, 'password': password}),
     );
 
-    return _parseSession(response);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_extractMessage(response));
+    }
+
+    return AuthSession.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<String> resendVerificationEmail(String email) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/api/auth/resend-verification'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email}),
+    );
+
+    return _parseMessage(response);
+  }
+
+  Future<String> requestPasswordReset(String email) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/api/auth/forgot-password'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email}),
+    );
+
+    return _parseMessage(response);
   }
 
   Future<AuthUser> fetchCurrentUser(String token) async {
@@ -56,14 +82,50 @@ class AuthApi {
     return AuthUser.fromJson(body['user'] as Map<String, dynamic>);
   }
 
-  AuthSession _parseSession(http.Response response) {
+  Future<AuthUser> updateProfile({
+    required String token,
+    required String name,
+  }) async {
+    final response = await _client.patch(
+      Uri.parse('$baseUrl/api/auth/profile'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'name': name}),
+    );
+
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(_extractMessage(response));
     }
 
-    return AuthSession.fromJson(
-      jsonDecode(response.body) as Map<String, dynamic>,
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return AuthUser.fromJson(body['user'] as Map<String, dynamic>);
+  }
+
+  Future<String> requestEmailChange({
+    required String token,
+    required String email,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/api/auth/change-email'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'email': email}),
     );
+
+    return _parseMessage(response);
+  }
+
+  String _parseMessage(http.Response response) {
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_extractMessage(response));
+    }
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return body['message'] as String? ?? 'Success';
   }
 
   String _extractMessage(http.Response response) {
@@ -76,9 +138,7 @@ class AuthApi {
       if (body['errors'] is List) {
         return (body['errors'] as List<dynamic>).join(', ');
       }
-    } catch (_) {
-      // Fall back to a generic HTTP error below.
-    }
+    } catch (_) {}
 
     return 'Request failed (${response.statusCode})';
   }

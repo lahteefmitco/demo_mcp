@@ -13,6 +13,7 @@ const app = express();
 const port = Number(process.env.PORT || 3000);
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
 app.get("/", (_req, res) => {
   res.json({ message: "Welcome to the Personal Finance API" });

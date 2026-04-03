@@ -5,6 +5,7 @@ DROP TRIGGER IF EXISTS trigger_incomes_updated_at ON incomes;
 DROP TRIGGER IF EXISTS trigger_budgets_updated_at ON budgets;
 DROP FUNCTION IF EXISTS set_updated_at();
 
+DROP TABLE IF EXISTS auth_tokens;
 DROP TABLE IF EXISTS budgets;
 DROP TABLE IF EXISTS incomes;
 DROP TABLE IF EXISTS expenses;
@@ -16,8 +17,22 @@ CREATE TABLE users (
   name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
+  is_verified BOOLEAN NOT NULL DEFAULT false,
+  pending_email TEXT,
+  email_verified_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE auth_tokens (
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  token_type TEXT NOT NULL CHECK (token_type IN ('verify_email', 'password_reset', 'change_email')),
+  email TEXT,
+  expires_at TIMESTAMPTZ NOT NULL,
+  consumed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE categories (
@@ -73,6 +88,8 @@ CREATE TABLE budgets (
 );
 
 CREATE INDEX idx_users_email ON users (email);
+CREATE INDEX idx_auth_tokens_user_type ON auth_tokens (user_id, token_type);
+CREATE INDEX idx_auth_tokens_expires_at ON auth_tokens (expires_at);
 CREATE INDEX idx_categories_user_kind ON categories (user_id, kind);
 CREATE INDEX idx_expenses_user_spent_on ON expenses (user_id, spent_on DESC);
 CREATE INDEX idx_expenses_user_category_id ON expenses (user_id, category_id);

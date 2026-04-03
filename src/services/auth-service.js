@@ -4,6 +4,8 @@ import { ensureDefaultCategoriesForUser } from "./finance-service.js";
 
 const authSecret = process.env.AUTH_SECRET || "dev-only-change-me";
 const tokenLifetimeSeconds = 60 * 60 * 24 * 30;
+const verificationTokenLifetimeHours = 24;
+const passwordResetTokenLifetimeMinutes = 30;
 
 function toBase64Url(value) {
   return Buffer.from(value).toString("base64url");
@@ -18,16 +20,6 @@ function signTokenParts(header, payload) {
     .createHmac("sha256", authSecret)
     .update(`${header}.${payload}`)
     .digest("base64url");
-}
-
-function normalizeUser(row) {
-  return {
-    id: row.id,
-    name: row.name,
-    email: row.email,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
-  };
 }
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
@@ -47,6 +39,35 @@ function verifyPassword(password, passwordHash) {
     Buffer.from(actualHash, "hex"),
     Buffer.from(expectedHash, "hex")
   );
+}
+
+function hashOpaqueToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function createOpaqueToken() {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+function normalizeUser(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    isVerified: Boolean(row.is_verified),
+    pendingEmail: row.pending_email ?? null,
+    emailVerifiedAt: row.email_verified_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function verificationExpiredAt() {
+  return new Date(Date.now() + verificationTokenLifetimeHours * 60 * 60 * 1000);
+}
+
+function passwordResetExpiredAt() {
+  return new Date(Date.now() + passwordResetTokenLifetimeMinutes * 60 * 1000);
 }
 
 export function createAuthToken(user) {
@@ -97,7 +118,7 @@ export function verifyAuthToken(token) {
 export async function getUserById(id) {
   const rows = await query(
     `
-      SELECT id, name, email, created_at, updated_at
+      SELECT id, name, email, is_verified, pending_email, email_verified_at, created_at, updated_at
       FROM users
       WHERE id = $1
     `,
@@ -111,9 +132,32 @@ export async function getUserById(id) {
 export async function getUserByEmail(email) {
   const rows = await query(
     `
-      SELECT id, name, email, password_hash, created_at, updated_at
+      SELECT
+        id,
+        name,
+        email,
+        password_hash,
+        is_verified,
+        pending_email,
+        email_verified_at,
+        created_at,
+        updated_at
       FROM users
       WHERE email = $1
+    `,
+    [email.toLowerCase()],
+    { type: QueryTypes.SELECT }
+  );
+
+  return rows[0] ?? null;
+}
+
+export async function findUserByPendingEmail(email) {
+  const rows = await query(
+    `
+      SELECT id
+      FROM users
+      WHERE pending_email = $1
     `,
     [email.toLowerCase()],
     { type: QueryTypes.SELECT }
@@ -126,9 +170,9 @@ export async function registerUser({ name, email, password }) {
   const normalizedEmail = email.trim().toLowerCase();
   const rows = await query(
     `
-      INSERT INTO users (name, email, password_hash)
-      VALUES ($1, $2, $3)
-      RETURNING id, name, email, created_at, updated_at
+      INSERT INTO users (name, email, password_hash, is_verified, pending_email, email_verified_at)
+      VALUES ($1, $2, $3, false, null, null)
+      RETURNING id, name, email, is_verified, pending_email, email_verified_at, created_at, updated_at
     `,
     [name.trim(), normalizedEmail, hashPassword(password)]
   );
@@ -141,15 +185,292 @@ export async function registerUser({ name, email, password }) {
 export async function loginUser({ email, password }) {
   const row = await getUserByEmail(email);
   if (!row || !verifyPassword(password, row.password_hash)) {
-    return null;
+    return { ok: false, reason: "INVALID_CREDENTIALS" };
   }
 
-  return normalizeUser(row);
+  if (!row.is_verified) {
+    return { ok: false, reason: "EMAIL_NOT_VERIFIED", user: normalizeUser(row) };
+  }
+
+  return { ok: true, user: normalizeUser(row) };
 }
 
 export function createAuthResponse(user) {
   return {
     token: createAuthToken(user),
     user
+  };
+}
+
+export async function createEmailVerificationToken(userId) {
+  const token = createOpaqueToken();
+  const tokenHash = hashOpaqueToken(token);
+
+  await query(
+    `
+      DELETE FROM auth_tokens
+      WHERE user_id = $1 AND token_type = 'verify_email'
+    `,
+    [userId]
+  );
+
+  await query(
+    `
+      INSERT INTO auth_tokens (user_id, token_hash, token_type, expires_at)
+      VALUES ($1, $2, 'verify_email', $3)
+    `,
+    [userId, tokenHash, verificationExpiredAt()]
+  );
+
+  return token;
+}
+
+export async function createEmailChangeToken(userId, nextEmail) {
+  const token = createOpaqueToken();
+  const tokenHash = hashOpaqueToken(token);
+
+  await query(
+    `
+      DELETE FROM auth_tokens
+      WHERE user_id = $1 AND token_type = 'change_email'
+    `,
+    [userId]
+  );
+
+  await query(
+    `
+      UPDATE users
+      SET pending_email = $2
+      WHERE id = $1
+    `,
+    [userId, nextEmail.toLowerCase()]
+  );
+
+  await query(
+    `
+      INSERT INTO auth_tokens (user_id, token_hash, token_type, email, expires_at)
+      VALUES ($1, $2, 'change_email', $3, $4)
+    `,
+    [userId, tokenHash, nextEmail.toLowerCase(), verificationExpiredAt()]
+  );
+
+  return token;
+}
+
+export async function createPasswordResetToken(userId) {
+  const token = createOpaqueToken();
+  const tokenHash = hashOpaqueToken(token);
+
+  await query(
+    `
+      DELETE FROM auth_tokens
+      WHERE user_id = $1 AND token_type = 'password_reset'
+    `,
+    [userId]
+  );
+
+  await query(
+    `
+      INSERT INTO auth_tokens (user_id, token_hash, token_type, expires_at)
+      VALUES ($1, $2, 'password_reset', $3)
+    `,
+    [userId, tokenHash, passwordResetExpiredAt()]
+  );
+
+  return token;
+}
+
+async function findValidToken(token, tokenTypes) {
+  const rows = await query(
+    `
+      SELECT
+        t.id,
+        t.user_id,
+        t.email,
+        t.token_type,
+        t.expires_at,
+        t.consumed_at,
+        u.id AS account_id,
+        u.name,
+        u.email AS current_email,
+        u.is_verified,
+        u.pending_email,
+        u.email_verified_at,
+        u.created_at,
+        u.updated_at
+      FROM auth_tokens t
+      JOIN users u ON u.id = t.user_id
+      WHERE t.token_hash = $1
+        AND t.token_type = ANY($2)
+        AND t.consumed_at IS NULL
+        AND t.expires_at > NOW()
+      LIMIT 1
+    `,
+    [hashOpaqueToken(token), tokenTypes],
+    { type: QueryTypes.SELECT }
+  );
+
+  return rows[0] ?? null;
+}
+
+async function consumeToken(tokenId) {
+  await query(
+    `
+      UPDATE auth_tokens
+      SET consumed_at = NOW()
+      WHERE id = $1
+    `,
+    [tokenId]
+  );
+}
+
+export async function verifyEmailToken(token) {
+  const record = await findValidToken(token, ["verify_email", "change_email"]);
+  if (!record) {
+    return { ok: false, reason: "INVALID_OR_EXPIRED_TOKEN" };
+  }
+
+  if (record.token_type === "verify_email") {
+    await query(
+      `
+        UPDATE users
+        SET is_verified = true,
+            email_verified_at = NOW(),
+            pending_email = null
+        WHERE id = $1
+      `,
+      [record.user_id]
+    );
+  } else {
+    await query(
+      `
+        UPDATE users
+        SET email = $2,
+            pending_email = null,
+            is_verified = true,
+            email_verified_at = NOW()
+        WHERE id = $1
+      `,
+      [record.user_id, record.email]
+    );
+  }
+
+  await consumeToken(record.id);
+  return { ok: true, user: await getUserById(record.user_id) };
+}
+
+export async function resetPasswordWithToken(token, password) {
+  const record = await findValidToken(token, ["password_reset"]);
+  if (!record) {
+    return { ok: false, reason: "INVALID_OR_EXPIRED_TOKEN" };
+  }
+
+  await query(
+    `
+      UPDATE users
+      SET password_hash = $2
+      WHERE id = $1
+    `,
+    [record.user_id, hashPassword(password)]
+  );
+
+  await consumeToken(record.id);
+  await query(
+    `
+      DELETE FROM auth_tokens
+      WHERE user_id = $1 AND token_type = 'password_reset' AND consumed_at IS NULL
+    `,
+    [record.user_id]
+  );
+
+  return { ok: true, user: await getUserById(record.user_id) };
+}
+
+export async function resendVerificationForEmail(email) {
+  const row = await getUserByEmail(email);
+  if (!row || row.is_verified) {
+    return { ok: true, skipped: true };
+  }
+
+  return {
+    ok: true,
+    skipped: false,
+    user: normalizeUser(row),
+    token: await createEmailVerificationToken(row.id)
+  };
+}
+
+export async function requestPasswordResetForEmail(email) {
+  const row = await getUserByEmail(email);
+  if (!row || !row.is_verified) {
+    return { ok: true, skipped: true };
+  }
+
+  return {
+    ok: true,
+    skipped: false,
+    user: normalizeUser(row),
+    token: await createPasswordResetToken(row.id)
+  };
+}
+
+export async function updateProfileName(userId, name) {
+  const rows = await query(
+    `
+      UPDATE users
+      SET name = $2
+      WHERE id = $1
+      RETURNING id, name, email, is_verified, pending_email, email_verified_at, created_at, updated_at
+    `,
+    [userId, name.trim()]
+  );
+
+  return rows[0] ? normalizeUser(rows[0]) : null;
+}
+
+export async function requestEmailChange(userId, nextEmail) {
+  const normalizedEmail = nextEmail.trim().toLowerCase();
+  const user = await getUserById(userId);
+
+  if (!user) {
+    return { ok: false, reason: "USER_NOT_FOUND" };
+  }
+
+  if (!user.isVerified) {
+    return { ok: false, reason: "EMAIL_NOT_VERIFIED" };
+  }
+
+  if (user.email === normalizedEmail) {
+    return { ok: false, reason: "EMAIL_UNCHANGED" };
+  }
+
+  const existing = await getUserByEmail(normalizedEmail);
+  if (existing) {
+    return { ok: false, reason: "EMAIL_ALREADY_IN_USE" };
+  }
+
+  const pending = await findUserByPendingEmail(normalizedEmail);
+  if (pending) {
+    return { ok: false, reason: "EMAIL_ALREADY_PENDING" };
+  }
+
+  return {
+    ok: true,
+    user,
+    nextEmail: normalizedEmail,
+    token: await createEmailChangeToken(userId, normalizedEmail)
+  };
+}
+
+export async function getValidPasswordResetRecord(token) {
+  const record = await findValidToken(token, ["password_reset"]);
+  if (!record) {
+    return null;
+  }
+
+  return {
+    email: record.current_email,
+    expiresAt: record.expires_at,
+    userId: record.user_id
   };
 }

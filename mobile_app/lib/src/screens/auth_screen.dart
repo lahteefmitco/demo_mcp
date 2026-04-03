@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api/auth_api.dart';
 import '../models/auth_session.dart';
+import 'forgot_password_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({required this.onAuthenticated, super.key});
@@ -20,6 +21,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final _passwordController = TextEditingController();
   bool _isLogin = true;
   bool _isSubmitting = false;
+  String? _infoMessage;
 
   @override
   void dispose() {
@@ -36,25 +38,78 @@ class _AuthScreenState extends State<AuthScreen> {
 
     setState(() {
       _isSubmitting = true;
+      _infoMessage = null;
     });
 
     try {
-      final session = _isLogin
-          ? await _authApi.login(
-              email: _emailController.text.trim(),
-              password: _passwordController.text,
-            )
-          : await _authApi.register(
-              name: _nameController.text.trim(),
-              email: _emailController.text.trim(),
-              password: _passwordController.text,
-            );
+      if (_isLogin) {
+        final session = await _authApi.login(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
 
+        if (!mounted) {
+          return;
+        }
+
+        widget.onAuthenticated(session);
+      } else {
+        final message = await _authApi.register(
+          name: _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _isLogin = true;
+          _infoMessage = message;
+        });
+      }
+    } catch (error) {
       if (!mounted) {
         return;
       }
 
-      widget.onAuthenticated(session);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _resendVerification() async {
+    final email = _emailController.text.trim();
+    if (!email.contains('@')) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Enter your email first')));
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final message = await _authApi.resendVerificationEmail(email);
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _infoMessage = message;
+      });
     } catch (error) {
       if (!mounted) {
         return;
@@ -118,12 +173,24 @@ class _AuthScreenState extends State<AuthScreen> {
                         const SizedBox(height: 8),
                         Text(
                           _isLogin
-                              ? 'Your expenses stay private to your account.'
-                              : 'Each account gets its own categories, budgets, incomes, and expenses.',
+                              ? 'Only verified users can sign in.'
+                              : 'After signup, we will send a verification email before first login.',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: const Color(0xFF475569),
                           ),
                         ),
+                        if (_infoMessage != null) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFECFDF5),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(_infoMessage!),
+                          ),
+                        ],
                         const SizedBox(height: 24),
                         if (!_isLogin) ...[
                           TextFormField(
@@ -191,6 +258,32 @@ class _AuthScreenState extends State<AuthScreen> {
                             ),
                           ),
                         ),
+                        if (_isLogin) ...[
+                          const SizedBox(height: 8),
+                          Center(
+                            child: TextButton(
+                              onPressed: _isSubmitting
+                                  ? null
+                                  : () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              const ForgotPasswordScreen(),
+                                        ),
+                                      );
+                                    },
+                              child: const Text('Forgot password?'),
+                            ),
+                          ),
+                          Center(
+                            child: TextButton(
+                              onPressed: _isSubmitting
+                                  ? null
+                                  : _resendVerification,
+                              child: const Text('Resend verification email'),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 12),
                         Center(
                           child: TextButton(
@@ -199,6 +292,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                 : () {
                                     setState(() {
                                       _isLogin = !_isLogin;
+                                      _infoMessage = null;
                                     });
                                   },
                             child: Text(

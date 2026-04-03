@@ -92,6 +92,20 @@ async function indexExists(transaction, indexName) {
   return rows.length > 0;
 }
 
+async function ensureColumn(transaction, tableName, columnName, definition) {
+  if (await tableHasColumn(transaction, tableName, columnName)) {
+    return;
+  }
+
+  await sequelize.query(
+    `
+      ALTER TABLE ${tableName}
+      ADD COLUMN ${columnName} ${definition}
+    `,
+    { transaction }
+  );
+}
+
 async function ensureLegacyUser(transaction) {
   const existingUsers = await sequelize.query(
     `
@@ -131,8 +145,33 @@ async function ensureUsersTable(transaction) {
         name TEXT NOT NULL,
         email TEXT NOT NULL UNIQUE,
         password_hash TEXT NOT NULL,
+        is_verified BOOLEAN NOT NULL DEFAULT false,
+        pending_email TEXT,
+        email_verified_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `,
+    { transaction }
+  );
+
+  await ensureColumn(transaction, "users", "is_verified", "BOOLEAN NOT NULL DEFAULT false");
+  await ensureColumn(transaction, "users", "pending_email", "TEXT");
+  await ensureColumn(transaction, "users", "email_verified_at", "TIMESTAMPTZ");
+}
+
+async function ensureAuthTokensTable(transaction) {
+  await sequelize.query(
+    `
+      CREATE TABLE IF NOT EXISTS auth_tokens (
+        id SERIAL PRIMARY KEY,
+        user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token_hash TEXT NOT NULL UNIQUE,
+        token_type TEXT NOT NULL CHECK (token_type IN ('verify_email', 'password_reset', 'change_email')),
+        email TEXT,
+        expires_at TIMESTAMPTZ NOT NULL,
+        consumed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `,
     { transaction }
@@ -181,6 +220,7 @@ async function addUserColumnAndBackfill(transaction, tableName) {
 async function main() {
   await sequelize.transaction(async (transaction) => {
     await ensureUsersTable(transaction);
+    await ensureAuthTokensTable(transaction);
     await ensureUpdatedAtFunctionAndTrigger(transaction);
 
     await addUserColumnAndBackfill(transaction, "categories");
@@ -205,6 +245,16 @@ async function main() {
     await sequelize.query(
       `UPDATE budgets SET user_id = $1 WHERE user_id IS NULL`,
       { bind: [legacyUserId], transaction }
+    );
+
+    await sequelize.query(
+      `
+        UPDATE users
+        SET is_verified = true,
+            email_verified_at = COALESCE(email_verified_at, NOW())
+        WHERE is_verified = false OR email_verified_at IS NULL
+      `,
+      { transaction }
     );
 
     await sequelize.query(
@@ -325,6 +375,20 @@ async function main() {
       await sequelize.query(`CREATE INDEX idx_users_email ON users (email)`, {
         transaction
       });
+    }
+
+    if (!(await indexExists(transaction, "idx_auth_tokens_user_type"))) {
+      await sequelize.query(
+        `CREATE INDEX idx_auth_tokens_user_type ON auth_tokens (user_id, token_type)`,
+        { transaction }
+      );
+    }
+
+    if (!(await indexExists(transaction, "idx_auth_tokens_expires_at"))) {
+      await sequelize.query(
+        `CREATE INDEX idx_auth_tokens_expires_at ON auth_tokens (expires_at)`,
+        { transaction }
+      );
     }
 
     if (!(await indexExists(transaction, "idx_categories_user_kind"))) {

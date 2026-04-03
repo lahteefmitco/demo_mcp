@@ -6,6 +6,7 @@ import 'models/auth_session.dart';
 import 'screens/auth_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/profile_screen.dart';
 
 class ExpenseMobileApp extends StatefulWidget {
   const ExpenseMobileApp({super.key});
@@ -74,6 +75,17 @@ class _ExpenseMobileAppState extends State<ExpenseMobileApp> {
     });
   }
 
+  Future<void> _handleSessionUpdated(AuthSession session) async {
+    await _authStorage.writeSession(session);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _session = session;
+    });
+  }
+
   Future<void> _logout() async {
     await _authStorage.clear();
     if (!mounted) {
@@ -106,16 +118,26 @@ class _ExpenseMobileAppState extends State<ExpenseMobileApp> {
           ? const _LoadingScreen()
           : _session == null
           ? AuthScreen(onAuthenticated: _handleAuthenticated)
-          : AppShell(session: _session!, onLogout: _logout),
+          : AppShell(
+              session: _session!,
+              onLogout: _logout,
+              onSessionUpdated: _handleSessionUpdated,
+            ),
     );
   }
 }
 
 class AppShell extends StatefulWidget {
-  const AppShell({required this.session, required this.onLogout, super.key});
+  const AppShell({
+    required this.session,
+    required this.onLogout,
+    required this.onSessionUpdated,
+    super.key,
+  });
 
   final AuthSession session;
   final Future<void> Function() onLogout;
+  final Future<void> Function(AuthSession session) onSessionUpdated;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -127,8 +149,34 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final screens = [
-      HomeScreen(session: widget.session, onLogout: widget.onLogout),
-      ChatScreen(session: widget.session, onLogout: widget.onLogout),
+      HomeScreen(
+        session: widget.session,
+        onLogout: widget.onLogout,
+        onOpenProfile: () async {
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ProfileScreen(
+                session: widget.session,
+                onSessionUpdated: widget.onSessionUpdated,
+              ),
+            ),
+          );
+        },
+      ),
+      ChatScreen(
+        session: widget.session,
+        onLogout: widget.onLogout,
+        onOpenProfile: () async {
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ProfileScreen(
+                session: widget.session,
+                onSessionUpdated: widget.onSessionUpdated,
+              ),
+            ),
+          );
+        },
+      ),
     ];
 
     return Scaffold(

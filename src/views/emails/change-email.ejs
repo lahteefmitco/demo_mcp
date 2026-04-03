@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+  <body style="margin:0;padding:24px;background:#f4f7fb;font-family:Arial,sans-serif;color:#111827;">
+    <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:18px;padding:32px;">
+      <h1 style="margin-top:0;color:#0f766e;">Confirm your new email</h1>
+      <p>Hello <%= name %>,</p>
+      <p>Please confirm this email address before we update your account.</p>
+      <p style="margin:24px 0;">
+        <a href="<%= verificationUrl %>" style="display:inline-block;background:#0f766e;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:10px;">Confirm Email</a>
+      </p>
+      <p><a href="<%= verificationUrl %>"><%= verificationUrl %></a></p>
+    </div>
+  </body>
+</html>

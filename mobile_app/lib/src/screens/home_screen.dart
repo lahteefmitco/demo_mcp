@@ -9,10 +9,16 @@ import 'add_category_screen.dart';
 import 'add_entry_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({required this.session, required this.onLogout, super.key});
+  const HomeScreen({
+    required this.session,
+    required this.onLogout,
+    required this.onOpenProfile,
+    super.key,
+  });
 
   final AuthSession session;
   final Future<void> Function() onLogout;
+  final Future<void> Function() onOpenProfile;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -332,6 +338,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            onPressed: widget.onOpenProfile,
+            icon: const Icon(Icons.person_outline),
+            tooltip: 'Profile',
+          ),
           IconButton(onPressed: _refresh, icon: const Icon(Icons.refresh)),
           IconButton(
             onPressed: widget.onLogout,
