@@ -102,10 +102,29 @@ export async function sendEmailChangeVerification({ to, name, token }) {
   });
 }
 
+export async function sendAccountDeletionEmail({ to, name, token }) {
+  const deletionUrl = `${appBaseUrl}/api/auth/delete-account?token=${encodeURIComponent(token)}`;
+
+  await sendEmail({
+    to,
+    subject: "Confirm account deletion",
+    template: path.join("emails", "delete-account.ejs"),
+    data: {
+      name,
+      deletionUrl
+    },
+    text: `Delete your account and app data by opening this link: ${deletionUrl}`
+  });
+}
+
 export async function renderPasswordResetPage(data) {
   return renderTemplate(path.join("pages", "reset-password.ejs"), data);
 }
 
 export async function renderStatusPage(data) {
   return renderTemplate(path.join("pages", "status-page.ejs"), data);
+}
+
+export async function renderDeleteAccountInfoPage(data) {
+  return renderTemplate(path.join("pages", "delete-account-info.ejs"), data);
 }

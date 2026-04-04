@@ -6,6 +6,7 @@ const authSecret = process.env.AUTH_SECRET || "dev-only-change-me";
 const tokenLifetimeSeconds = 60 * 60 * 24 * 30;
 const verificationTokenLifetimeHours = 24;
 const passwordResetTokenLifetimeMinutes = 30;
+const accountDeletionTokenLifetimeHours = 24;
 
 function toBase64Url(value) {
   return Buffer.from(value).toString("base64url");
@@ -68,6 +69,10 @@ function verificationExpiredAt() {
 
 function passwordResetExpiredAt() {
   return new Date(Date.now() + passwordResetTokenLifetimeMinutes * 60 * 1000);
+}
+
+function accountDeletionExpiredAt() {
+  return new Date(Date.now() + accountDeletionTokenLifetimeHours * 60 * 60 * 1000);
 }
 
 export function createAuthToken(user) {
@@ -280,6 +285,29 @@ export async function createPasswordResetToken(userId) {
   return token;
 }
 
+export async function createAccountDeletionToken(userId) {
+  const token = createOpaqueToken();
+  const tokenHash = hashOpaqueToken(token);
+
+  await query(
+    `
+      DELETE FROM auth_tokens
+      WHERE user_id = $1 AND token_type = 'delete_account'
+    `,
+    [userId]
+  );
+
+  await query(
+    `
+      INSERT INTO auth_tokens (user_id, token_hash, token_type, expires_at)
+      VALUES ($1, $2, 'delete_account', $3)
+    `,
+    [userId, tokenHash, accountDeletionExpiredAt()]
+  );
+
+  return token;
+}
+
 async function findValidToken(token, tokenTypes) {
   const rows = await query(
     `
@@ -357,6 +385,62 @@ export async function verifyEmailToken(token) {
 
   await consumeToken(record.id);
   return { ok: true, user: await getUserById(record.user_id) };
+}
+
+export async function deleteUserById(userId) {
+  const rows = await query(
+    `
+      DELETE FROM users
+      WHERE id = $1
+      RETURNING id, email, is_verified
+    `,
+    [userId]
+  );
+
+  return rows[0] ?? null;
+}
+
+export async function requestAccountDeletionForEmail(email) {
+  const row = await getUserByEmail(email);
+  if (!row) {
+    return { ok: true, skipped: true, deletedDirectly: false };
+  }
+
+  const user = normalizeUser(row);
+  if (!user.isVerified) {
+    await deleteUserById(user.id);
+    return {
+      ok: true,
+      skipped: false,
+      deletedDirectly: true,
+      user
+    };
+  }
+
+  return {
+    ok: true,
+    skipped: false,
+    deletedDirectly: false,
+    user,
+    token: await createAccountDeletionToken(user.id)
+  };
+}
+
+export async function deleteAccountWithToken(token) {
+  const record = await findValidToken(token, ["delete_account"]);
+  if (!record) {
+    return { ok: false, reason: "INVALID_OR_EXPIRED_TOKEN" };
+  }
+
+  const deletedUser = await deleteUserById(record.user_id);
+  if (!deletedUser) {
+    return { ok: false, reason: "ACCOUNT_NOT_FOUND" };
+  }
+
+  return {
+    ok: true,
+    email: record.current_email
+  };
 }
 
 export async function resetPasswordWithToken(token, password) {

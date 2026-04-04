@@ -2,9 +2,11 @@ import express from "express";
 import { requireAuth } from "../middleware/auth-middleware.js";
 import {
   createAuthResponse,
+  deleteAccountWithToken,
   getUserByEmail,
   getValidPasswordResetRecord,
   loginUser,
+  requestAccountDeletionForEmail,
   registerUser,
   requestEmailChange,
   requestPasswordResetForEmail,
@@ -14,8 +16,10 @@ import {
   verifyEmailToken
 } from "../services/auth-service.js";
 import {
+  renderDeleteAccountInfoPage,
   renderPasswordResetPage,
   renderStatusPage,
+  sendAccountDeletionEmail,
   sendEmailChangeVerification,
   sendPasswordResetEmail,
   sendVerificationEmail
@@ -174,6 +178,72 @@ router.post("/auth/forgot-password", async (req, res, next) => {
     res.json({
       message: "If the email belongs to a verified account, a password reset email has been sent."
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/auth/delete-account-info", async (req, res, next) => {
+  try {
+    const html = await renderDeleteAccountInfoPage({
+      appName: "Gulfon",
+      developerName: "Gulfon",
+      requestUrl: "/api/auth/request-account-deletion"
+    });
+
+    res.type("html").send(html);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/auth/request-account-deletion", async (req, res, next) => {
+  try {
+    const email = req.body.email?.trim().toLowerCase();
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: "valid email is required" });
+    }
+
+    const result = await requestAccountDeletionForEmail(email);
+    if (result.user && result.token) {
+      await sendAccountDeletionEmail({
+        to: result.user.email,
+        name: result.user.name,
+        token: result.token
+      });
+    }
+
+    res.json({
+      message:
+        "If the email belongs to a verified account, a deletion confirmation email has been sent. Unverified accounts are deleted immediately."
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/auth/delete-account", async (req, res, next) => {
+  try {
+    const token = String(req.query.token || "");
+    const result = await deleteAccountWithToken(token);
+
+    const html = await renderStatusPage(
+      result.ok
+        ? {
+            success: true,
+            title: "Account deleted",
+            message:
+              "Your account and associated application data have been deleted."
+          }
+        : {
+            success: false,
+            title: "Deletion failed",
+            message:
+              "This account deletion link is invalid, expired, or the account was already removed."
+          }
+    );
+
+    res.status(result.ok ? 200 : 400).type("html").send(html);
   } catch (error) {
     next(error);
   }

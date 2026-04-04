@@ -167,12 +167,28 @@ async function ensureAuthTokensTable(transaction) {
         id SERIAL PRIMARY KEY,
         user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         token_hash TEXT NOT NULL UNIQUE,
-        token_type TEXT NOT NULL CHECK (token_type IN ('verify_email', 'password_reset', 'change_email')),
+        token_type TEXT NOT NULL CHECK (token_type IN ('verify_email', 'password_reset', 'change_email', 'delete_account')),
         email TEXT,
         expires_at TIMESTAMPTZ NOT NULL,
         consumed_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
+    `,
+    { transaction }
+  );
+
+  if (await constraintExists(transaction, "auth_tokens", "auth_tokens_token_type_check")) {
+    await sequelize.query(
+      `ALTER TABLE auth_tokens DROP CONSTRAINT auth_tokens_token_type_check`,
+      { transaction }
+    );
+  }
+
+  await sequelize.query(
+    `
+      ALTER TABLE auth_tokens
+      ADD CONSTRAINT auth_tokens_token_type_check
+      CHECK (token_type IN ('verify_email', 'password_reset', 'change_email', 'delete_account'))
     `,
     { transaction }
   );

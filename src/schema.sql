@@ -28,7 +28,7 @@ CREATE TABLE auth_tokens (
   id SERIAL PRIMARY KEY,
   user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   token_hash TEXT NOT NULL UNIQUE,
-  token_type TEXT NOT NULL CHECK (token_type IN ('verify_email', 'password_reset', 'change_email')),
+  token_type TEXT NOT NULL CHECK (token_type IN ('verify_email', 'password_reset', 'change_email', 'delete_account')),
   email TEXT,
   expires_at TIMESTAMPTZ NOT NULL,
   consumed_at TIMESTAMPTZ,
