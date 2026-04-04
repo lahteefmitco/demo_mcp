@@ -12,10 +12,45 @@
 
       <h2>How to request deletion</h2>
       <ol>
-        <li>Send a `POST` request to <code><%= requestUrl %></code> with your email address.</li>
+        <li>Sign in below with the email address and password for your <%= appName %> account.</li>
         <li>If your account is verified, we send a confirmation email containing a secure deletion link.</li>
-        <li>If your account is not verified, we delete it directly after confirming the email belongs to an existing unverified account.</li>
+        <li>If your account is not verified, we delete it immediately after confirming your credentials.</li>
       </ol>
+
+      <% if (message) { %>
+        <div style="margin:20px 0;padding:14px 16px;border-radius:12px;background:<%= success ? '#ecfdf5' : '#fef2f2' %>;color:<%= success ? '#065f46' : '#991b1b' %>;">
+          <%= message %>
+        </div>
+      <% } %>
+
+      <form method="post" action="<%= requestUrl %>" style="margin:24px 0;padding:20px;border:1px solid #e5e7eb;border-radius:16px;background:#f8fafc;">
+        <h2 style="margin-top:0;">Request account deletion</h2>
+        <label style="display:block;margin-bottom:12px;">
+          <span style="display:block;margin-bottom:6px;font-weight:600;">Email</span>
+          <input
+            type="email"
+            name="email"
+            value="<%= email || '' %>"
+            required
+            style="width:100%;padding:12px 14px;border:1px solid #cbd5e1;border-radius:10px;box-sizing:border-box;"
+          />
+        </label>
+        <label style="display:block;margin-bottom:16px;">
+          <span style="display:block;margin-bottom:6px;font-weight:600;">Password</span>
+          <input
+            type="password"
+            name="password"
+            required
+            style="width:100%;padding:12px 14px;border:1px solid #cbd5e1;border-radius:10px;box-sizing:border-box;"
+          />
+        </label>
+        <button
+          type="submit"
+          style="background:#b91c1c;color:#ffffff;border:none;border-radius:10px;padding:12px 18px;font-weight:600;cursor:pointer;"
+        >
+          Continue deletion request
+        </button>
+      </form>
 
       <h2>What data is deleted</h2>
       <p>When deletion is completed, we remove the following from the primary application database:</p>

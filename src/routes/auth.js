@@ -1,12 +1,13 @@
 import express from "express";
 import { requireAuth } from "../middleware/auth-middleware.js";
 import {
+  authenticateUserCredentials,
   createAuthResponse,
   deleteAccountWithToken,
   getUserByEmail,
   getValidPasswordResetRecord,
   loginUser,
-  requestAccountDeletionForEmail,
+  requestAccountDeletionForUser,
   registerUser,
   requestEmailChange,
   requestPasswordResetForEmail,
@@ -188,7 +189,10 @@ router.get("/auth/delete-account-info", async (req, res, next) => {
     const html = await renderDeleteAccountInfoPage({
       appName: "Gulfon",
       developerName: "Gulfon",
-      requestUrl: "/api/auth/request-account-deletion"
+      requestUrl: "/api/auth/request-account-deletion",
+      success: null,
+      message: null,
+      email: ""
     });
 
     res.type("html").send(html);
@@ -199,12 +203,37 @@ router.get("/auth/delete-account-info", async (req, res, next) => {
 
 router.post("/auth/request-account-deletion", async (req, res, next) => {
   try {
-    const email = req.body.email?.trim().toLowerCase();
-    if (!isValidEmail(email)) {
-      return res.status(400).json({ error: "valid email is required" });
+    const email = req.body.email?.trim().toLowerCase() ?? "";
+    const password = String(req.body.password ?? "");
+
+    if (!isValidEmail(email) || password.length < 6) {
+      const html = await renderDeleteAccountInfoPage({
+        appName: "Gulfon",
+        developerName: "Gulfon",
+        requestUrl: "/api/auth/request-account-deletion",
+        success: false,
+        message: "Enter a valid email address and password.",
+        email
+      });
+
+      return res.status(400).type("html").send(html);
     }
 
-    const result = await requestAccountDeletionForEmail(email);
+    const authResult = await authenticateUserCredentials({ email, password });
+    if (!authResult.ok) {
+      const html = await renderDeleteAccountInfoPage({
+        appName: "Gulfon",
+        developerName: "Gulfon",
+        requestUrl: "/api/auth/request-account-deletion",
+        success: false,
+        message: "Invalid email or password.",
+        email
+      });
+
+      return res.status(401).type("html").send(html);
+    }
+
+    const result = await requestAccountDeletionForUser(authResult.user);
     if (result.user && result.token) {
       await sendAccountDeletionEmail({
         to: result.user.email,
@@ -213,10 +242,18 @@ router.post("/auth/request-account-deletion", async (req, res, next) => {
       });
     }
 
-    res.json({
-      message:
-        "If the email belongs to a verified account, a deletion confirmation email has been sent. Unverified accounts are deleted immediately."
+    const html = await renderDeleteAccountInfoPage({
+      appName: "Gulfon",
+      developerName: "Gulfon",
+      requestUrl: "/api/auth/request-account-deletion",
+      success: true,
+      message: result.deletedDirectly
+        ? "Your unverified account and associated application data were deleted immediately."
+        : "Your account is verified. We sent a confirmation email with a secure deletion link.",
+      email
     });
+
+    res.type("html").send(html);
   } catch (error) {
     next(error);
   }

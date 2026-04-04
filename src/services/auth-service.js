@@ -200,6 +200,15 @@ export async function loginUser({ email, password }) {
   return { ok: true, user: normalizeUser(row) };
 }
 
+export async function authenticateUserCredentials({ email, password }) {
+  const row = await getUserByEmail(email);
+  if (!row || !verifyPassword(password, row.password_hash)) {
+    return { ok: false, reason: "INVALID_CREDENTIALS" };
+  }
+
+  return { ok: true, user: normalizeUser(row) };
+}
+
 export function createAuthResponse(user) {
   return {
     token: createAuthToken(user),
@@ -400,18 +409,11 @@ export async function deleteUserById(userId) {
   return rows[0] ?? null;
 }
 
-export async function requestAccountDeletionForEmail(email) {
-  const row = await getUserByEmail(email);
-  if (!row) {
-    return { ok: true, skipped: true, deletedDirectly: false };
-  }
-
-  const user = normalizeUser(row);
+export async function requestAccountDeletionForUser(user) {
   if (!user.isVerified) {
     await deleteUserById(user.id);
     return {
       ok: true,
-      skipped: false,
       deletedDirectly: true,
       user
     };
@@ -419,7 +421,6 @@ export async function requestAccountDeletionForEmail(email) {
 
   return {
     ok: true,
-    skipped: false,
     deletedDirectly: false,
     user,
     token: await createAccountDeletionToken(user.id)
