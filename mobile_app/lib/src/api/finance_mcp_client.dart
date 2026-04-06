@@ -150,6 +150,22 @@ class FinanceMcpClient {
         .toList();
   }
 
+  Future<List<DailyExpense>> fetchDailyExpenses({int days = 7}) async {
+    final response = await _client.get(
+      Uri.parse('$baseUrl/api/finance/expenses/daily?days=$days'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    if (response.statusCode >= 400) {
+      throw Exception('Failed to fetch daily expenses: ${response.statusCode}');
+    }
+
+    final data = jsonDecode(response.body) as List<dynamic>;
+    return data
+        .map((item) => DailyExpense.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<void> createCategory({
     required String name,
     required String kind,

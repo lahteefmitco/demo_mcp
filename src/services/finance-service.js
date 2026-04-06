@@ -666,3 +666,46 @@ export async function getFinanceDashboard(userId, month) {
     budgets: uniqueRows(budgets, (budget) => budget.id).slice(0, 8)
   };
 }
+
+export async function getDailyExpensesSummary(userId, days = 7) {
+  const dailyExpenses = await query(
+    `
+      WITH date_series AS (
+        SELECT generate_series(
+          CURRENT_DATE - INTERVAL '${days - 1} days',
+          CURRENT_DATE,
+          '1 day'::interval
+        )::date AS day
+      ),
+      daily_totals AS (
+        SELECT 
+          ds.day,
+          COALESCE(SUM(e.amount), 0)::numeric(12, 2) AS total,
+          COUNT(e.id)::int AS count
+        FROM date_series ds
+        LEFT JOIN expenses e 
+          ON e.user_id = $1 
+          AND DATE(e.spent_on) = ds.day
+        GROUP BY ds.day
+      )
+      SELECT 
+        day,
+        total,
+        count,
+        TO_CHAR(day, 'Dy') AS day_name,
+        TO_CHAR(day, 'DD') AS day_number
+      FROM daily_totals
+      ORDER BY day ASC
+    `,
+    [userId],
+    { type: QueryTypes.SELECT }
+  );
+
+  return dailyExpenses.map(row => ({
+    date: formatProjectDate(row.day),
+    dayName: row.day_name,
+    dayNumber: row.day_number,
+    total: Number(row.total),
+    count: row.count
+  }));
+}

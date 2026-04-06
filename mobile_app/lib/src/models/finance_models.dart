@@ -220,3 +220,29 @@ class FinanceDashboard {
     );
   }
 }
+
+class DailyExpense {
+  const DailyExpense({
+    required this.date,
+    required this.dayName,
+    required this.dayNumber,
+    required this.total,
+    required this.count,
+  });
+
+  final String date;
+  final String dayName;
+  final String dayNumber;
+  final double total;
+  final int count;
+
+  factory DailyExpense.fromJson(Map<String, dynamic> json) {
+    return DailyExpense(
+      date: json['date'] as String? ?? '',
+      dayName: json['dayName'] as String? ?? '',
+      dayNumber: json['dayNumber'] as String? ?? '',
+      total: (json['total'] as num).toDouble(),
+      count: json['count'] as int? ?? 0,
+    );
+  }
+}

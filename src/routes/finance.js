@@ -8,6 +8,7 @@ import {
   deleteCategory,
   deleteExpense,
   deleteIncome,
+  getDailyExpensesSummary,
   getFinanceDashboard,
   getPeriodSummary,
   listBudgets,
@@ -262,6 +263,15 @@ router.get("/expenses", async (req, res, next) => {
         limit: req.query.limit
       })
     );
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/expenses/daily", async (req, res, next) => {
+  try {
+    const days = Math.min(Math.max(Number(req.query.days) || 7, 1), 30);
+    res.json(await getDailyExpensesSummary(req.user.id, days));
   } catch (error) {
     next(error);
   }

@@ -6,6 +6,7 @@ import 'models/auth_session.dart';
 import 'models/currency_option.dart';
 import 'screens/auth_screen.dart';
 import 'screens/chat_screen.dart';
+import 'screens/dashboard_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/settings_screen.dart';
@@ -194,6 +195,10 @@ class _AppShellState extends State<AppShell> {
           );
         },
       ),
+      DashboardScreen(
+        session: widget.session,
+        currency: widget.selectedCurrency,
+      ),
       ChatScreen(
         session: widget.session,
         onOpenProfile: () async {
@@ -236,9 +241,14 @@ class _AppShellState extends State<AppShell> {
         },
         destinations: const [
           NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
             selectedIcon: Icon(Icons.dashboard),
-            label: 'Home',
+            label: 'Dashboard',
           ),
           NavigationDestination(
             icon: Icon(Icons.chat_bubble_outline),
