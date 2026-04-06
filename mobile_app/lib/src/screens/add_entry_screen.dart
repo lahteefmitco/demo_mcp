@@ -8,6 +8,7 @@ class AddEntryScreen extends StatefulWidget {
     super.key,
     required this.title,
     required this.categories,
+    required this.accounts,
     required this.dateLabel,
     required this.dateKey,
     this.initialEntry,
@@ -18,6 +19,7 @@ class AddEntryScreen extends StatefulWidget {
   final String dateLabel;
   final String dateKey;
   final List<FinanceCategory> categories;
+  final List<FinanceAccount> accounts;
   final FinanceEntry? initialEntry;
   final String saveLabel;
 
@@ -32,12 +34,15 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   final _notesController = TextEditingController();
   late final TextEditingController _dateController;
   int? _selectedCategoryId;
+  int? _selectedAccountId;
 
   @override
   void initState() {
     super.initState();
     final initialEntry = widget.initialEntry;
     _selectedCategoryId = initialEntry?.categoryId;
+    _selectedAccountId =
+        initialEntry?.accountId ?? widget.accounts.firstOrNull?.id;
     _titleController.text = initialEntry?.title ?? '';
     _amountController.text = initialEntry?.amount.toString() ?? '';
     _notesController.text = initialEntry?.notes ?? '';
@@ -79,6 +84,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       'title': _titleController.text.trim(),
       'amount': double.parse(_amountController.text.trim()),
       'categoryId': _selectedCategoryId!,
+      'accountId': _selectedAccountId!,
       widget.dateKey: _dateController.text.trim(),
       'notes': _notesController.text.trim(),
     });
@@ -134,6 +140,36 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
               validator: (value) => value == null ? 'Select a category' : null,
             ),
             const SizedBox(height: 16),
+            DropdownButtonFormField<int>(
+              initialValue: _selectedAccountId,
+              decoration: const InputDecoration(labelText: 'Account'),
+              items: widget.accounts
+                  .where((a) => a.isActive)
+                  .map(
+                    (account) => DropdownMenuItem(
+                      value: account.id,
+                      child: Row(
+                        children: [
+                          Icon(
+                            _getAccountIcon(account.icon),
+                            size: 20,
+                            color: _parseColor(account.color),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(account.name),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedAccountId = value;
+                });
+              },
+              validator: (value) => value == null ? 'Select an account' : null,
+            ),
+            const SizedBox(height: 16),
             TextFormField(
               controller: _dateController,
               readOnly: true,
@@ -156,5 +192,26 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
         ),
       ),
     );
+  }
+
+  IconData _getAccountIcon(String icon) {
+    switch (icon) {
+      case 'account_balance':
+        return Icons.account_balance;
+      case 'credit_card':
+        return Icons.credit_card;
+      case 'trending_up':
+        return Icons.trending_up;
+      default:
+        return Icons.account_balance_wallet;
+    }
+  }
+
+  Color _parseColor(String colorStr) {
+    try {
+      return Color(int.parse(colorStr.replaceFirst('#', '0xFF')));
+    } catch (_) {
+      return const Color(0xFF0E7490);
+    }
   }
 }

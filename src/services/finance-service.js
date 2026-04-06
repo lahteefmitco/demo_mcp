@@ -26,6 +26,9 @@ function normalizeExpense(row) {
     categoryId: row.category_id,
     categoryName: row.category_name,
     categoryColor: row.category_color,
+    accountId: row.account_id,
+    accountName: row.account_name,
+    accountColor: row.account_color,
     spentOn: formatProjectDate(row.spent_on),
     notes: row.notes,
     createdAt: row.created_at,
@@ -41,6 +44,9 @@ function normalizeIncome(row) {
     categoryId: row.category_id,
     categoryName: row.category_name,
     categoryColor: row.category_color,
+    accountId: row.account_id,
+    accountName: row.account_name,
+    accountColor: row.account_color,
     receivedOn: formatProjectDate(row.received_on),
     notes: row.notes,
     createdAt: row.created_at,
@@ -204,6 +210,22 @@ async function ensureOwnedCategory(userId, categoryId) {
   }
 }
 
+async function ensureOwnedAccount(userId, accountId) {
+  const rows = await query(
+    `
+      SELECT id
+      FROM accounts
+      WHERE id = $1 AND user_id = $2 AND is_active = true
+    `,
+    [accountId, userId],
+    { type: QueryTypes.SELECT }
+  );
+
+  if (!rows[0]) {
+    throw new Error("Account not found");
+  }
+}
+
 export async function listExpenses(userId, filters = {}) {
   const conditions = [];
   const values = [];
@@ -217,6 +239,11 @@ export async function listExpenses(userId, filters = {}) {
   if (filters.categoryId) {
     values.push(filters.categoryId);
     conditions.push(`e.category_id = $${values.length}`);
+  }
+
+  if (filters.accountId) {
+    values.push(filters.accountId);
+    conditions.push(`e.account_id = $${values.length}`);
   }
 
   if (from) {
@@ -239,12 +266,16 @@ export async function listExpenses(userId, filters = {}) {
         e.category_id,
         c.name AS category_name,
         c.color AS category_color,
+        e.account_id,
+        a.name AS account_name,
+        a.color AS account_color,
         e.spent_on,
         e.notes,
         e.created_at,
         e.updated_at
       FROM expenses e
       JOIN categories c ON c.id = e.category_id AND c.user_id = e.user_id
+      JOIN accounts a ON a.id = e.account_id AND a.user_id = e.user_id
       ${whereClause}
       ORDER BY e.spent_on DESC, e.id DESC
       ${limit ? `LIMIT $${values.length + 1}` : ""}
@@ -258,17 +289,18 @@ export async function listExpenses(userId, filters = {}) {
 
 export async function createExpense(
   userId,
-  { title, amount, categoryId, spentOn, notes = "" }
+  { title, amount, categoryId, accountId, spentOn, notes = "" }
 ) {
   await ensureOwnedCategory(userId, categoryId);
+  await ensureOwnedAccount(userId, accountId);
   const normalizedSpentOn = parseProjectDateToIso(spentOn) ?? spentOn;
   const rows = await query(
     `
-      INSERT INTO expenses (user_id, title, amount, category_id, spent_on, notes)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, title, amount, category_id, spent_on, notes, created_at, updated_at
+      INSERT INTO expenses (user_id, title, amount, category_id, account_id, spent_on, notes)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id, title, amount, category_id, account_id, spent_on, notes, created_at, updated_at
     `,
-    [userId, title, amount, categoryId, normalizedSpentOn, notes]
+    [userId, title, amount, categoryId, accountId, normalizedSpentOn, notes]
   );
 
   const expense = await getExpenseById(userId, rows[0].id);
@@ -278,9 +310,10 @@ export async function createExpense(
 export async function updateExpense(
   userId,
   id,
-  { title, amount, categoryId, spentOn, notes = "" }
+  { title, amount, categoryId, accountId, spentOn, notes = "" }
 ) {
   await ensureOwnedCategory(userId, categoryId);
+  await ensureOwnedAccount(userId, accountId);
   const normalizedSpentOn = parseProjectDateToIso(spentOn) ?? spentOn;
   const rows = await query(
     `
@@ -288,12 +321,13 @@ export async function updateExpense(
       SET title = $3,
           amount = $4,
           category_id = $5,
-          spent_on = $6,
-          notes = $7
+          account_id = $6,
+          spent_on = $7,
+          notes = $8
       WHERE id = $1 AND user_id = $2
       RETURNING id
     `,
-    [id, userId, title, amount, categoryId, normalizedSpentOn, notes]
+    [id, userId, title, amount, categoryId, accountId, normalizedSpentOn, notes]
   );
 
   if (!rows[0]) {
@@ -313,12 +347,16 @@ export async function getExpenseById(userId, id) {
         e.category_id,
         c.name AS category_name,
         c.color AS category_color,
+        e.account_id,
+        a.name AS account_name,
+        a.color AS account_color,
         e.spent_on,
         e.notes,
         e.created_at,
         e.updated_at
       FROM expenses e
       JOIN categories c ON c.id = e.category_id AND c.user_id = e.user_id
+      JOIN accounts a ON a.id = e.account_id AND a.user_id = e.user_id
       WHERE e.id = $1 AND e.user_id = $2
     `,
     [id, userId],
@@ -351,6 +389,11 @@ export async function listIncomes(userId, filters = {}) {
     conditions.push(`i.category_id = $${values.length}`);
   }
 
+  if (filters.accountId) {
+    values.push(filters.accountId);
+    conditions.push(`i.account_id = $${values.length}`);
+  }
+
   if (from) {
     values.push(from);
     conditions.push(`i.received_on >= $${values.length}`);
@@ -371,12 +414,16 @@ export async function listIncomes(userId, filters = {}) {
         i.category_id,
         c.name AS category_name,
         c.color AS category_color,
+        i.account_id,
+        a.name AS account_name,
+        a.color AS account_color,
         i.received_on,
         i.notes,
         i.created_at,
         i.updated_at
       FROM incomes i
       JOIN categories c ON c.id = i.category_id AND c.user_id = i.user_id
+      JOIN accounts a ON a.id = i.account_id AND a.user_id = i.user_id
       ${whereClause}
       ORDER BY i.received_on DESC, i.id DESC
       ${limit ? `LIMIT $${values.length + 1}` : ""}
@@ -390,17 +437,18 @@ export async function listIncomes(userId, filters = {}) {
 
 export async function createIncome(
   userId,
-  { title, amount, categoryId, receivedOn, notes = "" }
+  { title, amount, categoryId, accountId, receivedOn, notes = "" }
 ) {
   await ensureOwnedCategory(userId, categoryId);
+  await ensureOwnedAccount(userId, accountId);
   const normalizedReceivedOn = parseProjectDateToIso(receivedOn) ?? receivedOn;
   const rows = await query(
     `
-      INSERT INTO incomes (user_id, title, amount, category_id, received_on, notes)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO incomes (user_id, title, amount, category_id, account_id, received_on, notes)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id
     `,
-    [userId, title, amount, categoryId, normalizedReceivedOn, notes]
+    [userId, title, amount, categoryId, accountId, normalizedReceivedOn, notes]
   );
 
   return getIncomeById(userId, rows[0].id);
@@ -409,9 +457,10 @@ export async function createIncome(
 export async function updateIncome(
   userId,
   id,
-  { title, amount, categoryId, receivedOn, notes = "" }
+  { title, amount, categoryId, accountId, receivedOn, notes = "" }
 ) {
   await ensureOwnedCategory(userId, categoryId);
+  await ensureOwnedAccount(userId, accountId);
   const normalizedReceivedOn = parseProjectDateToIso(receivedOn) ?? receivedOn;
   const rows = await query(
     `
@@ -419,12 +468,13 @@ export async function updateIncome(
       SET title = $3,
           amount = $4,
           category_id = $5,
-          received_on = $6,
-          notes = $7
+          account_id = $6,
+          received_on = $7,
+          notes = $8
       WHERE id = $1 AND user_id = $2
       RETURNING id
     `,
-    [id, userId, title, amount, categoryId, normalizedReceivedOn, notes]
+    [id, userId, title, amount, categoryId, accountId, normalizedReceivedOn, notes]
   );
 
   if (!rows[0]) {
@@ -444,12 +494,16 @@ export async function getIncomeById(userId, id) {
         i.category_id,
         c.name AS category_name,
         c.color AS category_color,
+        i.account_id,
+        a.name AS account_name,
+        a.color AS account_color,
         i.received_on,
         i.notes,
         i.created_at,
         i.updated_at
       FROM incomes i
       JOIN categories c ON c.id = i.category_id AND c.user_id = i.user_id
+      JOIN accounts a ON a.id = i.account_id AND a.user_id = i.user_id
       WHERE i.id = $1 AND i.user_id = $2
     `,
     [id, userId],
@@ -649,12 +703,14 @@ export async function getPeriodSummary(userId, month) {
 export async function getFinanceDashboard(userId, month) {
   const normalizedMonth = parseProjectMonth(month) ?? month;
   await ensureDefaultCategoriesForUser(userId);
-  const [summary, recentExpenses, recentIncomes, categories, budgets] = await Promise.all([
+  await ensureDefaultAccountForUser(userId);
+  const [summary, recentExpenses, recentIncomes, categories, budgets, accounts] = await Promise.all([
     getPeriodSummary(userId, normalizedMonth),
     listExpenses(userId, { limit: 8 }),
     listIncomes(userId, { limit: 8 }),
     listCategories(userId, {}),
-    listBudgets(userId, {})
+    listBudgets(userId, {}),
+    listAccounts(userId, { isActive: true })
   ]);
 
   return {
@@ -663,7 +719,8 @@ export async function getFinanceDashboard(userId, month) {
     categories,
     recentExpenses,
     recentIncomes,
-    budgets: uniqueRows(budgets, (budget) => budget.id).slice(0, 8)
+    budgets: uniqueRows(budgets, (budget) => budget.id).slice(0, 8),
+    accounts
   };
 }
 
@@ -793,5 +850,529 @@ export async function getMonthlyExpensesSummary(userId, months = 6) {
     year: row.year,
     total: Number(row.total),
     count: row.count
+  }));
+}
+
+export async function ensureDefaultAccountForUser(userId) {
+  await query(
+    `
+      INSERT INTO accounts (user_id, name, type, initial_balance, color, icon, notes)
+      VALUES ($1, 'General Account', 'cash', 0, '#10B981', 'account_balance_wallet', 'Default account for all transactions')
+      ON CONFLICT (user_id, name) DO NOTHING
+    `,
+    [userId]
+  );
+}
+
+export async function listAccounts(userId, filters = {}) {
+  const values = [];
+  const conditions = [];
+
+  values.push(userId);
+  conditions.push(`user_id = $${values.length}`);
+
+  if (filters.type) {
+    values.push(filters.type);
+    conditions.push(`type = $${values.length}`);
+  }
+
+  if (filters.isActive !== undefined) {
+    values.push(filters.isActive);
+    conditions.push(`is_active = $${values.length}`);
+  }
+
+  const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const rows = await query(
+    `
+      SELECT 
+        a.id,
+        a.name,
+        a.type,
+        a.initial_balance,
+        a.color,
+        a.icon,
+        a.notes,
+        a.is_active,
+        a.created_at,
+        a.updated_at,
+        COALESCE(
+          a.initial_balance + 
+          COALESCE((SELECT SUM(i.amount) FROM incomes i WHERE i.account_id = a.id), 0) -
+          COALESCE((SELECT SUM(e.amount) FROM expenses e WHERE e.account_id = a.id), 0),
+          a.initial_balance
+        )::numeric(12, 2) AS current_balance
+      FROM accounts a
+      ${whereClause}
+      ORDER BY a.name ASC
+    `,
+    values,
+    { type: QueryTypes.SELECT }
+  );
+
+  return rows.map(normalizeAccount);
+}
+
+function normalizeAccount(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    initialBalance: Number(row.initial_balance),
+    currentBalance: Number(row.current_balance),
+    color: row.color,
+    icon: row.icon,
+    notes: row.notes,
+    isActive: row.is_active,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+export async function createAccount(
+  userId,
+  { name, type = "cash", initialBalance = 0, color = "#0E7490", icon = "account_balance_wallet", notes = "" }
+) {
+  const rows = await query(
+    `
+      INSERT INTO accounts (user_id, name, type, initial_balance, color, icon, notes)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id
+    `,
+    [userId, name, type, initialBalance, color, icon, notes]
+  );
+
+  return getAccountById(userId, rows[0].id);
+}
+
+export async function updateAccount(
+  userId,
+  id,
+  { name, type, color, icon, notes, isActive }
+) {
+  const fields = [];
+  const values = [];
+  let paramIndex = 3;
+
+  if (name !== undefined) {
+    values.push(name);
+    fields.push(`name = $${paramIndex++}`);
+  }
+  if (type !== undefined) {
+    values.push(type);
+    fields.push(`type = $${paramIndex++}`);
+  }
+  if (color !== undefined) {
+    values.push(color);
+    fields.push(`color = $${paramIndex++}`);
+  }
+  if (icon !== undefined) {
+    values.push(icon);
+    fields.push(`icon = $${paramIndex++}`);
+  }
+  if (notes !== undefined) {
+    values.push(notes);
+    fields.push(`notes = $${paramIndex++}`);
+  }
+  if (isActive !== undefined) {
+    values.push(isActive);
+    fields.push(`is_active = $${paramIndex++}`);
+  }
+
+  if (fields.length === 0) {
+    return getAccountById(userId, id);
+  }
+
+  values.push(id, userId);
+  const rows = await query(
+    `
+      UPDATE accounts
+      SET ${fields.join(", ")}
+      WHERE id = $${paramIndex++} AND user_id = $${paramIndex}
+      RETURNING id
+    `,
+    values
+  );
+
+  if (!rows[0]) {
+    return null;
+  }
+
+  return getAccountById(userId, rows[0].id);
+}
+
+export async function getAccountById(userId, id) {
+  const rows = await query(
+    `
+      SELECT 
+        a.id,
+        a.name,
+        a.type,
+        a.initial_balance,
+        a.color,
+        a.icon,
+        a.notes,
+        a.is_active,
+        a.created_at,
+        a.updated_at,
+        COALESCE(
+          a.initial_balance + 
+          COALESCE((SELECT SUM(i.amount) FROM incomes i WHERE i.account_id = a.id), 0) -
+          COALESCE((SELECT SUM(e.amount) FROM expenses e WHERE e.account_id = a.id), 0),
+          a.initial_balance
+        )::numeric(12, 2) AS current_balance
+      FROM accounts a
+      WHERE a.id = $1 AND a.user_id = $2
+    `,
+    [id, userId],
+    { type: QueryTypes.SELECT }
+  );
+
+  return rows[0] ? normalizeAccount(rows[0]) : null;
+}
+
+export async function deleteAccount(userId, id) {
+  const hasTransactions = await query(
+    `
+      SELECT EXISTS(
+        SELECT 1 FROM expenses WHERE account_id = $1 AND user_id = $2
+        UNION ALL
+        SELECT 1 FROM incomes WHERE account_id = $1 AND user_id = $2
+        UNION ALL
+        SELECT 1 FROM transfers WHERE from_account_id = $1 AND user_id = $2
+        UNION ALL
+        SELECT 1 FROM transfers WHERE to_account_id = $1 AND user_id = $2
+        LIMIT 1
+      ) AS has_transactions
+    `,
+    [id, userId],
+    { type: QueryTypes.SELECT }
+  );
+
+  if (hasTransactions[0]?.has_transactions) {
+    const rows = await query(
+      "UPDATE accounts SET is_active = false WHERE id = $1 AND user_id = $2 RETURNING id",
+      [id, userId]
+    );
+    return rows.length > 0 ? "deactivated" : null;
+  }
+
+  const rows = await query(
+    "DELETE FROM accounts WHERE id = $1 AND user_id = $2 RETURNING id",
+    [id, userId]
+  );
+  return rows.length > 0 ? "deleted" : null;
+}
+
+export async function getAccountSummary(userId, accountId) {
+  const account = await getAccountById(userId, accountId);
+  if (!account) {
+    return null;
+  }
+
+  const incomeTotals = await query(
+    `
+      SELECT COALESCE(SUM(amount), 0)::numeric(12, 2) AS total, COUNT(*)::int AS item_count
+      FROM incomes
+      WHERE user_id = $1 AND account_id = $2
+    `,
+    [userId, accountId],
+    { type: QueryTypes.SELECT }
+  );
+
+  const expenseTotals = await query(
+    `
+      SELECT COALESCE(SUM(amount), 0)::numeric(12, 2) AS total, COUNT(*)::int AS item_count
+      FROM expenses
+      WHERE user_id = $1 AND account_id = $2
+    `,
+    [userId, accountId],
+    { type: QueryTypes.SELECT }
+  );
+
+  const recentExpenses = await query(
+    `
+      SELECT
+        e.id,
+        e.title,
+        e.amount,
+        e.category_id,
+        c.name AS category_name,
+        c.color AS category_color,
+        e.spent_on,
+        e.notes,
+        e.created_at,
+        e.updated_at
+      FROM expenses e
+      JOIN categories c ON c.id = e.category_id AND c.user_id = e.user_id
+      WHERE e.user_id = $1 AND e.account_id = $2
+      ORDER BY e.spent_on DESC, e.id DESC
+      LIMIT 10
+    `,
+    [userId, accountId],
+    { type: QueryTypes.SELECT }
+  );
+
+  const recentIncomes = await query(
+    `
+      SELECT
+        i.id,
+        i.title,
+        i.amount,
+        i.category_id,
+        c.name AS category_name,
+        c.color AS category_color,
+        i.received_on,
+        i.notes,
+        i.created_at,
+        i.updated_at
+      FROM incomes i
+      JOIN categories c ON c.id = i.category_id AND c.user_id = i.user_id
+      WHERE i.user_id = $1 AND i.account_id = $2
+      ORDER BY i.received_on DESC, i.id DESC
+      LIMIT 10
+    `,
+    [userId, accountId],
+    { type: QueryTypes.SELECT }
+  );
+
+  return {
+    account,
+    summary: {
+      totalIncome: Number(incomeTotals[0].total),
+      incomeCount: incomeTotals[0].item_count,
+      totalExpenses: Number(expenseTotals[0].total),
+      expenseCount: expenseTotals[0].item_count,
+      currentBalance: account.currentBalance
+    },
+    recentExpenses: recentExpenses.map(normalizeExpense),
+    recentIncomes: recentIncomes.map(normalizeIncome)
+  };
+}
+
+export async function getAccountExpenses(userId, accountId, filters = {}) {
+  const conditions = [];
+  const values = [];
+  const limit = normalizeListLimit(filters.limit);
+
+  values.push(userId);
+  conditions.push(`e.user_id = $${values.length}`);
+
+  values.push(accountId);
+  conditions.push(`e.account_id = $${values.length}`);
+
+  if (filters.categoryId) {
+    values.push(filters.categoryId);
+    conditions.push(`e.category_id = $${values.length}`);
+  }
+
+  if (filters.from) {
+    const fromDate = parseProjectDateToIso(filters.from);
+    if (fromDate) {
+      values.push(fromDate);
+      conditions.push(`e.spent_on >= $${values.length}`);
+    }
+  }
+
+  if (filters.to) {
+    const toDate = parseProjectDateToIso(filters.to);
+    if (toDate) {
+      values.push(toDate);
+      conditions.push(`e.spent_on <= $${values.length}`);
+    }
+  }
+
+  const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const rows = await query(
+    `
+      SELECT
+        e.id,
+        e.title,
+        e.amount,
+        e.category_id,
+        c.name AS category_name,
+        c.color AS category_color,
+        e.spent_on,
+        e.notes,
+        e.created_at,
+        e.updated_at
+      FROM expenses e
+      JOIN categories c ON c.id = e.category_id AND c.user_id = e.user_id
+      ${whereClause}
+      ORDER BY e.spent_on DESC, e.id DESC
+      ${limit ? `LIMIT $${values.length + 1}` : ""}
+    `,
+    limit ? [...values, limit] : values,
+    { type: QueryTypes.SELECT }
+  );
+
+  return rows.map(normalizeExpense);
+}
+
+export async function getAccountIncomes(userId, accountId, filters = {}) {
+  const conditions = [];
+  const values = [];
+  const limit = normalizeListLimit(filters.limit);
+
+  values.push(userId);
+  conditions.push(`i.user_id = $${values.length}`);
+
+  values.push(accountId);
+  conditions.push(`i.account_id = $${values.length}`);
+
+  if (filters.categoryId) {
+    values.push(filters.categoryId);
+    conditions.push(`i.category_id = $${values.length}`);
+  }
+
+  if (filters.from) {
+    const fromDate = parseProjectDateToIso(filters.from);
+    if (fromDate) {
+      values.push(fromDate);
+      conditions.push(`i.received_on >= $${values.length}`);
+    }
+  }
+
+  if (filters.to) {
+    const toDate = parseProjectDateToIso(filters.to);
+    if (toDate) {
+      values.push(toDate);
+      conditions.push(`i.received_on <= $${values.length}`);
+    }
+  }
+
+  const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const rows = await query(
+    `
+      SELECT
+        i.id,
+        i.title,
+        i.amount,
+        i.category_id,
+        c.name AS category_name,
+        c.color AS category_color,
+        i.received_on,
+        i.notes,
+        i.created_at,
+        i.updated_at
+      FROM incomes i
+      JOIN categories c ON c.id = i.category_id AND c.user_id = i.user_id
+      ${whereClause}
+      ORDER BY i.received_on DESC, i.id DESC
+      ${limit ? `LIMIT $${values.length + 1}` : ""}
+    `,
+    limit ? [...values, limit] : values,
+    { type: QueryTypes.SELECT }
+  );
+
+  return rows.map(normalizeIncome);
+}
+
+export async function transferBetweenAccounts(
+  userId,
+  { fromAccountId, toAccountId, amount, notes = "" }
+) {
+  if (fromAccountId === toAccountId) {
+    throw new Error("Cannot transfer to the same account");
+  }
+
+  if (amount <= 0) {
+    throw new Error("Transfer amount must be positive");
+  }
+
+  const fromAccount = await getAccountById(userId, fromAccountId);
+  const toAccount = await getAccountById(userId, toAccountId);
+
+  if (!fromAccount) {
+    throw new Error("Source account not found");
+  }
+  if (!toAccount) {
+    throw new Error("Destination account not found");
+  }
+
+  const result = await query(
+    `
+      INSERT INTO transfers (user_id, from_account_id, to_account_id, amount, notes)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id, from_account_id, to_account_id, amount, notes, created_at
+    `,
+    [userId, fromAccountId, toAccountId, amount, notes]
+  );
+
+  const transfer = result[0];
+
+  return {
+    id: transfer.id,
+    fromAccountId: transfer.from_account_id,
+    fromAccountName: fromAccount.name,
+    toAccountId: transfer.to_account_id,
+    toAccountName: toAccount.name,
+    amount: Number(transfer.amount),
+    notes: transfer.notes,
+    createdAt: transfer.created_at
+  };
+}
+
+export async function listTransfers(userId, filters = {}) {
+  const conditions = [];
+  const values = [];
+
+  values.push(userId);
+  conditions.push(`t.user_id = $${values.length}`);
+
+  if (filters.accountId) {
+    values.push(filters.accountId);
+    conditions.push(`(t.from_account_id = $${values.length} OR t.to_account_id = $${values.length})`);
+  }
+
+  if (filters.from) {
+    const fromDate = parseProjectDateToIso(filters.from);
+    if (fromDate) {
+      values.push(fromDate);
+      conditions.push(`DATE(t.created_at) >= $${values.length}`);
+    }
+  }
+
+  if (filters.to) {
+    const toDate = parseProjectDateToIso(filters.to);
+    if (toDate) {
+      values.push(toDate);
+      conditions.push(`DATE(t.created_at) <= $${values.length}`);
+    }
+  }
+
+  const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const limit = normalizeListLimit(filters.limit);
+
+  const rows = await query(
+    `
+      SELECT
+        t.id,
+        t.from_account_id,
+        fa.name AS from_account_name,
+        t.to_account_id,
+        ta.name AS to_account_name,
+        t.amount,
+        t.notes,
+        t.created_at
+      FROM transfers t
+      JOIN accounts fa ON fa.id = t.from_account_id
+      JOIN accounts ta ON ta.id = t.to_account_id
+      ${whereClause}
+      ORDER BY t.created_at DESC, t.id DESC
+      ${limit ? `LIMIT $${values.length + 1}` : ""}
+    `,
+    limit ? [...values, limit] : values,
+    { type: QueryTypes.SELECT }
+  );
+
+  return rows.map(row => ({
+    id: row.id,
+    fromAccountId: row.from_account_id,
+    fromAccountName: row.from_account_name,
+    toAccountId: row.to_account_id,
+    toAccountName: row.to_account_name,
+    amount: Number(row.amount),
+    notes: row.notes,
+    createdAt: row.created_at
   }));
 }

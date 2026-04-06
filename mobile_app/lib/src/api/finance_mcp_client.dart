@@ -84,58 +84,136 @@ class FinanceMcpClient {
 
   Future<List<FinanceEntry>> listExpenses({
     int? categoryId,
+    int? accountId,
     String? from,
     String? to,
     int? limit,
   }) async {
-    final arguments = <String, dynamic>{};
-    if (categoryId != null) {
-      arguments['categoryId'] = categoryId;
+    try {
+      final arguments = <String, dynamic>{};
+      if (categoryId != null) {
+        arguments['categoryId'] = categoryId;
+      }
+      if (accountId != null) {
+        arguments['accountId'] = accountId;
+      }
+      if (from != null) {
+        arguments['from'] = from;
+      }
+      if (to != null) {
+        arguments['to'] = to;
+      }
+      if (limit != null) {
+        arguments['limit'] = limit;
+      }
+      final data = await callTool('list_expenses', arguments);
+      final items = data as List<dynamic>;
+      return items
+          .map(
+            (item) =>
+                FinanceEntry.fromExpenseJson(item as Map<String, dynamic>),
+          )
+          .toList();
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'list_expenses')) {
+        rethrow;
+      }
+
+      final queryParams = <String>[];
+      if (categoryId != null) queryParams.add('categoryId=$categoryId');
+      if (accountId != null) queryParams.add('accountId=$accountId');
+      if (from != null) queryParams.add('from=$from');
+      if (to != null) queryParams.add('to=$to');
+      if (limit != null) queryParams.add('limit=$limit');
+
+      var uri = '$baseUrl/api/finance/expenses';
+      if (queryParams.isNotEmpty) {
+        uri += '?${queryParams.join('&')}';
+      }
+
+      final response = await _client.get(
+        Uri.parse(uri),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode >= 400) {
+        throw Exception('Failed to fetch expenses: ${response.statusCode}');
+      }
+
+      final data = jsonDecode(response.body) as List<dynamic>;
+      return data
+          .map(
+            (item) =>
+                FinanceEntry.fromExpenseJson(item as Map<String, dynamic>),
+          )
+          .toList();
     }
-    if (from != null) {
-      arguments['from'] = from;
-    }
-    if (to != null) {
-      arguments['to'] = to;
-    }
-    if (limit != null) {
-      arguments['limit'] = limit;
-    }
-    final data = await callTool('list_expenses', arguments);
-    final items = data as List<dynamic>;
-    return items
-        .map(
-          (item) => FinanceEntry.fromExpenseJson(item as Map<String, dynamic>),
-        )
-        .toList();
   }
 
   Future<List<FinanceEntry>> listIncomes({
     int? categoryId,
+    int? accountId,
     String? from,
     String? to,
     int? limit,
   }) async {
-    final arguments = <String, dynamic>{};
-    if (categoryId != null) {
-      arguments['categoryId'] = categoryId;
+    try {
+      final arguments = <String, dynamic>{};
+      if (categoryId != null) {
+        arguments['categoryId'] = categoryId;
+      }
+      if (accountId != null) {
+        arguments['accountId'] = accountId;
+      }
+      if (from != null) {
+        arguments['from'] = from;
+      }
+      if (to != null) {
+        arguments['to'] = to;
+      }
+      if (limit != null) {
+        arguments['limit'] = limit;
+      }
+      final data = await callTool('list_incomes', arguments);
+      final items = data as List<dynamic>;
+      return items
+          .map(
+            (item) => FinanceEntry.fromIncomeJson(item as Map<String, dynamic>),
+          )
+          .toList();
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'list_incomes')) {
+        rethrow;
+      }
+
+      final queryParams = <String>[];
+      if (categoryId != null) queryParams.add('categoryId=$categoryId');
+      if (accountId != null) queryParams.add('accountId=$accountId');
+      if (from != null) queryParams.add('from=$from');
+      if (to != null) queryParams.add('to=$to');
+      if (limit != null) queryParams.add('limit=$limit');
+
+      var uri = '$baseUrl/api/finance/incomes';
+      if (queryParams.isNotEmpty) {
+        uri += '?${queryParams.join('&')}';
+      }
+
+      final response = await _client.get(
+        Uri.parse(uri),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode >= 400) {
+        throw Exception('Failed to fetch incomes: ${response.statusCode}');
+      }
+
+      final data = jsonDecode(response.body) as List<dynamic>;
+      return data
+          .map(
+            (item) => FinanceEntry.fromIncomeJson(item as Map<String, dynamic>),
+          )
+          .toList();
     }
-    if (from != null) {
-      arguments['from'] = from;
-    }
-    if (to != null) {
-      arguments['to'] = to;
-    }
-    if (limit != null) {
-      arguments['limit'] = limit;
-    }
-    final data = await callTool('list_incomes', arguments);
-    final items = data as List<dynamic>;
-    return items
-        .map(
-          (item) => FinanceEntry.fromIncomeJson(item as Map<String, dynamic>),
-        )
-        .toList();
   }
 
   Future<List<BudgetItem>> fetchBudgets({String? period}) async {
@@ -310,16 +388,39 @@ class FinanceMcpClient {
     required String title,
     required double amount,
     required int categoryId,
+    required int accountId,
     required String spentOn,
     String notes = '',
   }) async {
-    await callTool('create_expense', {
-      'title': title,
-      'amount': amount,
-      'categoryId': categoryId,
-      'spentOn': spentOn,
-      'notes': notes,
-    });
+    try {
+      await callTool('create_expense', {
+        'title': title,
+        'amount': amount,
+        'categoryId': categoryId,
+        'accountId': accountId,
+        'spentOn': spentOn,
+        'notes': notes,
+      });
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'create_expense')) {
+        rethrow;
+      }
+
+      final response = await _client.post(
+        Uri.parse('$baseUrl/api/finance/expenses'),
+        headers: _jsonHeaders,
+        body: jsonEncode({
+          'title': title,
+          'amount': amount,
+          'categoryId': categoryId,
+          'accountId': accountId,
+          'spentOn': spentOn,
+          'notes': notes,
+        }),
+      );
+
+      _throwIfRequestFailed(response);
+    }
   }
 
   Future<void> updateExpense({
@@ -327,17 +428,40 @@ class FinanceMcpClient {
     required String title,
     required double amount,
     required int categoryId,
+    required int accountId,
     required String spentOn,
     String notes = '',
   }) async {
-    await callTool('update_expense', {
-      'id': id,
-      'title': title,
-      'amount': amount,
-      'categoryId': categoryId,
-      'spentOn': spentOn,
-      'notes': notes,
-    });
+    try {
+      await callTool('update_expense', {
+        'id': id,
+        'title': title,
+        'amount': amount,
+        'categoryId': categoryId,
+        'accountId': accountId,
+        'spentOn': spentOn,
+        'notes': notes,
+      });
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'update_expense')) {
+        rethrow;
+      }
+
+      final response = await _client.put(
+        Uri.parse('$baseUrl/api/finance/expenses/$id'),
+        headers: _jsonHeaders,
+        body: jsonEncode({
+          'title': title,
+          'amount': amount,
+          'categoryId': categoryId,
+          'accountId': accountId,
+          'spentOn': spentOn,
+          'notes': notes,
+        }),
+      );
+
+      _throwIfRequestFailed(response);
+    }
   }
 
   Future<void> deleteExpense(int id) async {
@@ -348,16 +472,39 @@ class FinanceMcpClient {
     required String title,
     required double amount,
     required int categoryId,
+    required int accountId,
     required String receivedOn,
     String notes = '',
   }) async {
-    await callTool('create_income', {
-      'title': title,
-      'amount': amount,
-      'categoryId': categoryId,
-      'receivedOn': receivedOn,
-      'notes': notes,
-    });
+    try {
+      await callTool('create_income', {
+        'title': title,
+        'amount': amount,
+        'categoryId': categoryId,
+        'accountId': accountId,
+        'receivedOn': receivedOn,
+        'notes': notes,
+      });
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'create_income')) {
+        rethrow;
+      }
+
+      final response = await _client.post(
+        Uri.parse('$baseUrl/api/finance/incomes'),
+        headers: _jsonHeaders,
+        body: jsonEncode({
+          'title': title,
+          'amount': amount,
+          'categoryId': categoryId,
+          'accountId': accountId,
+          'receivedOn': receivedOn,
+          'notes': notes,
+        }),
+      );
+
+      _throwIfRequestFailed(response);
+    }
   }
 
   Future<void> updateIncome({
@@ -365,6 +512,7 @@ class FinanceMcpClient {
     required String title,
     required double amount,
     required int categoryId,
+    required int accountId,
     required String receivedOn,
     String notes = '',
   }) async {
@@ -374,6 +522,7 @@ class FinanceMcpClient {
         'title': title,
         'amount': amount,
         'categoryId': categoryId,
+        'accountId': accountId,
         'receivedOn': receivedOn,
         'notes': notes,
       });
@@ -389,6 +538,7 @@ class FinanceMcpClient {
           'title': title,
           'amount': amount,
           'categoryId': categoryId,
+          'accountId': accountId,
           'receivedOn': receivedOn,
           'notes': notes,
         }),
@@ -488,6 +638,247 @@ class FinanceMcpClient {
       );
 
       _throwIfRequestFailed(response);
+    }
+  }
+
+  Future<List<FinanceAccount>> fetchAccounts({
+    String? type,
+    bool? isActive,
+  }) async {
+    try {
+      final arguments = <String, dynamic>{};
+      if (type != null) {
+        arguments['type'] = type;
+      }
+      if (isActive != null) {
+        arguments['isActive'] = isActive;
+      }
+      final data = await callTool('list_accounts', arguments);
+      final items = data as List<dynamic>;
+      return items
+          .map((item) => FinanceAccount.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'list_accounts')) {
+        rethrow;
+      }
+
+      var uri = '$baseUrl/api/finance/accounts';
+      final queryParams = <String>[];
+      if (type != null) queryParams.add('type=$type');
+      if (isActive != null) queryParams.add('isActive=$isActive');
+      if (queryParams.isNotEmpty) {
+        uri += '?${queryParams.join('&')}';
+      }
+
+      final response = await _client.get(
+        Uri.parse(uri),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode >= 400) {
+        throw Exception('Failed to fetch accounts: ${response.statusCode}');
+      }
+
+      final data = jsonDecode(response.body) as List<dynamic>;
+      return data
+          .map((item) => FinanceAccount.fromJson(item as Map<String, dynamic>))
+          .toList();
+    }
+  }
+
+  Future<AccountSummary> fetchAccountSummary(int accountId) async {
+    try {
+      final data = await callTool('account_summary', {'id': accountId});
+      return AccountSummary.fromJson(data as Map<String, dynamic>);
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'account_summary')) {
+        rethrow;
+      }
+
+      final response = await _client.get(
+        Uri.parse('$baseUrl/api/finance/accounts/$accountId/summary'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode >= 400) {
+        throw Exception(
+          'Failed to fetch account summary: ${response.statusCode}',
+        );
+      }
+
+      return AccountSummary.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+  }
+
+  Future<void> createAccount({
+    required String name,
+    String type = 'cash',
+    double initialBalance = 0,
+    String color = '#0E7490',
+    String icon = 'account_balance_wallet',
+    String notes = '',
+  }) async {
+    try {
+      await callTool('create_account', {
+        'name': name,
+        'type': type,
+        'initialBalance': initialBalance,
+        'color': color,
+        'icon': icon,
+        'notes': notes,
+      });
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'create_account')) {
+        rethrow;
+      }
+
+      final response = await _client.post(
+        Uri.parse('$baseUrl/api/finance/accounts'),
+        headers: _jsonHeaders,
+        body: jsonEncode({
+          'name': name,
+          'type': type,
+          'initialBalance': initialBalance,
+          'color': color,
+          'icon': icon,
+          'notes': notes,
+        }),
+      );
+
+      _throwIfRequestFailed(response);
+    }
+  }
+
+  Future<void> updateAccount({
+    required int id,
+    String? name,
+    String? type,
+    String? color,
+    String? icon,
+    String? notes,
+    bool? isActive,
+  }) async {
+    try {
+      final arguments = <String, dynamic>{'id': id};
+      if (name != null) arguments['name'] = name;
+      if (type != null) arguments['type'] = type;
+      if (color != null) arguments['color'] = color;
+      if (icon != null) arguments['icon'] = icon;
+      if (notes != null) arguments['notes'] = notes;
+      if (isActive != null) arguments['isActive'] = isActive;
+      await callTool('update_account', arguments);
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'update_account')) {
+        rethrow;
+      }
+
+      final body = <String, dynamic>{};
+      if (name != null) body['name'] = name;
+      if (type != null) body['type'] = type;
+      if (color != null) body['color'] = color;
+      if (icon != null) body['icon'] = icon;
+      if (notes != null) body['notes'] = notes;
+      if (isActive != null) body['isActive'] = isActive;
+
+      final response = await _client.put(
+        Uri.parse('$baseUrl/api/finance/accounts/$id'),
+        headers: _jsonHeaders,
+        body: jsonEncode(body),
+      );
+
+      _throwIfRequestFailed(response);
+    }
+  }
+
+  Future<void> deleteAccount(int id) async {
+    try {
+      await callTool('delete_account', {'id': id});
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'delete_account')) {
+        rethrow;
+      }
+
+      final response = await _client.delete(
+        Uri.parse('$baseUrl/api/finance/accounts/$id'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      _throwIfRequestFailed(response);
+    }
+  }
+
+  Future<void> transferBetweenAccounts({
+    required int fromAccountId,
+    required int toAccountId,
+    required double amount,
+    String notes = '',
+  }) async {
+    try {
+      await callTool('transfer_between_accounts', {
+        'fromAccountId': fromAccountId,
+        'toAccountId': toAccountId,
+        'amount': amount,
+        'notes': notes,
+      });
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'transfer_between_accounts')) {
+        rethrow;
+      }
+
+      final response = await _client.post(
+        Uri.parse('$baseUrl/api/finance/transfers'),
+        headers: _jsonHeaders,
+        body: jsonEncode({
+          'fromAccountId': fromAccountId,
+          'toAccountId': toAccountId,
+          'amount': amount,
+          'notes': notes,
+        }),
+      );
+
+      _throwIfRequestFailed(response);
+    }
+  }
+
+  Future<List<Transfer>> fetchTransfers({int? accountId, int? limit}) async {
+    try {
+      final arguments = <String, dynamic>{};
+      if (accountId != null) arguments['accountId'] = accountId;
+      if (limit != null) arguments['limit'] = limit;
+      final data = await callTool('list_transfers', arguments);
+      final items = data as List<dynamic>;
+      return items
+          .map((item) => Transfer.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'list_transfers')) {
+        rethrow;
+      }
+
+      var uri = '$baseUrl/api/finance/transfers';
+      final queryParams = <String>[];
+      if (accountId != null) queryParams.add('accountId=$accountId');
+      if (limit != null) queryParams.add('limit=$limit');
+      if (queryParams.isNotEmpty) {
+        uri += '?${queryParams.join('&')}';
+      }
+
+      final response = await _client.get(
+        Uri.parse(uri),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode >= 400) {
+        throw Exception('Failed to fetch transfers: ${response.statusCode}');
+      }
+
+      final data = jsonDecode(response.body) as List<dynamic>;
+      return data
+          .map((item) => Transfer.fromJson(item as Map<String, dynamic>))
+          .toList();
     }
   }
 

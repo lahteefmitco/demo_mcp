@@ -24,6 +24,55 @@ class FinanceCategory {
   }
 }
 
+class FinanceAccount {
+  const FinanceAccount({
+    required this.id,
+    required this.name,
+    required this.type,
+    required this.initialBalance,
+    required this.currentBalance,
+    required this.color,
+    required this.icon,
+    required this.notes,
+    required this.isActive,
+  });
+
+  final int id;
+  final String name;
+  final String type;
+  final double initialBalance;
+  final double currentBalance;
+  final String color;
+  final String icon;
+  final String notes;
+  final bool isActive;
+
+  factory FinanceAccount.fromJson(Map<String, dynamic> json) {
+    return FinanceAccount(
+      id: json['id'] as int,
+      name: json['name'] as String? ?? '',
+      type: json['type'] as String? ?? 'cash',
+      initialBalance: (json['initialBalance'] as num).toDouble(),
+      currentBalance: (json['currentBalance'] as num).toDouble(),
+      color: json['color'] as String? ?? '#0E7490',
+      icon: json['icon'] as String? ?? 'account_balance_wallet',
+      notes: json['notes'] as String? ?? '',
+      isActive: json['isActive'] as bool? ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'type': type,
+      'initialBalance': initialBalance,
+      'color': color,
+      'icon': icon,
+      'notes': notes,
+    };
+  }
+}
+
 class FinanceEntry {
   const FinanceEntry({
     required this.id,
@@ -32,6 +81,9 @@ class FinanceEntry {
     required this.categoryId,
     required this.categoryName,
     required this.categoryColor,
+    required this.accountId,
+    required this.accountName,
+    required this.accountColor,
     required this.date,
     required this.notes,
   });
@@ -42,6 +94,9 @@ class FinanceEntry {
   final String title;
   final String categoryName;
   final String categoryColor;
+  final int accountId;
+  final String accountName;
+  final String accountColor;
   final String date;
   final String notes;
 
@@ -53,6 +108,9 @@ class FinanceEntry {
       categoryId: json['categoryId'] as int,
       categoryName: json['categoryName'] as String? ?? '',
       categoryColor: json['categoryColor'] as String? ?? '#0E7490',
+      accountId: json['accountId'] as int? ?? 1,
+      accountName: json['accountName'] as String? ?? 'General Account',
+      accountColor: json['accountColor'] as String? ?? '#10B981',
       date: json['spentOn'] as String? ?? '',
       notes: json['notes'] as String? ?? '',
     );
@@ -66,6 +124,9 @@ class FinanceEntry {
       categoryId: json['categoryId'] as int,
       categoryName: json['categoryName'] as String? ?? '',
       categoryColor: json['categoryColor'] as String? ?? '#0E7490',
+      accountId: json['accountId'] as int? ?? 1,
+      accountName: json['accountName'] as String? ?? 'General Account',
+      accountColor: json['accountColor'] as String? ?? '#10B981',
       date: json['receivedOn'] as String? ?? '',
       notes: json['notes'] as String? ?? '',
     );
@@ -179,6 +240,7 @@ class FinanceDashboard {
     required this.month,
     required this.summary,
     required this.categories,
+    required this.accounts,
     required this.recentExpenses,
     required this.recentIncomes,
     required this.budgets,
@@ -187,12 +249,14 @@ class FinanceDashboard {
   final String month;
   final PeriodSummary summary;
   final List<FinanceCategory> categories;
+  final List<FinanceAccount> accounts;
   final List<FinanceEntry> recentExpenses;
   final List<FinanceEntry> recentIncomes;
   final List<BudgetItem> budgets;
 
   factory FinanceDashboard.fromJson(Map<String, dynamic> json) {
     final categoriesJson = json['categories'] as List<dynamic>? ?? [];
+    final accountsJson = json['accounts'] as List<dynamic>? ?? [];
     final expensesJson = json['recentExpenses'] as List<dynamic>? ?? [];
     final incomesJson = json['recentIncomes'] as List<dynamic>? ?? [];
     final budgetsJson = json['budgets'] as List<dynamic>? ?? [];
@@ -202,6 +266,9 @@ class FinanceDashboard {
       summary: PeriodSummary.fromJson(json['summary'] as Map<String, dynamic>),
       categories: categoriesJson
           .map((item) => FinanceCategory.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      accounts: accountsJson
+          .map((item) => FinanceAccount.fromJson(item as Map<String, dynamic>))
           .toList(),
       recentExpenses: expensesJson
           .map(
@@ -295,6 +362,70 @@ class MonthlyExpense {
       year: json['year'] as String? ?? '',
       total: (json['total'] as num).toDouble(),
       count: json['count'] as int? ?? 0,
+    );
+  }
+}
+
+class AccountSummary {
+  const AccountSummary({
+    required this.account,
+    required this.totalIncome,
+    required this.incomeCount,
+    required this.totalExpenses,
+    required this.expenseCount,
+    required this.currentBalance,
+  });
+
+  final FinanceAccount account;
+  final double totalIncome;
+  final int incomeCount;
+  final double totalExpenses;
+  final int expenseCount;
+  final double currentBalance;
+
+  factory AccountSummary.fromJson(Map<String, dynamic> json) {
+    return AccountSummary(
+      account: FinanceAccount.fromJson(json['account'] as Map<String, dynamic>),
+      totalIncome: (json['summary']['totalIncome'] as num).toDouble(),
+      incomeCount: json['summary']['incomeCount'] as int? ?? 0,
+      totalExpenses: (json['summary']['totalExpenses'] as num).toDouble(),
+      expenseCount: json['summary']['expenseCount'] as int? ?? 0,
+      currentBalance: (json['summary']['currentBalance'] as num).toDouble(),
+    );
+  }
+}
+
+class Transfer {
+  const Transfer({
+    required this.id,
+    required this.fromAccountId,
+    required this.fromAccountName,
+    required this.toAccountId,
+    required this.toAccountName,
+    required this.amount,
+    required this.notes,
+    required this.createdAt,
+  });
+
+  final int id;
+  final int fromAccountId;
+  final String fromAccountName;
+  final int toAccountId;
+  final String toAccountName;
+  final double amount;
+  final String notes;
+  final String createdAt;
+
+  factory Transfer.fromJson(Map<String, dynamic> json) {
+    return Transfer(
+      id: json['id'] as int,
+      fromAccountId: json['fromAccountId'] as int,
+      fromAccountName: json['fromAccountName'] as String? ?? '',
+      toAccountId: json['toAccountId'] as int,
+      toAccountName: json['toAccountName'] as String? ?? '',
+      amount: (json['amount'] as num).toDouble(),
+      notes: json['notes'] as String? ?? '',
+      createdAt: json['createdAt'] as String? ?? '',
     );
   }
 }

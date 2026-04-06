@@ -7,10 +7,12 @@ import '../models/currency_option.dart';
 import '../models/finance_models.dart';
 import '../models/mcp_tool.dart';
 import '../utils/currency_utils.dart';
+import 'accounts_screen.dart';
 import 'add_budget_screen.dart';
 import 'add_category_screen.dart';
 import 'category_entries_screen.dart';
 import 'chat_db_viewer_screen.dart';
+import 'transfer_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -79,6 +81,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => const ChatDbViewerScreen()));
+  }
+
+  Future<void> _openAccounts() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            AccountsScreen(session: widget.session, currency: widget.currency),
+      ),
+    );
+    await _refresh();
+  }
+
+  Future<void> _openTransfers() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            TransferScreen(session: widget.session, currency: widget.currency),
+      ),
+    );
+    await _refresh();
   }
 
   Future<void> _selectCurrency() async {
@@ -468,6 +490,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onDelete: () => _deleteBudget(budget),
                     ),
                   ),
+                const SizedBox(height: 16),
+                _SectionTitle(
+                  title: 'Accounts',
+                  subtitle: '${dashboard.accounts.length} total',
+                ),
+                const SizedBox(height: 8),
+                Card(
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: const Icon(
+                          Icons.account_balance_wallet_outlined,
+                        ),
+                        title: const Text('Manage Accounts'),
+                        subtitle: const Text('Add, edit, or delete accounts'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: _openAccounts,
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.swap_horiz),
+                        title: const Text('Transfers'),
+                        subtitle: const Text('Move money between accounts'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: _openTransfers,
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 16),
                 _SectionTitle(
                   title: 'Categories',

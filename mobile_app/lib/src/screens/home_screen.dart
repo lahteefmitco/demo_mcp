@@ -107,6 +107,7 @@ class _HomeScreenState extends State<HomeScreen>
         builder: (_) => AddEntryScreen(
           title: 'Edit Expense',
           categories: categories,
+          accounts: dashboard.accounts,
           dateLabel: 'Spent on',
           dateKey: 'spentOn',
           initialEntry: expense,
@@ -124,6 +125,7 @@ class _HomeScreenState extends State<HomeScreen>
       title: payload['title'] as String,
       amount: payload['amount'] as double,
       categoryId: payload['categoryId'] as int,
+      accountId: payload['accountId'] as int,
       spentOn: payload['spentOn'] as String,
       notes: payload['notes'] as String? ?? '',
     );
@@ -214,6 +216,7 @@ class _HomeScreenState extends State<HomeScreen>
         builder: (_) => AddEntryScreen(
           title: 'Edit Income',
           categories: categories,
+          accounts: dashboard.accounts,
           dateLabel: 'Received on',
           dateKey: 'receivedOn',
           initialEntry: income,
@@ -231,6 +234,7 @@ class _HomeScreenState extends State<HomeScreen>
       title: payload['title'] as String,
       amount: payload['amount'] as double,
       categoryId: payload['categoryId'] as int,
+      accountId: payload['accountId'] as int,
       receivedOn: payload['receivedOn'] as String,
       notes: payload['notes'] as String? ?? '',
     );
@@ -307,6 +311,7 @@ class _HomeScreenState extends State<HomeScreen>
           builder: (_) => AddEntryScreen(
             title: 'Add Expense',
             categories: categories,
+            accounts: dashboard.accounts,
             dateLabel: 'Spent on',
             dateKey: 'spentOn',
           ),
@@ -322,6 +327,7 @@ class _HomeScreenState extends State<HomeScreen>
           title: payload['title'] as String,
           amount: payload['amount'] as double,
           categoryId: payload['categoryId'] as int,
+          accountId: payload['accountId'] as int,
           spentOn: payload['spentOn'] as String,
           notes: payload['notes'] as String? ?? '',
         );
@@ -341,6 +347,7 @@ class _HomeScreenState extends State<HomeScreen>
           builder: (_) => AddEntryScreen(
             title: 'Add Income',
             categories: categories,
+            accounts: dashboard.accounts,
             dateLabel: 'Received on',
             dateKey: 'receivedOn',
           ),
@@ -356,6 +363,7 @@ class _HomeScreenState extends State<HomeScreen>
           title: payload['title'] as String,
           amount: payload['amount'] as double,
           categoryId: payload['categoryId'] as int,
+          accountId: payload['accountId'] as int,
           receivedOn: payload['receivedOn'] as String,
           notes: payload['notes'] as String? ?? '',
         );
@@ -673,7 +681,18 @@ class _EntryTile extends StatelessWidget {
           ),
         ),
         title: Text(item.title),
-        subtitle: Text('${item.categoryName} • ${item.date}'),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${item.categoryName} • ${item.date}'),
+            Text(
+              item.accountName,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: _parseColor(item.accountColor),
+              ),
+            ),
+          ],
+        ),
         trailing: Text(
           formatSignedMoney(currency, item.amount, isPositive: isIncome),
           style: TextStyle(
@@ -683,6 +702,14 @@ class _EntryTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Color _parseColor(String colorStr) {
+    try {
+      return Color(int.parse(colorStr.replaceFirst('#', '0xFF')));
+    } catch (_) {
+      return const Color(0xFF10B981);
+    }
   }
 }
 

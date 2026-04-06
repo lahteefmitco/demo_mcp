@@ -6,23 +6,30 @@ import {
 import {
   createBudget,
   createCategory,
+  createAccount,
   createExpense,
   createIncome,
   deleteBudget,
   deleteCategory,
+  deleteAccount,
   deleteIncome,
   deleteExpense,
+  getAccountSummary,
   getDailyExpensesSummary,
   getFinanceDashboard,
   getMonthlyExpensesSummary,
   getPeriodSummary,
   getWeeklyExpensesSummary,
+  listAccounts,
   listBudgets,
   listCategories,
   listExpenses,
   listIncomes,
+  listTransfers,
+  transferBetweenAccounts,
   updateBudget,
   updateCategory,
+  updateAccount,
   updateExpense,
   updateIncome
 } from "../services/finance-service.js";
@@ -122,6 +129,7 @@ export function createExpenseManagerServer({ user }) {
           type: "object",
           properties: {
             categoryId: { type: "number" },
+            accountId: { type: "number" },
             from: { type: "string" },
             to: { type: "string" },
             limit: { type: "number" }
@@ -163,11 +171,12 @@ export function createExpenseManagerServer({ user }) {
         description: "Create a new expense record.",
         inputSchema: {
           type: "object",
-          required: ["title", "amount", "categoryId", "spentOn"],
+          required: ["title", "amount", "categoryId", "accountId", "spentOn"],
           properties: {
             title: { type: "string" },
             amount: { type: "number" },
             categoryId: { type: "number" },
+            accountId: { type: "number" },
             spentOn: { type: "string" },
             notes: { type: "string" }
           }
@@ -178,12 +187,13 @@ export function createExpenseManagerServer({ user }) {
         description: "Update an existing expense record.",
         inputSchema: {
           type: "object",
-          required: ["id", "title", "amount", "categoryId", "spentOn"],
+          required: ["id", "title", "amount", "categoryId", "accountId", "spentOn"],
           properties: {
             id: { type: "number" },
             title: { type: "string" },
             amount: { type: "number" },
             categoryId: { type: "number" },
+            accountId: { type: "number" },
             spentOn: { type: "string" },
             notes: { type: "string" }
           }
@@ -207,6 +217,7 @@ export function createExpenseManagerServer({ user }) {
           type: "object",
           properties: {
             categoryId: { type: "number" },
+            accountId: { type: "number" },
             from: { type: "string" },
             to: { type: "string" },
             limit: { type: "number" }
@@ -218,11 +229,12 @@ export function createExpenseManagerServer({ user }) {
         description: "Create a new income record.",
         inputSchema: {
           type: "object",
-          required: ["title", "amount", "categoryId", "receivedOn"],
+          required: ["title", "amount", "categoryId", "accountId", "receivedOn"],
           properties: {
             title: { type: "string" },
             amount: { type: "number" },
             categoryId: { type: "number" },
+            accountId: { type: "number" },
             receivedOn: { type: "string" },
             notes: { type: "string" }
           }
@@ -233,12 +245,13 @@ export function createExpenseManagerServer({ user }) {
         description: "Update an existing income record.",
         inputSchema: {
           type: "object",
-          required: ["id", "title", "amount", "categoryId", "receivedOn"],
+          required: ["id", "title", "amount", "categoryId", "accountId", "receivedOn"],
           properties: {
             id: { type: "number" },
             title: { type: "string" },
             amount: { type: "number" },
             categoryId: { type: "number" },
+            accountId: { type: "number" },
             receivedOn: { type: "string" },
             notes: { type: "string" }
           }
@@ -307,6 +320,99 @@ export function createExpenseManagerServer({ user }) {
           required: ["id"],
           properties: {
             id: { type: "number" }
+          }
+        }
+      },
+      {
+        name: "list_accounts",
+        description: "List accounts with optional filters.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            type: { type: "string", description: "cash, bank, credit_card, or investments" },
+            isActive: { type: "boolean" }
+          }
+        }
+      },
+      {
+        name: "create_account",
+        description: "Create a new account.",
+        inputSchema: {
+          type: "object",
+          required: ["name"],
+          properties: {
+            name: { type: "string" },
+            type: { type: "string" },
+            initialBalance: { type: "number" },
+            color: { type: "string" },
+            icon: { type: "string" },
+            notes: { type: "string" }
+          }
+        }
+      },
+      {
+        name: "update_account",
+        description: "Update an existing account.",
+        inputSchema: {
+          type: "object",
+          required: ["id"],
+          properties: {
+            id: { type: "number" },
+            name: { type: "string" },
+            type: { type: "string" },
+            color: { type: "string" },
+            icon: { type: "string" },
+            notes: { type: "string" },
+            isActive: { type: "boolean" }
+          }
+        }
+      },
+      {
+        name: "delete_account",
+        description: "Delete an account. If account has transactions, it will be deactivated instead.",
+        inputSchema: {
+          type: "object",
+          required: ["id"],
+          properties: {
+            id: { type: "number" }
+          }
+        }
+      },
+      {
+        name: "account_summary",
+        description: "Get summary for an account including total income, expenses, and balance.",
+        inputSchema: {
+          type: "object",
+          required: ["id"],
+          properties: {
+            id: { type: "number" }
+          }
+        }
+      },
+      {
+        name: "transfer_between_accounts",
+        description: "Transfer money between two accounts.",
+        inputSchema: {
+          type: "object",
+          required: ["fromAccountId", "toAccountId", "amount"],
+          properties: {
+            fromAccountId: { type: "number" },
+            toAccountId: { type: "number" },
+            amount: { type: "number" },
+            notes: { type: "string" }
+          }
+        }
+      },
+      {
+        name: "list_transfers",
+        description: "List transfer records with optional filters.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            accountId: { type: "number" },
+            from: { type: "string" },
+            to: { type: "string" },
+            limit: { type: "number" }
           }
         }
       }
@@ -398,6 +504,35 @@ export function createExpenseManagerServer({ user }) {
 
     if (name === "delete_budget") {
       return jsonText({ deleted: await deleteBudget(userId, args.id) });
+    }
+
+    if (name === "list_accounts") {
+      return jsonText(await listAccounts(userId, args));
+    }
+
+    if (name === "create_account") {
+      return jsonText(await createAccount(userId, args));
+    }
+
+    if (name === "update_account") {
+      return jsonText(await updateAccount(userId, args.id, args));
+    }
+
+    if (name === "delete_account") {
+      const result = await deleteAccount(userId, args.id);
+      return jsonText({ result });
+    }
+
+    if (name === "account_summary") {
+      return jsonText(await getAccountSummary(userId, args.id));
+    }
+
+    if (name === "transfer_between_accounts") {
+      return jsonText(await transferBetweenAccounts(userId, args));
+    }
+
+    if (name === "list_transfers") {
+      return jsonText(await listTransfers(userId, args));
     }
 
     throw new Error(`Unknown tool: ${name}`);
