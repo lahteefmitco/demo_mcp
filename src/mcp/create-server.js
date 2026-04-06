@@ -8,6 +8,8 @@ import {
   createCategory,
   createExpense,
   createIncome,
+  deleteBudget,
+  deleteCategory,
   deleteIncome,
   deleteExpense,
   getFinanceDashboard,
@@ -16,8 +18,10 @@ import {
   listCategories,
   listExpenses,
   listIncomes,
-  updateIncome,
-  updateExpense
+  updateBudget,
+  updateCategory,
+  updateExpense,
+  updateIncome
 } from "../services/finance-service.js";
 
 export function createExpenseManagerServer({ user }) {
@@ -79,6 +83,32 @@ export function createExpenseManagerServer({ user }) {
             kind: { type: "string" },
             color: { type: "string" },
             icon: { type: "string" }
+          }
+        }
+      },
+      {
+        name: "update_category",
+        description: "Update an existing category.",
+        inputSchema: {
+          type: "object",
+          required: ["id", "name", "kind", "color", "icon"],
+          properties: {
+            id: { type: "number" },
+            name: { type: "string" },
+            kind: { type: "string" },
+            color: { type: "string" },
+            icon: { type: "string" }
+          }
+        }
+      },
+      {
+        name: "delete_category",
+        description: "Delete a category.",
+        inputSchema: {
+          type: "object",
+          required: ["id"],
+          properties: {
+            id: { type: "number" }
           }
         }
       },
@@ -218,6 +248,34 @@ export function createExpenseManagerServer({ user }) {
             notes: { type: "string" }
           }
         }
+      },
+      {
+        name: "update_budget",
+        description: "Update an existing budget.",
+        inputSchema: {
+          type: "object",
+          required: ["id", "name", "amount", "period", "startDate"],
+          properties: {
+            id: { type: "number" },
+            name: { type: "string" },
+            amount: { type: "number" },
+            period: { type: "string" },
+            startDate: { type: "string" },
+            categoryId: { type: "number" },
+            notes: { type: "string" }
+          }
+        }
+      },
+      {
+        name: "delete_budget",
+        description: "Delete a budget.",
+        inputSchema: {
+          type: "object",
+          required: ["id"],
+          properties: {
+            id: { type: "number" }
+          }
+        }
       }
     ]
   }));
@@ -239,6 +297,14 @@ export function createExpenseManagerServer({ user }) {
 
     if (name === "create_category") {
       return jsonText(await createCategory(userId, args));
+    }
+
+    if (name === "update_category") {
+      return jsonText(await updateCategory(userId, args.id, args));
+    }
+
+    if (name === "delete_category") {
+      return jsonText({ deleted: await deleteCategory(userId, args.id) });
     }
 
     if (name === "list_expenses") {
@@ -279,6 +345,14 @@ export function createExpenseManagerServer({ user }) {
 
     if (name === "create_budget") {
       return jsonText(await createBudget(userId, args));
+    }
+
+    if (name === "update_budget") {
+      return jsonText(await updateBudget(userId, args.id, args));
+    }
+
+    if (name === "delete_budget") {
+      return jsonText({ deleted: await deleteBudget(userId, args.id) });
     }
 
     throw new Error(`Unknown tool: ${name}`);
