@@ -201,6 +201,7 @@ class _AppShellState extends State<AppShell> {
       ),
       ChatScreen(
         session: widget.session,
+        currency: widget.selectedCurrency,
         onOpenProfile: () async {
           await Navigator.of(context).push(
             MaterialPageRoute(
