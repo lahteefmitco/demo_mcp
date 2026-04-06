@@ -151,19 +151,33 @@ class FinanceMcpClient {
   }
 
   Future<List<DailyExpense>> fetchDailyExpenses({int days = 7}) async {
-    final response = await _client.get(
-      Uri.parse('$baseUrl/api/finance/expenses/daily?days=$days'),
-      headers: {'Authorization': 'Bearer $token'},
-    );
+    try {
+      final data = await callTool('daily_expenses', {'days': days});
+      final items = data as List<dynamic>;
+      return items
+          .map((item) => DailyExpense.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'daily_expenses')) {
+        rethrow;
+      }
 
-    if (response.statusCode >= 400) {
-      throw Exception('Failed to fetch daily expenses: ${response.statusCode}');
+      final response = await _client.get(
+        Uri.parse('$baseUrl/api/finance/expenses/daily?days=$days'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode >= 400) {
+        throw Exception(
+          'Failed to fetch daily expenses: ${response.statusCode}',
+        );
+      }
+
+      final data = jsonDecode(response.body) as List<dynamic>;
+      return data
+          .map((item) => DailyExpense.fromJson(item as Map<String, dynamic>))
+          .toList();
     }
-
-    final data = jsonDecode(response.body) as List<dynamic>;
-    return data
-        .map((item) => DailyExpense.fromJson(item as Map<String, dynamic>))
-        .toList();
   }
 
   Future<void> createCategory({

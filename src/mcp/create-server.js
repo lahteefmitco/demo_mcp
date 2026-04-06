@@ -12,6 +12,7 @@ import {
   deleteCategory,
   deleteIncome,
   deleteExpense,
+  getDailyExpensesSummary,
   getFinanceDashboard,
   getPeriodSummary,
   listBudgets,
@@ -122,6 +123,16 @@ export function createExpenseManagerServer({ user }) {
             from: { type: "string" },
             to: { type: "string" },
             limit: { type: "number" }
+          }
+        }
+      },
+      {
+        name: "daily_expenses",
+        description: "Get daily expenses summary for the last N days.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            days: { type: "number", description: "Number of days (1-30, default 7)" }
           }
         }
       },
@@ -309,6 +320,10 @@ export function createExpenseManagerServer({ user }) {
 
     if (name === "list_expenses") {
       return jsonText(await listExpenses(userId, args));
+    }
+
+    if (name === "daily_expenses") {
+      return jsonText(await getDailyExpensesSummary(userId, args.days || 7));
     }
 
     if (name === "create_expense") {
