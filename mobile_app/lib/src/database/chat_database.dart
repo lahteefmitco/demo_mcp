@@ -25,7 +25,10 @@ class ChatMessages extends Table {
 
 @DriftDatabase(tables: [ChatSessions, ChatMessages])
 class ChatDatabase extends _$ChatDatabase {
-  ChatDatabase() : super(_openConnection());
+  ChatDatabase._internal() : super(_openConnection());
+
+  static final ChatDatabase _instance = ChatDatabase._internal();
+  factory ChatDatabase() => _instance;
 
   @override
   int get schemaVersion => 1;
