@@ -28,12 +28,13 @@ class _DailyExpensesChartState extends State<_DailyExpensesChart> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
   }
 
   @override
   void didUpdateWidget(_DailyExpensesChart oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.dailyExpenses.isNotEmpty) {
+    if (widget.dailyExpenses.length != oldWidget.dailyExpenses.length) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
     }
   }
@@ -67,20 +68,24 @@ class _DailyExpensesChartState extends State<_DailyExpensesChart> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Daily Expenses',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            Text(
-              'Last ${widget.dailyExpenses.length} days',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Daily Expenses',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+              Text(
+                'Last ${widget.dailyExpenses.length} days',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 8),
         SizedBox(
@@ -361,6 +366,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withValues(alpha: 0.2),
+                        spreadRadius: 2,
+                        blurRadius: 5,
+                        offset: const Offset(0, 0),
+                      ),
+                    ],
                   ),
                   child: Column(
                     children: [
@@ -912,7 +925,7 @@ class _BudgetProgressCard extends StatelessWidget {
   }
 }
 
-class _WeeklyExpensesChart extends StatelessWidget {
+class _WeeklyExpensesChart extends StatefulWidget {
   const _WeeklyExpensesChart({
     required this.weeklyExpenses,
     required this.currency,
@@ -924,100 +937,165 @@ class _WeeklyExpensesChart extends StatelessWidget {
   final void Function(WeeklyExpense) onWeekTap;
 
   @override
+  State<_WeeklyExpensesChart> createState() => _WeeklyExpensesChartState();
+}
+
+class _WeeklyExpensesChartState extends State<_WeeklyExpensesChart> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(_WeeklyExpensesChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.weeklyExpenses.length != oldWidget.weeklyExpenses.length) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (weeklyExpenses.isEmpty) {
+    if (widget.weeklyExpenses.isEmpty) {
       return const _EmptyCard(message: 'No weekly data available');
     }
 
-    final maxTotal = weeklyExpenses
+    final maxTotal = widget.weeklyExpenses
         .map((e) => e.total)
         .fold(0.0, (a, b) => a > b ? a : b);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: weeklyExpenses.length,
-        itemBuilder: (context, index) {
-          final expense = weeklyExpenses[index];
-          final barHeight = maxTotal > 0
-              ? (expense.total / maxTotal) * 100
-              : 0.0;
-
-          final colors = [
-            [const Color(0xFFEF4444), const Color(0xFFDC2626)],
-            [const Color(0xFFF97316), const Color(0xFFEA580C)],
-            [const Color(0xFFEAB308), const Color(0xFFCA8A04)],
-            [const Color(0xFF22C55E), const Color(0xFF16A34A)],
-            [const Color(0xFF14B8A6), const Color(0xFF0F766E)],
-            [const Color(0xFF0EA5E9), const Color(0xFF0284C7)],
-            [const Color(0xFF3B82F6), const Color(0xFF2563EB)],
-            [const Color(0xFF8B5CF6), const Color(0xFF7C3AED)],
-          ];
-          final colorPair = colors[index % colors.length];
-
-          return Padding(
-            padding: EdgeInsets.only(
-              left: index == 0 ? 0 : 12,
-              right: index == weeklyExpenses.length - 1 ? 0 : 0,
-            ),
-            child: InkWell(
-              onTap: () => onWeekTap(expense),
-              borderRadius: BorderRadius.circular(8),
-              child: SizedBox(
-                width: 56,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    if (expense.total > 0)
-                      Text(
-                        formatMoney(currency, expense.total),
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: colorPair[0],
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    const SizedBox(height: 4),
-                    Container(
-                      width: 36,
-                      height: barHeight > 0 ? barHeight : 4,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: colorPair,
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                        ),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      expense.dateRange,
-                      style: const TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      expense.year,
-                      style: const TextStyle(fontSize: 8, color: Colors.grey),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Weekly Expenses',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
                 ),
               ),
-            ),
-          );
-        },
-      ),
+              Text(
+                'Last ${widget.weeklyExpenses.length} weeks',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 140,
+          child: ListView.builder(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            itemCount: widget.weeklyExpenses.length,
+            itemBuilder: (context, index) {
+              final expense = widget.weeklyExpenses[index];
+              final barHeight = maxTotal > 0
+                  ? (expense.total / maxTotal) * 85
+                  : 0.0;
+
+              final colors = [
+                [const Color(0xFFEF4444), const Color(0xFFDC2626)],
+                [const Color(0xFFF97316), const Color(0xFFEA580C)],
+                [const Color(0xFFEAB308), const Color(0xFFCA8A04)],
+                [const Color(0xFF22C55E), const Color(0xFF16A34A)],
+                [const Color(0xFF14B8A6), const Color(0xFF0F766E)],
+                [const Color(0xFF0EA5E9), const Color(0xFF0284C7)],
+                [const Color(0xFF3B82F6), const Color(0xFF2563EB)],
+                [const Color(0xFF8B5CF6), const Color(0xFF7C3AED)],
+              ];
+              final colorPair = colors[index % colors.length];
+
+              return Padding(
+                padding: EdgeInsets.only(
+                  left: index == 0 ? 0 : 8,
+                  right: index == widget.weeklyExpenses.length - 1 ? 0 : 0,
+                ),
+                child: InkWell(
+                  onTap: () => widget.onWeekTap(expense),
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    width: 52,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        if (expense.total > 0)
+                          Text(
+                            formatMoney(widget.currency, expense.total),
+                            style: TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.w600,
+                              color: colorPair[0],
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        const SizedBox(height: 2),
+                        Container(
+                          width: 28,
+                          height: barHeight > 0 ? barHeight : 3,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: colorPair,
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          expense.dateRange,
+                          style: const TextStyle(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          expense.year,
+                          style: const TextStyle(
+                            fontSize: 7,
+                            color: Colors.grey,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _MonthlyExpensesChart extends StatelessWidget {
+class _MonthlyExpensesChart extends StatefulWidget {
   const _MonthlyExpensesChart({
     required this.monthlyExpenses,
     required this.currency,
@@ -1029,95 +1107,160 @@ class _MonthlyExpensesChart extends StatelessWidget {
   final void Function(MonthlyExpense) onMonthTap;
 
   @override
+  State<_MonthlyExpensesChart> createState() => _MonthlyExpensesChartState();
+}
+
+class _MonthlyExpensesChartState extends State<_MonthlyExpensesChart> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(_MonthlyExpensesChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.monthlyExpenses.length != oldWidget.monthlyExpenses.length) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (monthlyExpenses.isEmpty) {
+    if (widget.monthlyExpenses.isEmpty) {
       return const _EmptyCard(message: 'No monthly data available');
     }
 
-    final maxTotal = monthlyExpenses
+    final maxTotal = widget.monthlyExpenses
         .map((e) => e.total)
         .fold(0.0, (a, b) => a > b ? a : b);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: monthlyExpenses.length,
-        itemBuilder: (context, index) {
-          final expense = monthlyExpenses[index];
-          final barHeight = maxTotal > 0
-              ? (expense.total / maxTotal) * 100
-              : 0.0;
-
-          final colors = [
-            [const Color(0xFFEF4444), const Color(0xFFDC2626)],
-            [const Color(0xFFF97316), const Color(0xFFEA580C)],
-            [const Color(0xFFEAB308), const Color(0xFFCA8A04)],
-            [const Color(0xFF22C55E), const Color(0xFF16A34A)],
-            [const Color(0xFF14B8A6), const Color(0xFF0F766E)],
-            [const Color(0xFF0EA5E9), const Color(0xFF0284C7)],
-            [const Color(0xFF3B82F6), const Color(0xFF2563EB)],
-            [const Color(0xFF8B5CF6), const Color(0xFF7C3AED)],
-          ];
-          final colorPair = colors[index % colors.length];
-
-          return Padding(
-            padding: EdgeInsets.only(
-              left: index == 0 ? 0 : 12,
-              right: index == monthlyExpenses.length - 1 ? 0 : 0,
-            ),
-            child: InkWell(
-              onTap: () => onMonthTap(expense),
-              borderRadius: BorderRadius.circular(8),
-              child: SizedBox(
-                width: 64,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    if (expense.total > 0)
-                      Text(
-                        formatMoney(currency, expense.total),
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: colorPair[0],
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    const SizedBox(height: 4),
-                    Container(
-                      width: 48,
-                      height: barHeight > 0 ? barHeight : 4,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: colorPair,
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                        ),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      expense.monthName,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      expense.year,
-                      style: const TextStyle(fontSize: 8, color: Colors.grey),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Monthly Expenses',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
                 ),
               ),
-            ),
-          );
-        },
-      ),
+              Text(
+                'Last ${widget.monthlyExpenses.length} months',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 140,
+          child: ListView.builder(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            itemCount: widget.monthlyExpenses.length,
+            itemBuilder: (context, index) {
+              final expense = widget.monthlyExpenses[index];
+              final barHeight = maxTotal > 0
+                  ? (expense.total / maxTotal) * 85
+                  : 0.0;
+
+              final colors = [
+                [const Color(0xFFEF4444), const Color(0xFFDC2626)],
+                [const Color(0xFFF97316), const Color(0xFFEA580C)],
+                [const Color(0xFFEAB308), const Color(0xFFCA8A04)],
+                [const Color(0xFF22C55E), const Color(0xFF16A34A)],
+                [const Color(0xFF14B8A6), const Color(0xFF0F766E)],
+                [const Color(0xFF0EA5E9), const Color(0xFF0284C7)],
+                [const Color(0xFF3B82F6), const Color(0xFF2563EB)],
+                [const Color(0xFF8B5CF6), const Color(0xFF7C3AED)],
+              ];
+              final colorPair = colors[index % colors.length];
+
+              return Padding(
+                padding: EdgeInsets.only(
+                  left: index == 0 ? 0 : 8,
+                  right: index == widget.monthlyExpenses.length - 1 ? 0 : 0,
+                ),
+                child: InkWell(
+                  onTap: () => widget.onMonthTap(expense),
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    width: 60,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        if (expense.total > 0)
+                          Text(
+                            formatMoney(widget.currency, expense.total),
+                            style: TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.w600,
+                              color: colorPair[0],
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        const SizedBox(height: 2),
+                        Container(
+                          width: 32,
+                          height: barHeight > 0 ? barHeight : 3,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: colorPair,
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          expense.monthName,
+                          style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          expense.year,
+                          style: const TextStyle(
+                            fontSize: 7,
+                            color: Colors.grey,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

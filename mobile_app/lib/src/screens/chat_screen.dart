@@ -54,7 +54,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _restoreSelectedProvider() async {
     final savedProvider = await _preferencesStorage.readChatAgent();
-    if (!mounted || savedProvider == null || !_providers.containsKey(savedProvider)) {
+    if (!mounted ||
+        savedProvider == null ||
+        !_providers.containsKey(savedProvider)) {
       return;
     }
 
@@ -221,19 +223,31 @@ class _ChatScreenState extends State<ChatScreen> {
               children: [
                 Expanded(
                   child: TextField(
+                    maxLines: 2,
                     controller: _controller,
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) => _send(),
                     decoration: const InputDecoration(
                       hintText: 'Ask like: add lunch 250 rupees 02-04-2026',
-                      border: OutlineInputBorder(),
+                      hintStyle: TextStyle(color: Colors.black38),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(8)),
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 12),
-                FilledButton(
+                IconButton(
                   onPressed: _isSending ? null : _send,
-                  child: const Text('Send'),
+                  style: IconButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    backgroundColor: const Color(0xFF0E7490),
+                    foregroundColor: Colors.white,
+                    iconSize: 36,
+                  ),
+                  icon: const Icon(Icons.send),
                 ),
               ],
             ),
