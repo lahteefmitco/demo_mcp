@@ -5,6 +5,7 @@ import {
   createExpense,
   createIncome,
   deleteBudget,
+  deleteCategory,
   deleteExpense,
   deleteIncome,
   getFinanceDashboard,
@@ -14,6 +15,7 @@ import {
   listExpenses,
   listIncomes,
   updateBudget,
+  updateCategory,
   updateExpense,
   updateIncome
 } from "../services/finance-service.js";
@@ -204,6 +206,47 @@ router.post("/categories", async (req, res, next) => {
     }
 
     res.status(201).json(await createCategory(req.user.id, value));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.put("/categories/:id", async (req, res, next) => {
+  try {
+    const id = parsePositiveId(req.params.id);
+    if (!id) {
+      return res.status(400).json({ error: "id must be a positive integer" });
+    }
+
+    const { errors, value } = validateCategoryPayload(req.body);
+    if (errors.length) {
+      return res.status(400).json({ errors });
+    }
+
+    const category = await updateCategory(req.user.id, id, value);
+    if (!category) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+
+    res.json(category);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete("/categories/:id", async (req, res, next) => {
+  try {
+    const id = parsePositiveId(req.params.id);
+    if (!id) {
+      return res.status(400).json({ error: "id must be a positive integer" });
+    }
+
+    const deleted = await deleteCategory(req.user.id, id);
+    if (!deleted) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+
+    res.status(204).send();
   } catch (error) {
     next(error);
   }

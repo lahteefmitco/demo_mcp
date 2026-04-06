@@ -141,6 +141,53 @@ export async function createCategory(
   return normalizeCategory(rows[0]);
 }
 
+export async function updateCategory(
+  userId,
+  id,
+  { name, kind, color, icon }
+) {
+  const rows = await query(
+    `
+      UPDATE categories
+      SET name = $3,
+          kind = $4,
+          color = $5,
+          icon = $6
+      WHERE id = $1 AND user_id = $2
+      RETURNING id
+    `,
+    [id, userId, name, kind, color, icon]
+  );
+
+  if (!rows[0]) {
+    return null;
+  }
+
+  return getCategoryById(userId, rows[0].id);
+}
+
+export async function getCategoryById(userId, id) {
+  const rows = await query(
+    `
+      SELECT id, name, kind, color, icon, created_at, updated_at
+      FROM categories
+      WHERE id = $1 AND user_id = $2
+    `,
+    [id, userId],
+    { type: QueryTypes.SELECT }
+  );
+
+  return rows[0] ? normalizeCategory(rows[0]) : null;
+}
+
+export async function deleteCategory(userId, id) {
+  const rows = await query(
+    "DELETE FROM categories WHERE id = $1 AND user_id = $2 RETURNING id",
+    [id, userId]
+  );
+  return rows.length > 0;
+}
+
 async function ensureOwnedCategory(userId, categoryId) {
   const rows = await query(
     `

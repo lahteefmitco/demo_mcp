@@ -114,6 +114,111 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _showMessage('${selected.currency} selected');
   }
 
+  Future<void> _editCategory(FinanceCategory category) async {
+    final payload = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(builder: (_) => AddCategoryScreen(category: category)),
+    );
+
+    if (!mounted || payload == null) {
+      return;
+    }
+
+    await _client.updateCategory(
+      id: payload['id'] as int,
+      name: payload['name'] as String,
+      kind: payload['kind'] as String,
+      color: payload['color'] as String,
+      icon: payload['icon'] as String,
+    );
+    _showMessage('Category updated');
+    await _refresh();
+  }
+
+  Future<void> _deleteCategory(FinanceCategory category) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Category'),
+        content: Text('Are you sure you want to delete "${category.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || confirmed != true) {
+      return;
+    }
+
+    await _client.deleteCategory(category.id);
+    _showMessage('Category deleted');
+    await _refresh();
+  }
+
+  Future<void> _editBudget(BudgetItem budget, _SettingsData data) async {
+    final categories = data.dashboard.categories
+        .where(
+          (category) => category.kind == 'expense' || category.kind == 'both',
+        )
+        .toList();
+    final payload = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(
+        builder: (_) => AddBudgetScreen(categories: categories, budget: budget),
+      ),
+    );
+
+    if (!mounted || payload == null) {
+      return;
+    }
+
+    await _client.updateBudget(
+      id: payload['id'] as int,
+      name: payload['name'] as String,
+      amount: payload['amount'] as double,
+      period: payload['period'] as String,
+      startDate: payload['startDate'] as String,
+      categoryId: payload['categoryId'] as int?,
+      notes: payload['notes'] as String? ?? '',
+    );
+    _showMessage('Budget updated');
+    await _refresh();
+  }
+
+  Future<void> _deleteBudget(BudgetItem budget) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Budget'),
+        content: Text('Are you sure you want to delete "${budget.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || confirmed != true) {
+      return;
+    }
+
+    await _client.deleteBudget(budget.id);
+    _showMessage('Budget deleted');
+    await _refresh();
+  }
+
   Future<void> _openActionSheet(_SettingsData data) async {
     final navigator = Navigator.of(context);
     final action = await showModalBottomSheet<String>(
@@ -348,8 +453,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const _EmptyCard(message: 'No budgets set yet.')
                 else
                   ...dashboard.budgets.map(
-                    (budget) =>
-                        _BudgetTile(budget: budget, currency: widget.currency),
+                    (budget) => _BudgetTile(
+                      budget: budget,
+                      currency: widget.currency,
+                      onEdit: () => _editBudget(budget, data),
+                      onDelete: () => _deleteBudget(budget),
+                    ),
                   ),
                 const SizedBox(height: 16),
                 _SectionTitle(
@@ -360,16 +469,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 if (dashboard.categories.isEmpty)
                   const _EmptyCard(message: 'No categories found.')
                 else
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: dashboard.categories
-                        .map(
-                          (category) => Chip(
-                            label: Text('${category.name} • ${category.kind}'),
-                          ),
-                        )
-                        .toList(),
+                  ...dashboard.categories.map(
+                    (category) => _CategoryTile(
+                      category: category,
+                      onEdit: () => _editCategory(category),
+                      onDelete: () => _deleteCategory(category),
+                    ),
                   ),
                 const SizedBox(height: 24),
                 FilledButton.icon(
@@ -462,10 +567,17 @@ class _InfoCard extends StatelessWidget {
 }
 
 class _BudgetTile extends StatelessWidget {
-  const _BudgetTile({required this.budget, required this.currency});
+  const _BudgetTile({
+    required this.budget,
+    required this.currency,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   final BudgetItem budget;
   final CurrencyOption currency;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -487,7 +599,25 @@ class _BudgetTile extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
-                Text('${formatMoney(currency, budget.remaining)} left'),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${formatMoney(currency, budget.remaining)} left',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, size: 20),
+                      onPressed: onEdit,
+                      tooltip: 'Edit',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 20),
+                      onPressed: onDelete,
+                      tooltip: 'Delete',
+                    ),
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: 6),
@@ -559,6 +689,52 @@ class _EmptyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(padding: const EdgeInsets.all(18), child: Text(message)),
+    );
+  }
+}
+
+class _CategoryTile extends StatelessWidget {
+  const _CategoryTile({
+    required this.category,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final FinanceCategory category;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  Color _parseColor(String hex) {
+    final normalized = hex.replaceFirst('#', '');
+    return Color(int.parse('FF$normalized', radix: 16));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: _parseColor(category.color).withValues(alpha: 0.2),
+          child: Icon(Icons.tag, color: _parseColor(category.color)),
+        ),
+        title: Text(category.name),
+        subtitle: Text(category.kind),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: onEdit,
+              tooltip: 'Edit',
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              onPressed: onDelete,
+              tooltip: 'Delete',
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

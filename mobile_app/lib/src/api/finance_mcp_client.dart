@@ -164,6 +164,58 @@ class FinanceMcpClient {
     });
   }
 
+  Future<void> updateCategory({
+    required int id,
+    required String name,
+    required String kind,
+    required String color,
+    required String icon,
+  }) async {
+    try {
+      await callTool('update_category', {
+        'id': id,
+        'name': name,
+        'kind': kind,
+        'color': color,
+        'icon': icon,
+      });
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'update_category')) {
+        rethrow;
+      }
+
+      final response = await _client.put(
+        Uri.parse('$baseUrl/api/finance/categories/$id'),
+        headers: _jsonHeaders,
+        body: jsonEncode({
+          'name': name,
+          'kind': kind,
+          'color': color,
+          'icon': icon,
+        }),
+      );
+
+      _throwIfRequestFailed(response);
+    }
+  }
+
+  Future<void> deleteCategory(int id) async {
+    try {
+      await callTool('delete_category', {'id': id});
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'delete_category')) {
+        rethrow;
+      }
+
+      final response = await _client.delete(
+        Uri.parse('$baseUrl/api/finance/categories/$id'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      _throwIfRequestFailed(response);
+    }
+  }
+
   Future<void> createExpense({
     required String title,
     required double amount,
@@ -289,6 +341,64 @@ class FinanceMcpClient {
       'categoryId': categoryId,
       'notes': notes,
     });
+  }
+
+  Future<void> updateBudget({
+    required int id,
+    required String name,
+    required double amount,
+    required String period,
+    required String startDate,
+    int? categoryId,
+    String notes = '',
+  }) async {
+    try {
+      await callTool('update_budget', {
+        'id': id,
+        'name': name,
+        'amount': amount,
+        'period': period,
+        'startDate': startDate,
+        'categoryId': categoryId,
+        'notes': notes,
+      });
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'update_budget')) {
+        rethrow;
+      }
+
+      final response = await _client.put(
+        Uri.parse('$baseUrl/api/finance/budgets/$id'),
+        headers: _jsonHeaders,
+        body: jsonEncode({
+          'name': name,
+          'amount': amount,
+          'period': period,
+          'startDate': startDate,
+          'categoryId': categoryId,
+          'notes': notes,
+        }),
+      );
+
+      _throwIfRequestFailed(response);
+    }
+  }
+
+  Future<void> deleteBudget(int id) async {
+    try {
+      await callTool('delete_budget', {'id': id});
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'delete_budget')) {
+        rethrow;
+      }
+
+      final response = await _client.delete(
+        Uri.parse('$baseUrl/api/finance/budgets/$id'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      _throwIfRequestFailed(response);
+    }
   }
 
   Future<dynamic> callTool(

@@ -4,9 +4,12 @@ import '../models/finance_models.dart';
 import '../utils/app_date_utils.dart';
 
 class AddBudgetScreen extends StatefulWidget {
-  const AddBudgetScreen({super.key, required this.categories});
+  const AddBudgetScreen({super.key, required this.categories, this.budget});
 
   final List<FinanceCategory> categories;
+  final BudgetItem? budget;
+
+  bool get isEditing => budget != null;
 
   @override
   State<AddBudgetScreen> createState() => _AddBudgetScreenState();
@@ -24,9 +27,17 @@ class _AddBudgetScreenState extends State<AddBudgetScreen> {
   @override
   void initState() {
     super.initState();
+    final budget = widget.budget;
     _dateController = TextEditingController(
-      text: formatAppDate(DateTime.now()),
+      text: budget?.startDate ?? formatAppDate(DateTime.now()),
     );
+    if (budget != null) {
+      _nameController.text = budget.name;
+      _amountController.text = budget.amount.toString();
+      _notesController.text = budget.notes;
+      _period = budget.period;
+      _categoryId = budget.categoryId;
+    }
   }
 
   @override
@@ -58,20 +69,28 @@ class _AddBudgetScreenState extends State<AddBudgetScreen> {
       return;
     }
 
-    Navigator.of(context).pop({
+    final result = <String, dynamic>{
       'name': _nameController.text.trim(),
       'amount': double.parse(_amountController.text.trim()),
       'period': _period,
       'startDate': _dateController.text.trim(),
       'categoryId': _categoryId,
       'notes': _notesController.text.trim(),
-    });
+    };
+
+    if (widget.isEditing) {
+      result['id'] = widget.budget!.id;
+    }
+
+    Navigator.of(context).pop(result);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Budget')),
+      appBar: AppBar(
+        title: Text(widget.isEditing ? 'Edit Budget' : 'Add Budget'),
+      ),
       body: Form(
         key: _formKey,
         child: ListView(

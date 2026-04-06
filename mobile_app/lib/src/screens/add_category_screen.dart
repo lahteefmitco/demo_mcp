@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../models/finance_models.dart';
+
 class AddCategoryScreen extends StatefulWidget {
-  const AddCategoryScreen({super.key});
+  const AddCategoryScreen({super.key, this.category});
+
+  final FinanceCategory? category;
+
+  bool get isEditing => category != null;
 
   @override
   State<AddCategoryScreen> createState() => _AddCategoryScreenState();
@@ -61,11 +67,21 @@ class _AddCategoryScreenState extends State<AddCategoryScreen> {
     '#334155',
   ];
 
+  late final TextEditingController _nameController;
+  late final TextEditingController _iconController;
+  late String _kind;
+  late String _selectedColor;
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _iconController = TextEditingController(text: 'tag');
-  String _kind = 'expense';
-  String _selectedColor = '#0E7490';
+
+  @override
+  void initState() {
+    super.initState();
+    final category = widget.category;
+    _nameController = TextEditingController(text: category?.name ?? '');
+    _iconController = TextEditingController(text: category?.icon ?? 'tag');
+    _kind = category?.kind ?? 'expense';
+    _selectedColor = category?.color ?? '#0E7490';
+  }
 
   @override
   void dispose() {
@@ -79,12 +95,18 @@ class _AddCategoryScreenState extends State<AddCategoryScreen> {
       return;
     }
 
-    Navigator.of(context).pop({
+    final result = <String, dynamic>{
       'name': _nameController.text.trim(),
       'kind': _kind,
       'color': _selectedColor,
       'icon': _iconController.text.trim(),
-    });
+    };
+
+    if (widget.isEditing) {
+      result['id'] = widget.category!.id;
+    }
+
+    Navigator.of(context).pop(result);
   }
 
   Color _parseColor(String hex) {
@@ -116,7 +138,9 @@ class _AddCategoryScreenState extends State<AddCategoryScreen> {
     final previewColor = _parseColor(_selectedColor);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Category')),
+      appBar: AppBar(
+        title: Text(widget.isEditing ? 'Edit Category' : 'Add Category'),
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -183,8 +207,15 @@ class _AddCategoryScreenState extends State<AddCategoryScreen> {
             ),
             const SizedBox(height: 24),
             FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: widget.isEditing
+                    ? const Color(0xFF16A34A)
+                    : null,
+              ),
               onPressed: _submit,
-              child: const Text('Save Category'),
+              child: Text(
+                widget.isEditing ? 'Update Category' : 'Save Category',
+              ),
             ),
           ],
         ),
