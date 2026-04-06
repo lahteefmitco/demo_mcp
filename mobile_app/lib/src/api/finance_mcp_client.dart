@@ -180,6 +180,66 @@ class FinanceMcpClient {
     }
   }
 
+  Future<List<WeeklyExpense>> fetchWeeklyExpenses({int weeks = 4}) async {
+    try {
+      final data = await callTool('weekly_expenses', {'weeks': weeks});
+      final items = data as List<dynamic>;
+      return items
+          .map((item) => WeeklyExpense.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'weekly_expenses')) {
+        rethrow;
+      }
+
+      final response = await _client.get(
+        Uri.parse('$baseUrl/api/finance/expenses/weekly?weeks=$weeks'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode >= 400) {
+        throw Exception(
+          'Failed to fetch weekly expenses: ${response.statusCode}',
+        );
+      }
+
+      final data = jsonDecode(response.body) as List<dynamic>;
+      return data
+          .map((item) => WeeklyExpense.fromJson(item as Map<String, dynamic>))
+          .toList();
+    }
+  }
+
+  Future<List<MonthlyExpense>> fetchMonthlyExpenses({int months = 6}) async {
+    try {
+      final data = await callTool('monthly_expenses', {'months': months});
+      final items = data as List<dynamic>;
+      return items
+          .map((item) => MonthlyExpense.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'monthly_expenses')) {
+        rethrow;
+      }
+
+      final response = await _client.get(
+        Uri.parse('$baseUrl/api/finance/expenses/monthly?months=$months'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode >= 400) {
+        throw Exception(
+          'Failed to fetch monthly expenses: ${response.statusCode}',
+        );
+      }
+
+      final data = jsonDecode(response.body) as List<dynamic>;
+      return data
+          .map((item) => MonthlyExpense.fromJson(item as Map<String, dynamic>))
+          .toList();
+    }
+  }
+
   Future<void> createCategory({
     required String name,
     required String kind,

@@ -10,7 +10,9 @@ import {
   deleteIncome,
   getDailyExpensesSummary,
   getFinanceDashboard,
+  getMonthlyExpensesSummary,
   getPeriodSummary,
+  getWeeklyExpensesSummary,
   listBudgets,
   listCategories,
   listExpenses,
@@ -272,6 +274,24 @@ router.get("/expenses/daily", async (req, res, next) => {
   try {
     const days = Math.min(Math.max(Number(req.query.days) || 7, 1), 30);
     res.json(await getDailyExpensesSummary(req.user.id, days));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/expenses/weekly", async (req, res, next) => {
+  try {
+    const weeks = Math.min(Math.max(Number(req.query.weeks) || 4, 1), 12);
+    res.json(await getWeeklyExpensesSummary(req.user.id, weeks));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/expenses/monthly", async (req, res, next) => {
+  try {
+    const months = Math.min(Math.max(Number(req.query.months) || 6, 1), 12);
+    res.json(await getMonthlyExpensesSummary(req.user.id, months));
   } catch (error) {
     next(error);
   }

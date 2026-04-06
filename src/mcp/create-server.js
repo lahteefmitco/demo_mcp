@@ -14,7 +14,9 @@ import {
   deleteExpense,
   getDailyExpensesSummary,
   getFinanceDashboard,
+  getMonthlyExpensesSummary,
   getPeriodSummary,
+  getWeeklyExpensesSummary,
   listBudgets,
   listCategories,
   listExpenses,
@@ -133,6 +135,26 @@ export function createExpenseManagerServer({ user }) {
           type: "object",
           properties: {
             days: { type: "number", description: "Number of days (1-30, default 7)" }
+          }
+        }
+      },
+      {
+        name: "weekly_expenses",
+        description: "Get weekly expenses summary for the last N weeks.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            weeks: { type: "number", description: "Number of weeks (1-12, default 4)" }
+          }
+        }
+      },
+      {
+        name: "monthly_expenses",
+        description: "Get monthly expenses summary for the last N months.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            months: { type: "number", description: "Number of months (1-12, default 6)" }
           }
         }
       },
@@ -324,6 +346,14 @@ export function createExpenseManagerServer({ user }) {
 
     if (name === "daily_expenses") {
       return jsonText(await getDailyExpensesSummary(userId, args.days || 7));
+    }
+
+    if (name === "weekly_expenses") {
+      return jsonText(await getWeeklyExpensesSummary(userId, args.weeks || 4));
+    }
+
+    if (name === "monthly_expenses") {
+      return jsonText(await getMonthlyExpensesSummary(userId, args.months || 6));
     }
 
     if (name === "create_expense") {

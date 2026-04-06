@@ -709,3 +709,89 @@ export async function getDailyExpensesSummary(userId, days = 7) {
     count: row.count
   }));
 }
+
+export async function getWeeklyExpensesSummary(userId, weeks = 4) {
+  const weeklyExpenses = await query(
+    `
+      WITH week_series AS (
+        SELECT generate_series(
+          DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '${weeks - 1} weeks',
+          DATE_TRUNC('week', CURRENT_DATE),
+          '1 week'::interval
+        )::date AS week_start
+      ),
+      weekly_totals AS (
+        SELECT 
+          ws.week_start,
+          COALESCE(SUM(e.amount), 0)::numeric(12, 2) AS total,
+          COUNT(e.id)::int AS count
+        FROM week_series ws
+        LEFT JOIN expenses e 
+          ON e.user_id = $1 
+          AND DATE_TRUNC('week', e.spent_on) = ws.week_start
+        GROUP BY ws.week_start
+      )
+      SELECT 
+        week_start,
+        total,
+        count,
+        TO_CHAR(week_start, 'YYYY') AS year,
+        TO_CHAR(week_start, 'MM/DD') AS date_range
+      FROM weekly_totals
+      ORDER BY week_start ASC
+    `,
+    [userId],
+    { type: QueryTypes.SELECT }
+  );
+
+  return weeklyExpenses.map(row => ({
+    weekStart: formatProjectDate(row.week_start),
+    dateRange: row.date_range,
+    year: row.year,
+    total: Number(row.total),
+    count: row.count
+  }));
+}
+
+export async function getMonthlyExpensesSummary(userId, months = 6) {
+  const monthlyExpenses = await query(
+    `
+      WITH month_series AS (
+        SELECT generate_series(
+          DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '${months - 1} months',
+          DATE_TRUNC('month', CURRENT_DATE),
+          '1 month'::interval
+        )::date AS month_start
+      ),
+      monthly_totals AS (
+        SELECT 
+          ms.month_start,
+          COALESCE(SUM(e.amount), 0)::numeric(12, 2) AS total,
+          COUNT(e.id)::int AS count
+        FROM month_series ms
+        LEFT JOIN expenses e 
+          ON e.user_id = $1 
+          AND DATE_TRUNC('month', e.spent_on) = ms.month_start
+        GROUP BY ms.month_start
+      )
+      SELECT 
+        month_start,
+        total,
+        count,
+        TO_CHAR(month_start, 'Mon') AS month_name,
+        TO_CHAR(month_start, 'YYYY') AS year
+      FROM monthly_totals
+      ORDER BY month_start ASC
+    `,
+    [userId],
+    { type: QueryTypes.SELECT }
+  );
+
+  return monthlyExpenses.map(row => ({
+    monthStart: formatProjectDate(row.month_start),
+    monthName: row.month_name,
+    year: row.year,
+    total: Number(row.total),
+    count: row.count
+  }));
+}

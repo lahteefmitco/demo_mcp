@@ -246,3 +246,55 @@ class DailyExpense {
     );
   }
 }
+
+class WeeklyExpense {
+  const WeeklyExpense({
+    required this.weekStart,
+    required this.dateRange,
+    required this.year,
+    required this.total,
+    required this.count,
+  });
+
+  final String weekStart;
+  final String dateRange;
+  final String year;
+  final double total;
+  final int count;
+
+  factory WeeklyExpense.fromJson(Map<String, dynamic> json) {
+    return WeeklyExpense(
+      weekStart: json['weekStart'] as String? ?? '',
+      dateRange: json['dateRange'] as String? ?? '',
+      year: json['year'] as String? ?? '',
+      total: (json['total'] as num).toDouble(),
+      count: json['count'] as int? ?? 0,
+    );
+  }
+}
+
+class MonthlyExpense {
+  const MonthlyExpense({
+    required this.monthStart,
+    required this.monthName,
+    required this.year,
+    required this.total,
+    required this.count,
+  });
+
+  final String monthStart;
+  final String monthName;
+  final String year;
+  final double total;
+  final int count;
+
+  factory MonthlyExpense.fromJson(Map<String, dynamic> json) {
+    return MonthlyExpense(
+      monthStart: json['monthStart'] as String? ?? '',
+      monthName: json['monthName'] as String? ?? '',
+      year: json['year'] as String? ?? '',
+      total: (json['total'] as num).toDouble(),
+      count: json['count'] as int? ?? 0,
+    );
+  }
+}

@@ -5,23 +5,58 @@ import '../models/auth_session.dart';
 import '../models/currency_option.dart';
 import '../models/finance_models.dart';
 import '../utils/currency_utils.dart';
+import 'day_expenses_screen.dart';
 
-class _DailyExpensesChart extends StatelessWidget {
+class _DailyExpensesChart extends StatefulWidget {
   const _DailyExpensesChart({
     required this.dailyExpenses,
     required this.currency,
+    required this.onDayTap,
   });
 
   final List<DailyExpense> dailyExpenses;
   final CurrencyOption currency;
+  final void Function(DailyExpense expense) onDayTap;
+
+  @override
+  State<_DailyExpensesChart> createState() => _DailyExpensesChartState();
+}
+
+class _DailyExpensesChartState extends State<_DailyExpensesChart> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  void didUpdateWidget(_DailyExpensesChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.dailyExpenses.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToEnd() {
+    if (!_scrollController.hasClients) return;
+    if (widget.dailyExpenses.isEmpty) return;
+    _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (dailyExpenses.isEmpty) {
+    if (widget.dailyExpenses.isEmpty) {
       return const _EmptyCard(message: 'No expense data available');
     }
 
-    final maxTotal = dailyExpenses
+    final maxTotal = widget.dailyExpenses
         .map((e) => e.total)
         .fold(0.0, (a, b) => a > b ? a : b);
     final today = DateTime.now();
@@ -41,7 +76,7 @@ class _DailyExpensesChart extends StatelessWidget {
               ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
             ),
             Text(
-              'Last ${dailyExpenses.length} days',
+              'Last ${widget.dailyExpenses.length} days',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
@@ -50,79 +85,92 @@ class _DailyExpensesChart extends StatelessWidget {
         SizedBox(
           height: 160,
           child: ListView.builder(
+            controller: _scrollController,
             scrollDirection: Axis.horizontal,
-            itemCount: dailyExpenses.length,
+            itemCount: widget.dailyExpenses.length,
             itemBuilder: (context, index) {
-              final expense = dailyExpenses[index];
+              final expense = widget.dailyExpenses[index];
               final isToday = expense.date == todayStr;
               final barHeight = maxTotal > 0
                   ? (expense.total / maxTotal) * 100
                   : 0.0;
 
+              final colors = [
+                [const Color(0xFFEF4444), const Color(0xFFDC2626)],
+                [const Color(0xFFF97316), const Color(0xFFEA580C)],
+                [const Color(0xFFEAB308), const Color(0xFFCA8A04)],
+                [const Color(0xFF22C55E), const Color(0xFF16A34A)],
+                [const Color(0xFF14B8A6), const Color(0xFF0F766E)],
+                [const Color(0xFF0EA5E9), const Color(0xFF0284C7)],
+                [const Color(0xFF3B82F6), const Color(0xFF2563EB)],
+                [const Color(0xFF8B5CF6), const Color(0xFF7C3AED)],
+                [const Color(0xFFD946EF), const Color(0xFFC026D3)],
+                [const Color(0xFFEC4899), const Color(0xFFDB2777)],
+              ];
+              final colorPair = isToday
+                  ? [const Color(0xFF0F766E), const Color(0xFF155E75)]
+                  : colors[index % colors.length];
+
               return Padding(
                 padding: EdgeInsets.only(
                   left: index == 0 ? 0 : 12,
-                  right: index == dailyExpenses.length - 1 ? 0 : 0,
+                  right: index == widget.dailyExpenses.length - 1 ? 0 : 0,
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    if (expense.total > 0)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          formatMoney(currency, expense.total),
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
+                child: InkWell(
+                  onTap: () => widget.onDayTap(expense),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      if (expense.total > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            formatMoney(widget.currency, expense.total),
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: colorPair[0],
+                            ),
                           ),
                         ),
-                      ),
-                    Container(
-                      width: 36,
-                      height: barHeight > 0 ? barHeight : 4,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: isToday
-                              ? [
-                                  const Color(0xFF0F766E),
-                                  const Color(0xFF155E75),
-                                ]
-                              : [
-                                  const Color(0xFF94A3B8),
-                                  const Color(0xFF64748B),
-                                ],
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
+                      Container(
+                        width: 36,
+                        height: barHeight > 0 ? barHeight : 4,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: colorPair,
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                          border: isToday
+                              ? Border.all(color: colorPair[0], width: 2)
+                              : null,
                         ),
-                        borderRadius: BorderRadius.circular(6),
-                        border: isToday
-                            ? Border.all(
-                                color: const Color(0xFF0F766E),
-                                width: 2,
-                              )
-                            : null,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      expense.dayName.substring(0, 3),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
-                        color: isToday
-                            ? const Color(0xFF0F766E)
-                            : Theme.of(context).textTheme.bodySmall?.color,
+                      const SizedBox(height: 8),
+                      Text(
+                        expense.dayName.substring(0, 3),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isToday
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: isToday
+                              ? colorPair[0]
+                              : Theme.of(context).textTheme.bodySmall?.color,
+                        ),
                       ),
-                    ),
-                    Text(
-                      expense.dayNumber,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Theme.of(context).textTheme.bodySmall?.color,
+                      Text(
+                        expense.dayNumber,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Theme.of(context).textTheme.bodySmall?.color,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             },
@@ -147,17 +195,30 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen>
+    with SingleTickerProviderStateMixin {
   late final FinanceMcpClient _client;
+  late final TabController _tabController;
   late Future<FinanceDashboard> _future;
   late Future<List<DailyExpense>> _dailyFuture;
+  late Future<List<WeeklyExpense>> _weeklyFuture;
+  late Future<List<MonthlyExpense>> _monthlyFuture;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     _client = FinanceMcpClient(token: widget.session.token);
     _future = _load();
     _dailyFuture = _loadDaily();
+    _weeklyFuture = _loadWeekly();
+    _monthlyFuture = _loadMonthly();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<FinanceDashboard> _load() async {
@@ -168,12 +229,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _client.fetchDailyExpenses(days: 30);
   }
 
+  Future<List<WeeklyExpense>> _loadWeekly() async {
+    return _client.fetchWeeklyExpenses(weeks: 8);
+  }
+
+  Future<List<MonthlyExpense>> _loadMonthly() async {
+    return _client.fetchMonthlyExpenses(months: 6);
+  }
+
   Future<void> _refresh() async {
     setState(() {
       _future = _load();
       _dailyFuture = _loadDaily();
+      _weeklyFuture = _loadWeekly();
+      _monthlyFuture = _loadMonthly();
     });
-    await Future.wait([_future, _dailyFuture]);
+    await Future.wait([_future, _dailyFuture, _weeklyFuture, _monthlyFuture]);
+  }
+
+  Future<void> _openDayExpenses(DailyExpense expense) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DayExpensesScreen(
+          session: widget.session,
+          currency: widget.currency,
+          date: expense.date,
+          dayName: expense.dayName,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openWeekExpenses(WeeklyExpense expense) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DayExpensesScreen(
+          session: widget.session,
+          currency: widget.currency,
+          date: expense.weekStart,
+          dayName: 'Week of ${expense.dateRange}',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openMonthExpenses(MonthlyExpense expense) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DayExpensesScreen(
+          session: widget.session,
+          currency: widget.currency,
+          date: expense.monthStart,
+          dayName: '${expense.monthName} ${expense.year}',
+        ),
+      ),
+    );
   }
 
   String _currentMonth() {
@@ -242,23 +352,97 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 _BalanceCard(summary: summary, currency: widget.currency),
                 const SizedBox(height: 24),
-                FutureBuilder<List<DailyExpense>>(
-                  future: _dailyFuture,
-                  builder: (context, dailySnapshot) {
-                    if (dailySnapshot.connectionState != ConnectionState.done) {
-                      return const SizedBox(
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      TabBar(
+                        controller: _tabController,
+                        labelColor: const Color(0xFF0F766E),
+                        unselectedLabelColor: Colors.grey,
+                        indicatorColor: const Color(0xFF0F766E),
+                        tabs: const [
+                          Tab(text: 'Daily'),
+                          Tab(text: 'Weekly'),
+                          Tab(text: 'Monthly'),
+                        ],
+                      ),
+                      SizedBox(
                         height: 180,
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-                    if (dailySnapshot.hasError) {
-                      return _EmptyCard(message: 'Could not load daily data');
-                    }
-                    return _DailyExpensesChart(
-                      dailyExpenses: dailySnapshot.data!,
-                      currency: widget.currency,
-                    );
-                  },
+                        child: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            FutureBuilder<List<DailyExpense>>(
+                              future: _dailyFuture,
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState !=
+                                    ConnectionState.done) {
+                                  return const Center(
+                                    child: CircularProgressIndicator(),
+                                  );
+                                }
+                                if (snapshot.hasError) {
+                                  return _EmptyCard(
+                                    message: 'Could not load daily data',
+                                  );
+                                }
+                                return _DailyExpensesChart(
+                                  dailyExpenses: snapshot.data!,
+                                  currency: widget.currency,
+                                  onDayTap: _openDayExpenses,
+                                );
+                              },
+                            ),
+                            FutureBuilder<List<WeeklyExpense>>(
+                              future: _weeklyFuture,
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState !=
+                                    ConnectionState.done) {
+                                  return const Center(
+                                    child: CircularProgressIndicator(),
+                                  );
+                                }
+                                if (snapshot.hasError) {
+                                  return _EmptyCard(
+                                    message: 'Could not load weekly data',
+                                  );
+                                }
+                                return _WeeklyExpensesChart(
+                                  weeklyExpenses: snapshot.data!,
+                                  currency: widget.currency,
+                                  onWeekTap: _openWeekExpenses,
+                                );
+                              },
+                            ),
+                            FutureBuilder<List<MonthlyExpense>>(
+                              future: _monthlyFuture,
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState !=
+                                    ConnectionState.done) {
+                                  return const Center(
+                                    child: CircularProgressIndicator(),
+                                  );
+                                }
+                                if (snapshot.hasError) {
+                                  return _EmptyCard(
+                                    message: 'Could not load monthly data',
+                                  );
+                                }
+                                return _MonthlyExpensesChart(
+                                  monthlyExpenses: snapshot.data!,
+                                  currency: widget.currency,
+                                  onMonthTap: _openMonthExpenses,
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 24),
                 _StatsRow(summary: summary, currency: widget.currency),
@@ -718,6 +902,208 @@ class _BudgetProgressCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _WeeklyExpensesChart extends StatelessWidget {
+  const _WeeklyExpensesChart({
+    required this.weeklyExpenses,
+    required this.currency,
+    required this.onWeekTap,
+  });
+
+  final List<WeeklyExpense> weeklyExpenses;
+  final CurrencyOption currency;
+  final void Function(WeeklyExpense) onWeekTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (weeklyExpenses.isEmpty) {
+      return const _EmptyCard(message: 'No weekly data available');
+    }
+
+    final maxTotal = weeklyExpenses
+        .map((e) => e.total)
+        .fold(0.0, (a, b) => a > b ? a : b);
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: weeklyExpenses.length,
+        itemBuilder: (context, index) {
+          final expense = weeklyExpenses[index];
+          final barHeight = maxTotal > 0
+              ? (expense.total / maxTotal) * 100
+              : 0.0;
+
+          final colors = [
+            [const Color(0xFFEF4444), const Color(0xFFDC2626)],
+            [const Color(0xFFF97316), const Color(0xFFEA580C)],
+            [const Color(0xFFEAB308), const Color(0xFFCA8A04)],
+            [const Color(0xFF22C55E), const Color(0xFF16A34A)],
+            [const Color(0xFF14B8A6), const Color(0xFF0F766E)],
+            [const Color(0xFF0EA5E9), const Color(0xFF0284C7)],
+            [const Color(0xFF3B82F6), const Color(0xFF2563EB)],
+            [const Color(0xFF8B5CF6), const Color(0xFF7C3AED)],
+          ];
+          final colorPair = colors[index % colors.length];
+
+          return Padding(
+            padding: EdgeInsets.only(
+              left: index == 0 ? 0 : 12,
+              right: index == weeklyExpenses.length - 1 ? 0 : 0,
+            ),
+            child: InkWell(
+              onTap: () => onWeekTap(expense),
+              borderRadius: BorderRadius.circular(8),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (expense.total > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        formatMoney(currency, expense.total),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: colorPair[0],
+                        ),
+                      ),
+                    ),
+                  Container(
+                    width: 48,
+                    height: barHeight > 0 ? barHeight : 4,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: colorPair,
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    expense.dateRange,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    expense.year,
+                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _MonthlyExpensesChart extends StatelessWidget {
+  const _MonthlyExpensesChart({
+    required this.monthlyExpenses,
+    required this.currency,
+    required this.onMonthTap,
+  });
+
+  final List<MonthlyExpense> monthlyExpenses;
+  final CurrencyOption currency;
+  final void Function(MonthlyExpense) onMonthTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (monthlyExpenses.isEmpty) {
+      return const _EmptyCard(message: 'No monthly data available');
+    }
+
+    final maxTotal = monthlyExpenses
+        .map((e) => e.total)
+        .fold(0.0, (a, b) => a > b ? a : b);
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: monthlyExpenses.length,
+        itemBuilder: (context, index) {
+          final expense = monthlyExpenses[index];
+          final barHeight = maxTotal > 0
+              ? (expense.total / maxTotal) * 100
+              : 0.0;
+
+          final colors = [
+            [const Color(0xFFEF4444), const Color(0xFFDC2626)],
+            [const Color(0xFFF97316), const Color(0xFFEA580C)],
+            [const Color(0xFFEAB308), const Color(0xFFCA8A04)],
+            [const Color(0xFF22C55E), const Color(0xFF16A34A)],
+            [const Color(0xFF14B8A6), const Color(0xFF0F766E)],
+            [const Color(0xFF0EA5E9), const Color(0xFF0284C7)],
+            [const Color(0xFF3B82F6), const Color(0xFF2563EB)],
+            [const Color(0xFF8B5CF6), const Color(0xFF7C3AED)],
+          ];
+          final colorPair = colors[index % colors.length];
+
+          return Padding(
+            padding: EdgeInsets.only(
+              left: index == 0 ? 0 : 12,
+              right: index == monthlyExpenses.length - 1 ? 0 : 0,
+            ),
+            child: InkWell(
+              onTap: () => onMonthTap(expense),
+              borderRadius: BorderRadius.circular(8),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (expense.total > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        formatMoney(currency, expense.total),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: colorPair[0],
+                        ),
+                      ),
+                    ),
+                  Container(
+                    width: 56,
+                    height: barHeight > 0 ? barHeight : 4,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: colorPair,
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    expense.monthName,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    expense.year,
+                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
