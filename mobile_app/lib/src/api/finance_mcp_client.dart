@@ -882,6 +882,42 @@ class FinanceMcpClient {
     }
   }
 
+  Future<ChartData> fetchChartData({
+    String? type,
+    required String period,
+    int? accountId,
+  }) async {
+    try {
+      final data = await callTool('get_chart_data', {
+        'type': type,
+        'period': period,
+        'accountId': accountId,
+      });
+      return ChartData.fromJson(data as Map<String, dynamic>);
+    } catch (error) {
+      if (!_isUnknownToolError(error, 'get_chart_data')) {
+        rethrow;
+      }
+
+      var uri = '$baseUrl/api/finance/charts?period=$period';
+      if (type != null) uri += '&type=$type';
+      if (accountId != null) uri += '&accountId=$accountId';
+
+      final response = await _client.get(
+        Uri.parse(uri),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode >= 400) {
+        throw Exception('Failed to fetch chart data: ${response.statusCode}');
+      }
+
+      return ChartData.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+  }
+
   Future<dynamic> callTool(
     String toolName,
     Map<String, dynamic> arguments,
@@ -995,5 +1031,48 @@ class FinanceMcpClient {
     final id = _requestId;
     _requestId += 1;
     return id;
+  }
+}
+
+class ChartDataPoint {
+  final String label;
+  final double value;
+
+  ChartDataPoint({required this.label, required this.value});
+
+  factory ChartDataPoint.fromJson(Map<String, dynamic> json) {
+    return ChartDataPoint(
+      label: json['label'] as String? ?? '',
+      value: (json['value'] as num).toDouble(),
+    );
+  }
+}
+
+class ChartData {
+  final String type;
+  final String title;
+  final String period;
+  final List<ChartDataPoint> data;
+  final double total;
+
+  ChartData({
+    required this.type,
+    required this.title,
+    required this.period,
+    required this.data,
+    required this.total,
+  });
+
+  factory ChartData.fromJson(Map<String, dynamic> json) {
+    final items = json['data'] as List<dynamic>? ?? [];
+    return ChartData(
+      type: json['type'] as String? ?? 'bar',
+      title: json['title'] as String? ?? 'Chart',
+      period: json['period'] as String? ?? '',
+      data: items
+          .map((item) => ChartDataPoint.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      total: (json['total'] as num?)?.toDouble() ?? 0,
+    );
   }
 }

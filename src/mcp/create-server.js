@@ -15,6 +15,7 @@ import {
   deleteIncome,
   deleteExpense,
   getAccountSummary,
+  getChartData,
   getDailyExpensesSummary,
   getFinanceDashboard,
   getMonthlyExpensesSummary,
@@ -415,6 +416,24 @@ export function createExpenseManagerServer({ user }) {
             limit: { type: "number" }
           }
         }
+      },
+      {
+        name: "get_chart_data",
+        description: "Get chart data for visualization. Returns data for bar, line, or pie charts.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            type: { 
+              type: "string", 
+              description: "Chart type: bar, line, or pie" 
+            },
+            period: { 
+              type: "string", 
+              description: "Time period: today, daily, weekly, monthly, category" 
+            },
+            accountId: { type: "number" }
+          }
+        }
       }
     ]
   }));
@@ -533,6 +552,10 @@ export function createExpenseManagerServer({ user }) {
 
     if (name === "list_transfers") {
       return jsonText(await listTransfers(userId, args));
+    }
+
+    if (name === "get_chart_data") {
+      return jsonText(await getChartData(userId, args));
     }
 
     throw new Error(`Unknown tool: ${name}`);

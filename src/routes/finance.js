@@ -14,14 +14,15 @@ import {
   getAccountExpenses,
   getAccountIncomes,
   getAccountSummary,
+  getChartData,
   getDailyExpensesSummary,
   getFinanceDashboard,
   getMonthlyExpensesSummary,
   getPeriodSummary,
   getWeeklyExpensesSummary,
+  listAccounts,
   listBudgets,
   listCategories,
-  listAccounts,
   listExpenses,
   listIncomes,
   listTransfers,
@@ -753,6 +754,20 @@ router.post("/transfers", async (req, res, next) => {
     if (error.message.includes("not found")) {
       return res.status(404).json({ error: error.message });
     }
+    next(error);
+  }
+});
+
+router.get("/charts", async (req, res, next) => {
+  try {
+    const { type, period, accountId } = req.query;
+    const chartData = await getChartData(req.user.id, {
+      type,
+      period,
+      accountId: accountId ? parseInt(accountId, 10) : undefined
+    });
+    res.json(chartData);
+  } catch (error) {
     next(error);
   }
 });

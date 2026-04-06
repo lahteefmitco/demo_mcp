@@ -1376,3 +1376,204 @@ export async function listTransfers(userId, filters = {}) {
     createdAt: row.created_at
   }));
 }
+
+export async function getChartData(userId, { type, period, accountId }) {
+  const today = new Date();
+  const periodLower = (period || 'daily').toLowerCase();
+  const accountFilter = accountId ? `AND e.account_id = ${accountId}` : '';
+
+  if (periodLower === 'today') {
+    const todayStr = today.toISOString().split('T')[0];
+    const expenses = await query(
+      `
+        SELECT 
+          c.name AS label,
+          COALESCE(SUM(e.amount), 0)::numeric(12, 2) AS value
+        FROM expenses e
+        JOIN categories c ON c.id = e.category_id AND c.user_id = e.user_id
+        WHERE e.user_id = $1 AND DATE(e.spent_on) = $2 ${accountFilter}
+        GROUP BY c.name
+        ORDER BY value DESC
+      `,
+      [userId, todayStr],
+      { type: QueryTypes.SELECT }
+    );
+
+    return {
+      type: type || 'bar',
+      title: "Today's Expenses by Category",
+      period: 'today',
+      data: expenses.map(row => ({
+        label: row.label,
+        value: Number(row.value)
+      })),
+      total: expenses.reduce((sum, row) => sum + Number(row.value), 0)
+    };
+  }
+
+  if (periodLower === 'daily' || periodLower === 'week' || periodLower === 'weekly') {
+    const days = 7;
+    const dailyExpenses = await query(
+      `
+        WITH date_series AS (
+          SELECT generate_series(
+            CURRENT_DATE - INTERVAL '${days - 1} days',
+            CURRENT_DATE,
+            '1 day'::interval
+          )::date AS day
+        ),
+        daily_totals AS (
+          SELECT 
+            ds.day,
+            COALESCE(SUM(e.amount), 0)::numeric(12, 2) AS value
+          FROM date_series ds
+          LEFT JOIN expenses e 
+            ON e.user_id = $1 
+            AND DATE(e.spent_on) = ds.day ${accountFilter}
+          GROUP BY ds.day
+        )
+        SELECT 
+          TO_CHAR(day, 'Dy') AS label,
+          value
+        FROM daily_totals
+        ORDER BY day ASC
+      `,
+      [userId],
+      { type: QueryTypes.SELECT }
+    );
+
+    return {
+      type: type || 'bar',
+      title: 'Daily Expenses (Last 7 Days)',
+      period: 'daily',
+      data: dailyExpenses.map(row => ({
+        label: row.label,
+        value: Number(row.value)
+      })),
+      total: dailyExpenses.reduce((sum, row) => sum + Number(row.value), 0)
+    };
+  }
+
+  if (periodLower === 'weekly' || periodLower === 'weeks') {
+    const weeks = 8;
+    const weeklyExpenses = await query(
+      `
+        WITH week_series AS (
+          SELECT generate_series(
+            DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '${weeks - 1} weeks',
+            DATE_TRUNC('week', CURRENT_DATE),
+            '1 week'::interval
+          )::date AS week_start
+        ),
+        weekly_totals AS (
+          SELECT 
+            ws.week_start,
+            COALESCE(SUM(e.amount), 0)::numeric(12, 2) AS value
+          FROM week_series ws
+          LEFT JOIN expenses e 
+            ON e.user_id = $1 
+            AND DATE_TRUNC('week', e.spent_on) = ws.week_start ${accountFilter}
+          GROUP BY ws.week_start
+        )
+        SELECT 
+          TO_CHAR(week_start, 'MM/DD') AS label,
+          value
+        FROM weekly_totals
+        ORDER BY week_start ASC
+      `,
+      [userId],
+      { type: QueryTypes.SELECT }
+    );
+
+    return {
+      type: type || 'line',
+      title: 'Weekly Expenses (Last 8 Weeks)',
+      period: 'weekly',
+      data: weeklyExpenses.map(row => ({
+        label: row.label,
+        value: Number(row.value)
+      })),
+      total: weeklyExpenses.reduce((sum, row) => sum + Number(row.value), 0)
+    };
+  }
+
+  if (periodLower === 'monthly' || periodLower === 'month' || periodLower === 'months') {
+    const months = 6;
+    const monthlyExpenses = await query(
+      `
+        WITH month_series AS (
+          SELECT generate_series(
+            DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '${months - 1} months',
+            DATE_TRUNC('month', CURRENT_DATE),
+            '1 month'::interval
+          )::date AS month_start
+        ),
+        monthly_totals AS (
+          SELECT 
+            ms.month_start,
+            COALESCE(SUM(e.amount), 0)::numeric(12, 2) AS value
+          FROM month_series ms
+          LEFT JOIN expenses e 
+            ON e.user_id = $1 
+            AND DATE_TRUNC('month', e.spent_on) = ms.month_start ${accountFilter}
+          GROUP BY ms.month_start
+        )
+        SELECT 
+          TO_CHAR(month_start, 'Mon') AS label,
+          value
+        FROM monthly_totals
+        ORDER BY month_start ASC
+      `,
+      [userId],
+      { type: QueryTypes.SELECT }
+    );
+
+    return {
+      type: type || 'bar',
+      title: 'Monthly Expenses (Last 6 Months)',
+      period: 'monthly',
+      data: monthlyExpenses.map(row => ({
+        label: row.label,
+        value: Number(row.value)
+      })),
+      total: monthlyExpenses.reduce((sum, row) => sum + Number(row.value), 0)
+    };
+  }
+
+  if (periodLower === 'category') {
+    const byCategory = await query(
+      `
+        SELECT 
+          c.name AS label,
+          COALESCE(SUM(e.amount), 0)::numeric(12, 2) AS value
+        FROM expenses e
+        JOIN categories c ON c.id = e.category_id AND c.user_id = e.user_id
+        WHERE e.user_id = $1 ${accountFilter}
+        GROUP BY c.name
+        ORDER BY value DESC
+        LIMIT 10
+      `,
+      [userId],
+      { type: QueryTypes.SELECT }
+    );
+
+    return {
+      type: 'pie',
+      title: 'Expenses by Category',
+      period: 'category',
+      data: byCategory.map(row => ({
+        label: row.label,
+        value: Number(row.value)
+      })),
+      total: byCategory.reduce((sum, row) => sum + Number(row.value), 0)
+    };
+  }
+
+  return {
+    type: 'bar',
+    title: 'Expenses',
+    period: periodLower,
+    data: [],
+    total: 0
+  };
+}
