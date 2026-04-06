@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../api/finance_mcp_client.dart';
@@ -9,6 +10,7 @@ import '../utils/currency_utils.dart';
 import 'add_budget_screen.dart';
 import 'add_category_screen.dart';
 import 'category_entries_screen.dart';
+import 'chat_db_viewer_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -71,6 +73,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _openChatDbViewer() async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const ChatDbViewerScreen()));
   }
 
   Future<void> _selectCurrency() async {
@@ -476,6 +484,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onDelete: () => _deleteCategory(category),
                     ),
                   ),
+                if (kDebugMode) ...[
+                  const SizedBox(height: 16),
+                  _SectionTitle(title: 'Developer', subtitle: 'Debug tools'),
+                  const SizedBox(height: 8),
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.storage_outlined),
+                      title: const Text('Chat History DB'),
+                      subtitle: const Text('View stored chat sessions'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _openChatDbViewer,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 24),
                 FilledButton.icon(
                   onPressed: widget.onLogout,

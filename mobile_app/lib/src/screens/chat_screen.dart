@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../api/chat_api.dart';
+import '../database/chat_database.dart';
 import '../models/auth_session.dart';
 import '../models/chat_message.dart';
 import '../settings/app_preferences_storage.dart';
@@ -21,6 +22,7 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   late final ChatApi _chatApi;
+  late final ChatDatabase _database;
   final AppPreferencesStorage _preferencesStorage = AppPreferencesStorage();
   final TextEditingController _controller = TextEditingController();
   static const _providers = <String, String>{
@@ -38,17 +40,20 @@ class _ChatScreenState extends State<ChatScreen> {
   ].toList();
   bool _isSending = false;
   String _selectedProvider = _defaultProvider;
+  int? _currentSessionId;
 
   @override
   void initState() {
     super.initState();
     _chatApi = ChatApi(token: widget.session.token);
+    _database = ChatDatabase();
     _restoreSelectedProvider();
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _database.close();
     super.dispose();
   }
 
@@ -76,10 +81,21 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  Future<void> _startNewSession() async {
+    _currentSessionId = await _database.createSession(_selectedProvider);
+    for (final msg in _messages) {
+      await _database.addMessage(_currentSessionId!, msg.role, msg.content);
+    }
+  }
+
   Future<void> _send() async {
     final text = _controller.text.trim();
     if (text.isEmpty || _isSending) {
       return;
+    }
+
+    if (_currentSessionId == null) {
+      await _startNewSession();
     }
 
     setState(() {
@@ -87,6 +103,8 @@ class _ChatScreenState extends State<ChatScreen> {
       _controller.clear();
       _isSending = true;
     });
+
+    await _database.addMessage(_currentSessionId!, 'user', text);
 
     try {
       final reply = await _chatApi.sendMessage(
@@ -97,14 +115,11 @@ class _ChatScreenState extends State<ChatScreen> {
         return;
       }
 
+      final replyContent = reply.isEmpty ? 'Done.' : reply;
       setState(() {
-        _messages.add(
-          ChatMessage(
-            role: 'assistant',
-            content: reply.isEmpty ? 'Done.' : reply,
-          ),
-        );
+        _messages.add(ChatMessage(role: 'assistant', content: replyContent));
       });
+      await _database.addMessage(_currentSessionId!, 'assistant', replyContent);
     } catch (error) {
       if (!mounted) {
         return;
