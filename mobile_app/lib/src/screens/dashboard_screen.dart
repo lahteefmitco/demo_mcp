@@ -360,7 +360,10 @@ class _DashboardScreenState extends State<DashboardScreen>
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                _BalanceCard(summary: summary, currency: widget.currency),
+                _AccountsBalanceCard(
+                  accounts: dashboard.accounts,
+                  currency: widget.currency,
+                ),
                 const SizedBox(height: 24),
                 Container(
                   decoration: BoxDecoration(
@@ -504,31 +507,32 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 }
 
-class _BalanceCard extends StatelessWidget {
-  const _BalanceCard({required this.summary, required this.currency});
+class _AccountsBalanceCard extends StatelessWidget {
+  const _AccountsBalanceCard({required this.accounts, required this.currency});
 
-  final PeriodSummary summary;
+  final List<FinanceAccount> accounts;
   final CurrencyOption currency;
 
   @override
   Widget build(BuildContext context) {
-    final isPositive = summary.balance >= 0;
+    final activeAccounts = accounts.where((a) => a.isActive).toList();
+    final totalBalance = activeAccounts.fold<double>(
+      0,
+      (sum, account) => sum + account.currentBalance,
+    );
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isPositive
-              ? [const Color(0xFF0F766E), const Color(0xFF155E75)]
-              : [const Color(0xFFB91C1C), const Color(0xFF991B1B)],
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F766E), Color(0xFF155E75)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color:
-                (isPositive ? const Color(0xFF0F766E) : const Color(0xFFB91C1C))
-                    .withValues(alpha: 0.3),
+            color: const Color(0xFF0F766E).withValues(alpha: 0.3),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -541,7 +545,7 @@ class _BalanceCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Current Balance',
+                'Total Balance',
                 style: Theme.of(
                   context,
                 ).textTheme.titleMedium?.copyWith(color: Colors.white70),
@@ -556,7 +560,7 @@ class _BalanceCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  summary.month,
+                  '${activeAccounts.length} accounts',
                   style: const TextStyle(color: Colors.white, fontSize: 12),
                 ),
               ),
@@ -564,33 +568,16 @@ class _BalanceCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            formatMoney(currency, summary.balance),
+            formatMoney(currency, totalBalance),
             style: Theme.of(context).textTheme.headlineLarge?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _StatItem(
-                  icon: Icons.arrow_downward,
-                  label: 'Income',
-                  value: formatMoney(currency, summary.incomeTotal),
-                  color: const Color(0xFF4ADE80),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _StatItem(
-                  icon: Icons.arrow_upward,
-                  label: 'Expenses',
-                  value: formatMoney(currency, summary.expenseTotal),
-                  color: const Color(0xFFFCA5A5),
-                ),
-              ),
-            ],
+          const SizedBox(height: 20),
+          ...activeAccounts.map(
+            (account) =>
+                _AccountBalanceItem(account: account, currency: currency),
           ),
         ],
       ),
@@ -598,57 +585,104 @@ class _BalanceCard extends StatelessWidget {
   }
 }
 
-class _StatItem extends StatelessWidget {
-  const _StatItem({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
+class _AccountBalanceItem extends StatelessWidget {
+  const _AccountBalanceItem({required this.account, required this.currency});
 
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
+  final FinanceAccount account;
+  final CurrencyOption currency;
+
+  Color _parseColor(String hex) {
+    final normalized = hex.replaceFirst('#', '');
+    return Color(int.parse('FF$normalized', radix: 16));
+  }
+
+  IconData _getAccountIcon() {
+    switch (account.icon) {
+      case 'account_balance':
+        return Icons.account_balance;
+      case 'credit_card':
+        return Icons.credit_card;
+      case 'trending_up':
+        return Icons.trending_up;
+      default:
+        return Icons.account_balance_wallet;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.8),
-                    fontSize: 11,
-                  ),
-                ),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+    final accountColor = _parseColor(account.color);
+    final isPositive = account.currentBalance >= 0;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: accountColor.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(_getAccountIcon(), color: Colors.white, size: 20),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    account.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    _getAccountTypeLabel(account.type),
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              formatMoney(currency, account.currentBalance),
+              style: TextStyle(
+                color: isPositive
+                    ? const Color(0xFF4ADE80)
+                    : const Color(0xFFFCA5A5),
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  String _getAccountTypeLabel(String type) {
+    switch (type) {
+      case 'cash':
+        return 'Cash';
+      case 'bank':
+        return 'Bank';
+      case 'credit_card':
+        return 'Credit Card';
+      case 'investments':
+        return 'Investments';
+      default:
+        return type;
+    }
   }
 }
 

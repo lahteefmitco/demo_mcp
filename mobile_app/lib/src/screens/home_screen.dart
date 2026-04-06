@@ -450,8 +450,6 @@ class _HomeScreenState extends State<HomeScreen>
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                _BalanceCard(summary: summary, currency: widget.currency),
-                const SizedBox(height: 16),
                 _SectionTitle(
                   title: 'Recent Activity',
                   subtitle:
@@ -539,54 +537,6 @@ class _HomeScreenState extends State<HomeScreen>
     final now = DateTime.now();
     final month = now.month.toString().padLeft(2, '0');
     return '${now.year}-$month';
-  }
-}
-
-class _BalanceCard extends StatelessWidget {
-  const _BalanceCard({required this.summary, required this.currency});
-
-  final PeriodSummary summary;
-  final CurrencyOption currency;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0F766E), Color(0xFF155E75)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Month ${summary.month}',
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(color: Colors.white70),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Balance ${formatMoney(currency, summary.balance)}',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Income ${formatMoney(currency, summary.incomeTotal)} • Expenses ${formatMoney(currency, summary.expenseTotal)}',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyLarge?.copyWith(color: Colors.white),
-          ),
-        ],
-      ),
-    );
   }
 }
 
