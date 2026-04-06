@@ -65,6 +65,7 @@ class _DailyExpensesChartState extends State<_DailyExpensesChart> {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -81,9 +82,9 @@ class _DailyExpensesChartState extends State<_DailyExpensesChart> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
         SizedBox(
-          height: 160,
+          height: 140,
           child: ListView.builder(
             controller: _scrollController,
             scrollDirection: Axis.horizontal,
@@ -92,7 +93,7 @@ class _DailyExpensesChartState extends State<_DailyExpensesChart> {
               final expense = widget.dailyExpenses[index];
               final isToday = expense.date == todayStr;
               final barHeight = maxTotal > 0
-                  ? (expense.total / maxTotal) * 100
+                  ? (expense.total / maxTotal) * 85
                   : 0.0;
 
               final colors = [
@@ -113,63 +114,67 @@ class _DailyExpensesChartState extends State<_DailyExpensesChart> {
 
               return Padding(
                 padding: EdgeInsets.only(
-                  left: index == 0 ? 0 : 12,
+                  left: index == 0 ? 0 : 8,
                   right: index == widget.dailyExpenses.length - 1 ? 0 : 0,
                 ),
                 child: InkWell(
                   onTap: () => widget.onDayTap(expense),
                   borderRadius: BorderRadius.circular(8),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      if (expense.total > 0)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Text(
+                  child: SizedBox(
+                    width: 44,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        if (expense.total > 0)
+                          Text(
                             formatMoney(widget.currency, expense.total),
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: 8,
                               fontWeight: FontWeight.w600,
                               color: colorPair[0],
                             ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        const SizedBox(height: 2),
+                        Container(
+                          width: 28,
+                          height: barHeight > 0 ? barHeight : 3,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: colorPair,
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                            border: isToday
+                                ? Border.all(color: colorPair[0], width: 2)
+                                : null,
                           ),
                         ),
-                      Container(
-                        width: 36,
-                        height: barHeight > 0 ? barHeight : 4,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: colorPair,
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
+                        const SizedBox(height: 4),
+                        Text(
+                          expense.dayName.substring(0, 3),
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: isToday
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: isToday
+                                ? colorPair[0]
+                                : Theme.of(context).textTheme.bodySmall?.color,
                           ),
-                          borderRadius: BorderRadius.circular(6),
-                          border: isToday
-                              ? Border.all(color: colorPair[0], width: 2)
-                              : null,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        expense.dayName.substring(0, 3),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: isToday
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          color: isToday
-                              ? colorPair[0]
-                              : Theme.of(context).textTheme.bodySmall?.color,
+                        Text(
+                          expense.dayNumber,
+                          style: TextStyle(
+                            fontSize: 8,
+                            color: Theme.of(context).textTheme.bodySmall?.color,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      Text(
-                        expense.dayNumber,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Theme.of(context).textTheme.bodySmall?.color,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -371,7 +376,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         ],
                       ),
                       SizedBox(
-                        height: 180,
+                        height: 200,
                         child: TabBarView(
                           controller: _tabController,
                           children: [
@@ -929,7 +934,7 @@ class _WeeklyExpensesChart extends StatelessWidget {
         .fold(0.0, (a, b) => a > b ? a : b);
 
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: weeklyExpenses.length,
@@ -959,46 +964,50 @@ class _WeeklyExpensesChart extends StatelessWidget {
             child: InkWell(
               onTap: () => onWeekTap(expense),
               borderRadius: BorderRadius.circular(8),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (expense.total > 0)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Text(
+              child: SizedBox(
+                width: 56,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (expense.total > 0)
+                      Text(
                         formatMoney(currency, expense.total),
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 9,
                           fontWeight: FontWeight.w600,
                           color: colorPair[0],
                         ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    const SizedBox(height: 4),
+                    Container(
+                      width: 36,
+                      height: barHeight > 0 ? barHeight : 4,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: colorPair,
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                        ),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                     ),
-                  Container(
-                    width: 48,
-                    height: barHeight > 0 ? barHeight : 4,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: colorPair,
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
+                    const SizedBox(height: 4),
+                    Text(
+                      expense.dateRange,
+                      style: const TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w500,
                       ),
-                      borderRadius: BorderRadius.circular(6),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    expense.dateRange,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
+                    Text(
+                      expense.year,
+                      style: const TextStyle(fontSize: 8, color: Colors.grey),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  Text(
-                    expense.year,
-                    style: const TextStyle(fontSize: 10, color: Colors.grey),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           );
@@ -1030,7 +1039,7 @@ class _MonthlyExpensesChart extends StatelessWidget {
         .fold(0.0, (a, b) => a > b ? a : b);
 
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: monthlyExpenses.length,
@@ -1060,46 +1069,50 @@ class _MonthlyExpensesChart extends StatelessWidget {
             child: InkWell(
               onTap: () => onMonthTap(expense),
               borderRadius: BorderRadius.circular(8),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (expense.total > 0)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Text(
+              child: SizedBox(
+                width: 64,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (expense.total > 0)
+                      Text(
                         formatMoney(currency, expense.total),
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 9,
                           fontWeight: FontWeight.w600,
                           color: colorPair[0],
                         ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    const SizedBox(height: 4),
+                    Container(
+                      width: 48,
+                      height: barHeight > 0 ? barHeight : 4,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: colorPair,
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                        ),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                     ),
-                  Container(
-                    width: 56,
-                    height: barHeight > 0 ? barHeight : 4,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: colorPair,
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
+                    const SizedBox(height: 4),
+                    Text(
+                      expense.monthName,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
                       ),
-                      borderRadius: BorderRadius.circular(6),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    expense.monthName,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                    Text(
+                      expense.year,
+                      style: const TextStyle(fontSize: 8, color: Colors.grey),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  Text(
-                    expense.year,
-                    style: const TextStyle(fontSize: 10, color: Colors.grey),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           );
