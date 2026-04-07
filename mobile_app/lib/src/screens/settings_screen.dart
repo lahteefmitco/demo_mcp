@@ -6,6 +6,8 @@ import '../models/auth_session.dart';
 import '../models/currency_option.dart';
 import '../models/finance_models.dart';
 import '../models/mcp_tool.dart';
+import '../services/sync_service.dart';
+import '../settings/app_preferences_storage.dart';
 import '../utils/currency_utils.dart';
 import 'accounts_screen.dart';
 import 'add_budget_screen.dart';
@@ -439,6 +441,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             'Currency: ${widget.currency.code} (${widget.currency.symbol})',
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        StatefulBuilder(
+                          builder: (context, setState) {
+                            return FutureBuilder<bool>(
+                              future: AppPreferencesStorage()
+                                  .readLoadFromBackend(),
+                              builder: (context, snapshot) {
+                                final loadFromBackend = snapshot.data ?? false;
+                                return Column(
+                                  children: [
+                                    SwitchListTile(
+                                      title: const Text('Load from Backend'),
+                                      subtitle: const Text(
+                                        'Load all data from server instead of local DB',
+                                      ),
+                                      value: loadFromBackend,
+                                      onChanged: (value) async {
+                                        await AppPreferencesStorage()
+                                            .writeLoadFromBackend(value);
+                                        setState(() {});
+                                      },
+                                    ),
+                                    const SizedBox(height: 8),
+                                    OutlinedButton.icon(
+                                      onPressed: () =>
+                                          _importAllDataFromBackend(setState),
+                                      icon: loadFromBackend
+                                          ? const Icon(Icons.cloud_download)
+                                          : const Icon(Icons.sync),
+                                      label: Text(
+                                        loadFromBackend
+                                            ? 'Import All Data (Direct)'
+                                            : 'Sync Data (Background)',
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        StatefulBuilder(
+                          builder: (context, setState) {
+                            return FutureBuilder<bool>(
+                              future: AppPreferencesStorage()
+                                  .readLoadFromBackend(),
+                              builder: (context, snapshot) {
+                                final loadFromBackend = snapshot.data ?? false;
+                                return SwitchListTile(
+                                  title: const Text('Load from Backend'),
+                                  subtitle: const Text(
+                                    'Load all data from server instead of local DB',
+                                  ),
+                                  value: loadFromBackend,
+                                  onChanged: (value) async {
+                                    await AppPreferencesStorage()
+                                        .writeLoadFromBackend(value);
+                                    setState(() {});
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -574,6 +641,134 @@ class _SettingsScreenState extends State<SettingsScreen> {
         },
       ),
     );
+  }
+
+  Future<void> _importAllDataFromBackend(
+    void Function(void Function()) setState,
+  ) async {
+    final loadFromBackend = await AppPreferencesStorage().readLoadFromBackend();
+
+    if (loadFromBackend) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Import All Data'),
+          content: const Text(
+            'This will fetch all data directly from the server and save it to your local database. Continue?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Import'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return;
+
+      setState(() {});
+
+      try {
+        final client = FinanceMcpClient(token: widget.session.token);
+        final dashboard = await client.fetchDashboard(_currentMonth());
+
+        final syncService = SyncService();
+
+        for (final category in dashboard.categories) {
+          await syncService.saveCategory(
+            name: category.name,
+            kind: category.kind,
+            color: category.color,
+            icon: category.icon,
+            serverId: category.id,
+          );
+        }
+
+        for (final account in dashboard.accounts) {
+          await syncService.saveAccount(
+            name: account.name,
+            type: account.type,
+            initialBalance: account.initialBalance,
+            color: account.color,
+            icon: account.icon,
+            notes: account.notes,
+            serverId: account.id,
+          );
+        }
+
+        for (final expense in dashboard.recentExpenses) {
+          await syncService.saveExpense(
+            title: expense.title,
+            amount: expense.amount,
+            categoryId: expense.categoryId,
+            categoryUuid: '',
+            accountId: expense.accountId,
+            accountUuid: '',
+            spentOn: DateTime.parse(expense.date),
+            notes: expense.notes,
+            serverId: expense.id,
+          );
+        }
+
+        for (final income in dashboard.recentIncomes) {
+          await syncService.saveIncome(
+            title: income.title,
+            amount: income.amount,
+            categoryId: income.categoryId,
+            categoryUuid: '',
+            accountId: income.accountId,
+            accountUuid: '',
+            receivedOn: DateTime.parse(income.date),
+            notes: income.notes,
+            serverId: income.id,
+          );
+        }
+
+        for (final budget in dashboard.budgets) {
+          await syncService.saveBudget(
+            name: budget.name,
+            amount: budget.amount,
+            period: budget.period,
+            startDate: DateTime.parse(budget.startDate),
+            categoryId: budget.categoryId,
+            notes: budget.notes,
+            serverId: budget.id,
+          );
+        }
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('All data imported successfully!')),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to import data: $e')));
+      }
+    } else {
+      setState(() {});
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Scheduling background sync...'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      final syncService = SyncService();
+      await syncService.syncNow(widget.session.token);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Background sync completed!')),
+      );
+    }
   }
 
   String _currentMonth() {

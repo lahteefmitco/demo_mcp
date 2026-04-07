@@ -4,6 +4,8 @@ import '../api/finance_mcp_client.dart';
 import '../models/auth_session.dart';
 import '../models/currency_option.dart';
 import '../models/finance_models.dart';
+import '../services/finance_data_provider.dart';
+import '../utils/app_date_utils.dart';
 import 'add_entry_screen.dart';
 import '../utils/currency_utils.dart';
 
@@ -25,14 +27,14 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
-  late final FinanceMcpClient _client;
+  late final FinanceDataProvider _dataProvider;
   late Future<FinanceDashboard> _future;
   late final TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _client = FinanceMcpClient(token: widget.session.token);
+    _dataProvider = FinanceDataProvider();
     _tabController = TabController(length: 2, vsync: this);
     _future = _load();
   }
@@ -44,7 +46,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<FinanceDashboard> _load() async {
-    return _client.fetchDashboard(_currentMonth());
+    return _dataProvider.getDashboard(widget.session.token, _currentMonth());
   }
 
   Future<void> _refresh() async {
@@ -120,13 +122,13 @@ class _HomeScreenState extends State<HomeScreen>
       return;
     }
 
-    await _client.updateExpense(
-      id: expense.id,
+    await _dataProvider.saveExpense(
+      widget.session.token,
       title: payload['title'] as String,
       amount: payload['amount'] as double,
       categoryId: payload['categoryId'] as int,
       accountId: payload['accountId'] as int,
-      spentOn: payload['spentOn'] as String,
+      spentOn: parseAppDate(payload['spentOn'] as String) ?? DateTime.now(),
       notes: payload['notes'] as String? ?? '',
     );
     _showMessage('Expense updated');
@@ -158,7 +160,8 @@ class _HomeScreenState extends State<HomeScreen>
       return;
     }
 
-    await _client.deleteExpense(expense.id);
+    final client = FinanceMcpClient(token: widget.session.token);
+    await client.deleteExpense(expense.id);
     _showMessage('Expense deleted');
     await _refresh();
   }
@@ -229,13 +232,14 @@ class _HomeScreenState extends State<HomeScreen>
       return;
     }
 
-    await _client.updateIncome(
-      id: income.id,
+    await _dataProvider.saveIncome(
+      widget.session.token,
       title: payload['title'] as String,
       amount: payload['amount'] as double,
       categoryId: payload['categoryId'] as int,
       accountId: payload['accountId'] as int,
-      receivedOn: payload['receivedOn'] as String,
+      receivedOn:
+          parseAppDate(payload['receivedOn'] as String) ?? DateTime.now(),
       notes: payload['notes'] as String? ?? '',
     );
     _showMessage('Income updated');
@@ -267,7 +271,8 @@ class _HomeScreenState extends State<HomeScreen>
       return;
     }
 
-    await _client.deleteIncome(income.id);
+    final client = FinanceMcpClient(token: widget.session.token);
+    await client.deleteIncome(income.id);
     _showMessage('Income deleted');
     await _refresh();
   }
@@ -323,12 +328,13 @@ class _HomeScreenState extends State<HomeScreen>
       }
 
       if (payload != null) {
-        await _client.createExpense(
+        await _dataProvider.saveExpense(
+          widget.session.token,
           title: payload['title'] as String,
           amount: payload['amount'] as double,
           categoryId: payload['categoryId'] as int,
           accountId: payload['accountId'] as int,
-          spentOn: payload['spentOn'] as String,
+          spentOn: parseAppDate(payload['spentOn'] as String) ?? DateTime.now(),
           notes: payload['notes'] as String? ?? '',
         );
         _showMessage('Expense added');
@@ -359,12 +365,14 @@ class _HomeScreenState extends State<HomeScreen>
       }
 
       if (payload != null) {
-        await _client.createIncome(
+        await _dataProvider.saveIncome(
+          widget.session.token,
           title: payload['title'] as String,
           amount: payload['amount'] as double,
           categoryId: payload['categoryId'] as int,
           accountId: payload['accountId'] as int,
-          receivedOn: payload['receivedOn'] as String,
+          receivedOn:
+              parseAppDate(payload['receivedOn'] as String) ?? DateTime.now(),
           notes: payload['notes'] as String? ?? '',
         );
         _showMessage('Income added');

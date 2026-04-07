@@ -4,6 +4,7 @@ import '../api/finance_mcp_client.dart';
 import '../models/auth_session.dart';
 import '../models/currency_option.dart';
 import '../models/finance_models.dart';
+import '../services/finance_data_provider.dart';
 import '../utils/currency_utils.dart';
 import 'day_expenses_screen.dart';
 
@@ -207,7 +208,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen>
     with SingleTickerProviderStateMixin {
-  late final FinanceMcpClient _client;
+  late final FinanceDataProvider _dataProvider;
   late final TabController _tabController;
   late Future<FinanceDashboard> _future;
   late Future<List<DailyExpense>> _dailyFuture;
@@ -218,7 +219,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _client = FinanceMcpClient(token: widget.session.token);
+    _dataProvider = FinanceDataProvider();
     _future = _load();
     _dailyFuture = _loadDaily();
     _weeklyFuture = _loadWeekly();
@@ -232,19 +233,22 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Future<FinanceDashboard> _load() async {
-    return _client.fetchDashboard(_currentMonth());
+    return _dataProvider.getDashboard(widget.session.token, _currentMonth());
   }
 
   Future<List<DailyExpense>> _loadDaily() async {
-    return _client.fetchDailyExpenses(days: 30);
+    final client = FinanceMcpClient(token: widget.session.token);
+    return client.fetchDailyExpenses(days: 30);
   }
 
   Future<List<WeeklyExpense>> _loadWeekly() async {
-    return _client.fetchWeeklyExpenses(weeks: 8);
+    final client = FinanceMcpClient(token: widget.session.token);
+    return client.fetchWeeklyExpenses(weeks: 8);
   }
 
   Future<List<MonthlyExpense>> _loadMonthly() async {
-    return _client.fetchMonthlyExpenses(months: 6);
+    final client = FinanceMcpClient(token: widget.session.token);
+    return client.fetchMonthlyExpenses(months: 6);
   }
 
   Future<void> _refresh() async {

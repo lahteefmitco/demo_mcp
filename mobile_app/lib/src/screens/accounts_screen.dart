@@ -4,6 +4,7 @@ import '../api/finance_mcp_client.dart';
 import '../models/auth_session.dart';
 import '../models/currency_option.dart';
 import '../models/finance_models.dart';
+import '../services/finance_data_provider.dart';
 import '../utils/currency_utils.dart';
 
 class AccountsScreen extends StatefulWidget {
@@ -21,18 +22,18 @@ class AccountsScreen extends StatefulWidget {
 }
 
 class _AccountsScreenState extends State<AccountsScreen> {
-  late final FinanceMcpClient _client;
+  late final FinanceDataProvider _dataProvider;
   late Future<List<FinanceAccount>> _future;
 
   @override
   void initState() {
     super.initState();
-    _client = FinanceMcpClient(token: widget.session.token);
+    _dataProvider = FinanceDataProvider();
     _future = _load();
   }
 
   Future<List<FinanceAccount>> _load() async {
-    return _client.fetchAccounts();
+    return _dataProvider.getAccounts(widget.session.token);
   }
 
   Future<void> _refresh() async {
@@ -51,7 +52,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
       return;
     }
 
-    await _client.createAccount(
+    await _dataProvider.saveAccount(
+      widget.session.token,
       name: payload['name'] as String,
       type: payload['type'] as String,
       initialBalance: payload['initialBalance'] as double,
@@ -74,7 +76,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
       return;
     }
 
-    await _client.updateAccount(
+    final client = FinanceMcpClient(token: widget.session.token);
+    await client.updateAccount(
       id: account.id,
       name: payload['name'] as String,
       type: payload['type'] as String,
@@ -111,7 +114,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
       return;
     }
 
-    await _client.deleteAccount(account.id);
+    final client = FinanceMcpClient(token: widget.session.token);
+    await client.deleteAccount(account.id);
     _showMessage('Account deleted');
     await _refresh();
   }
