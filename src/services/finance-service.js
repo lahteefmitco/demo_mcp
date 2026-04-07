@@ -1411,6 +1411,50 @@ export async function getChartData(userId, { type, period, accountId }) {
     };
   }
 
+  const daysMatch = periodLower.match(/^days_(\d+)$/);
+  if (daysMatch) {
+    const days = parseInt(daysMatch[1], 10);
+    const dailyExpenses = await query(
+      `
+        WITH date_series AS (
+          SELECT generate_series(
+            CURRENT_DATE - INTERVAL '${days - 1} days',
+            CURRENT_DATE,
+            '1 day'::interval
+          )::date AS day
+        ),
+        daily_totals AS (
+          SELECT 
+            ds.day,
+            COALESCE(SUM(e.amount), 0)::numeric(12, 2) AS value
+          FROM date_series ds
+          LEFT JOIN expenses e 
+            ON e.user_id = $1 
+            AND DATE(e.spent_on) = ds.day ${accountFilter}
+          GROUP BY ds.day
+        )
+        SELECT 
+          TO_CHAR(day, 'MM/DD') AS label,
+          value
+        FROM daily_totals
+        ORDER BY day ASC
+      `,
+      [userId],
+      { type: QueryTypes.SELECT }
+    );
+
+    return {
+      type: type || 'bar',
+      title: "Expenses (Past $days Days)",
+      period: periodLower,
+      data: dailyExpenses.map(row => ({
+        label: row.label,
+        value: Number(row.value)
+      })),
+      total: dailyExpenses.reduce((sum, row) => sum + Number(row.value), 0)
+    };
+  }
+
   if (periodLower === 'daily' || periodLower === 'week' || periodLower === 'weekly') {
     const days = 7;
     const dailyExpenses = await query(

@@ -1,5 +1,8 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import '../api/chat_api.dart';
 import '../api/finance_mcp_client.dart';
@@ -167,6 +170,16 @@ class _ChatScreenState extends State<ChatScreen> {
       return 'category';
     }
 
+    final daysMatch = RegExp(
+      r'past\s*(\d+)\s*days?|last\s*(\d+)\s*days?',
+    ).firstMatch(lower);
+    if (daysMatch != null) {
+      final days = int.tryParse(daysMatch.group(1) ?? daysMatch.group(2) ?? '');
+      if (days != null) {
+        return 'days_$days';
+      }
+    }
+
     return null;
   }
 
@@ -186,6 +199,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<ChatChartData?> _fetchChartFromBackend(String text) async {
     final period = _detectChartPeriod(text);
+    log("period: $period");
     if (period == null) return null;
 
     final type = _detectChartType(text);
@@ -195,6 +209,8 @@ class _ChatScreenState extends State<ChatScreen> {
         type: type,
         period: period,
       );
+
+      log("chartData from backend: $chartData");
 
       if (chartData.data.isEmpty) {
         return null;
@@ -209,7 +225,7 @@ class _ChatScreenState extends State<ChatScreen> {
         currencySymbol: widget.currency.symbol,
       );
     } catch (e) {
-      debugPrint('Error fetching chart: $e');
+      log("Error fetching chart: $e");
       return null;
     }
   }
@@ -226,10 +242,12 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     final isChart = _isChartRequest(text);
+    log("isChart: $isChart");
     ChatChartData? chartData;
 
     if (isChart) {
       chartData = await _fetchChartFromBackend(text);
+      log("chartData: $chartData");
     }
 
     setState(() {
@@ -531,12 +549,14 @@ class _ChatScreenState extends State<ChatScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               if (message.content.isNotEmpty)
-                                Text(
-                                  message.content,
-                                  style: TextStyle(
-                                    color: isUser
-                                        ? Colors.white
-                                        : const Color(0xFF111827),
+                                MarkdownBody(
+                                  data: message.content,
+                                  styleSheet: MarkdownStyleSheet(
+                                    p: TextStyle(
+                                      color: isUser
+                                          ? Colors.white
+                                          : const Color(0xFF111827),
+                                    ),
                                   ),
                                 ),
                               if (message.chartData != null &&
@@ -553,9 +573,9 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
           ),
           if (_isSending)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 8),
-              child: Text('Thinking...'),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _ThinkingIndicator(),
             ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -568,7 +588,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) => _send(),
                     decoration: const InputDecoration(
-                      hintText: 'Ask: show weekly expenses in bar chart',
+                      hintText: 'Ask Questions here...',
                       hintStyle: TextStyle(color: Colors.black38),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.all(Radius.circular(8)),
@@ -594,6 +614,61 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ThinkingIndicator extends StatefulWidget {
+  const _ThinkingIndicator();
+
+  @override
+  State<_ThinkingIndicator> createState() => _ThinkingIndicatorState();
+}
+
+class _ThinkingIndicatorState extends State<_ThinkingIndicator>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (index) {
+            final delay = index * 0.2;
+            final value = ((_controller.value - delay) % 1.0);
+            final opacity = value < 0.5 ? value * 2 : (1 - value) * 2;
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(
+                  0xFF0E7490,
+                ).withValues(alpha: opacity.clamp(0.3, 1.0)),
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 }

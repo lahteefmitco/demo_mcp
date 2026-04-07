@@ -330,6 +330,14 @@ async function runGeminiChat(history, user) {
     }
 
     const data = await response.json();
+
+    console.log("LLM Request:", {
+      provider: "gemini",
+      model: geminiModel,
+      historyLength: history.length
+    });
+    console.log("LLM Response:", JSON.stringify(data, null, 2));
+
     const assistantMessage = data.candidates?.[0]?.content;
 
     if (!assistantMessage) {
@@ -424,6 +432,14 @@ async function runOpenAiCompatibleChat(
     }
 
     const data = await response.json();
+
+    console.log("LLM Request:", {
+      provider,
+      model,
+      historyLength: history.length
+    });
+    console.log("LLM Response:", JSON.stringify(data, null, 2));
+
     const assistantMessage = data.choices?.[0]?.message;
 
     if (!assistantMessage) {

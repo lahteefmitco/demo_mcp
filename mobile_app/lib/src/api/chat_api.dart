@@ -21,6 +21,8 @@ class ChatApi {
     List<ChatMessage> messages, {
     required String provider,
   }) async {
+    log('LLM Request: provider=$provider, messages=${messages.length}');
+
     final response = await _client.post(
       Uri.parse('$baseUrl/api/chat'),
       headers: {
@@ -39,6 +41,7 @@ class ChatApi {
     }
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
+    log('LLM Response: ${jsonEncode(body)}');
     return body['reply'] as String? ?? '';
   }
 }
