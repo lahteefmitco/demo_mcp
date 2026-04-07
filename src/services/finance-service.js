@@ -1445,7 +1445,7 @@ export async function getChartData(userId, { type, period, accountId }) {
 
     return {
       type: type || 'bar',
-      title: "Expenses (Past $days Days)",
+      title: `Expenses (Past ${days} Days)`,
       period: periodLower,
       data: dailyExpenses.map(row => ({
         label: row.label,
