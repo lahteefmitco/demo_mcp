@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../api/finance_mcp_client.dart';
 import '../models/auth_session.dart';
+import '../repository/finance_repository.dart';
 import '../models/currency_option.dart';
 import '../models/finance_models.dart';
 import '../utils/currency_utils.dart';
@@ -9,12 +9,14 @@ import '../utils/currency_utils.dart';
 class CategoryEntriesScreen extends StatefulWidget {
   const CategoryEntriesScreen({
     required this.session,
+    required this.repository,
     required this.category,
     required this.currency,
     super.key,
   });
 
   final AuthSession session;
+  final FinanceRepository repository;
   final FinanceCategory category;
   final CurrencyOption currency;
 
@@ -24,14 +26,12 @@ class CategoryEntriesScreen extends StatefulWidget {
 
 class _CategoryEntriesScreenState extends State<CategoryEntriesScreen>
     with SingleTickerProviderStateMixin {
-  late final FinanceMcpClient _client;
   late Future<_CategoryEntriesData> _future;
   TabController? _tabController;
 
   @override
   void initState() {
     super.initState();
-    _client = FinanceMcpClient(token: widget.session.token);
     _future = _load();
     if (_showsBothTabs) {
       _tabController = TabController(length: 2, vsync: this);
@@ -50,11 +50,19 @@ class _CategoryEntriesScreenState extends State<CategoryEntriesScreen>
     final futures = <Future<dynamic>>[];
 
     if (widget.category.kind == 'expense' || widget.category.kind == 'both') {
-      futures.add(_client.listExpenses(categoryId: widget.category.id));
+      futures.add(
+        widget.repository.listExpensesLocal(
+          categoryUuid: widget.category.uuid,
+        ),
+      );
     }
 
     if (widget.category.kind == 'income' || widget.category.kind == 'both') {
-      futures.add(_client.listIncomes(categoryId: widget.category.id));
+      futures.add(
+        widget.repository.listIncomesLocal(
+          categoryUuid: widget.category.uuid,
+        ),
+      );
     }
 
     final results = await Future.wait(futures);

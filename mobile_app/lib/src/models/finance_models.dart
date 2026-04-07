@@ -1,6 +1,7 @@
 class FinanceCategory {
   const FinanceCategory({
     required this.id,
+    required this.uuid,
     required this.name,
     required this.kind,
     required this.color,
@@ -8,6 +9,7 @@ class FinanceCategory {
   });
 
   final int id;
+  final String uuid;
   final String name;
   final String kind;
   final String color;
@@ -15,7 +17,8 @@ class FinanceCategory {
 
   factory FinanceCategory.fromJson(Map<String, dynamic> json) {
     return FinanceCategory(
-      id: json['id'] as int,
+      id: json['id'] as int? ?? 0,
+      uuid: json['uuid'] as String? ?? '',
       name: json['name'] as String? ?? '',
       kind: json['kind'] as String? ?? '',
       color: json['color'] as String? ?? '#0E7490',
@@ -27,6 +30,7 @@ class FinanceCategory {
 class FinanceAccount {
   const FinanceAccount({
     required this.id,
+    required this.uuid,
     required this.name,
     required this.type,
     required this.initialBalance,
@@ -38,6 +42,7 @@ class FinanceAccount {
   });
 
   final int id;
+  final String uuid;
   final String name;
   final String type;
   final double initialBalance;
@@ -49,7 +54,8 @@ class FinanceAccount {
 
   factory FinanceAccount.fromJson(Map<String, dynamic> json) {
     return FinanceAccount(
-      id: json['id'] as int,
+      id: json['id'] as int? ?? 0,
+      uuid: json['uuid'] as String? ?? '',
       name: json['name'] as String? ?? '',
       type: json['type'] as String? ?? 'cash',
       initialBalance: (json['initialBalance'] as num).toDouble(),
@@ -76,12 +82,15 @@ class FinanceAccount {
 class FinanceEntry {
   const FinanceEntry({
     required this.id,
+    required this.uuid,
     required this.title,
     required this.amount,
     required this.categoryId,
+    required this.categoryUuid,
     required this.categoryName,
     required this.categoryColor,
     required this.accountId,
+    required this.accountUuid,
     required this.accountName,
     required this.accountColor,
     required this.date,
@@ -89,12 +98,15 @@ class FinanceEntry {
   });
 
   final int id;
+  final String uuid;
   final double amount;
   final int categoryId;
+  final String categoryUuid;
   final String title;
   final String categoryName;
   final String categoryColor;
   final int accountId;
+  final String accountUuid;
   final String accountName;
   final String accountColor;
   final String date;
@@ -102,13 +114,16 @@ class FinanceEntry {
 
   factory FinanceEntry.fromExpenseJson(Map<String, dynamic> json) {
     return FinanceEntry(
-      id: json['id'] as int,
+      id: json['id'] as int? ?? 0,
+      uuid: json['uuid'] as String? ?? '',
       title: json['title'] as String? ?? '',
       amount: (json['amount'] as num).toDouble(),
-      categoryId: json['categoryId'] as int,
+      categoryId: json['categoryId'] as int? ?? 0,
+      categoryUuid: json['categoryUuid'] as String? ?? '',
       categoryName: json['categoryName'] as String? ?? '',
       categoryColor: json['categoryColor'] as String? ?? '#0E7490',
-      accountId: json['accountId'] as int? ?? 1,
+      accountId: json['accountId'] as int? ?? 0,
+      accountUuid: json['accountUuid'] as String? ?? '',
       accountName: json['accountName'] as String? ?? 'General Account',
       accountColor: json['accountColor'] as String? ?? '#10B981',
       date: json['spentOn'] as String? ?? '',
@@ -118,13 +133,16 @@ class FinanceEntry {
 
   factory FinanceEntry.fromIncomeJson(Map<String, dynamic> json) {
     return FinanceEntry(
-      id: json['id'] as int,
+      id: json['id'] as int? ?? 0,
+      uuid: json['uuid'] as String? ?? '',
       title: json['title'] as String? ?? '',
       amount: (json['amount'] as num).toDouble(),
-      categoryId: json['categoryId'] as int,
+      categoryId: json['categoryId'] as int? ?? 0,
+      categoryUuid: json['categoryUuid'] as String? ?? '',
       categoryName: json['categoryName'] as String? ?? '',
       categoryColor: json['categoryColor'] as String? ?? '#0E7490',
-      accountId: json['accountId'] as int? ?? 1,
+      accountId: json['accountId'] as int? ?? 0,
+      accountUuid: json['accountUuid'] as String? ?? '',
       accountName: json['accountName'] as String? ?? 'General Account',
       accountColor: json['accountColor'] as String? ?? '#10B981',
       date: json['receivedOn'] as String? ?? '',
@@ -191,6 +209,7 @@ class PeriodSummary {
 class BudgetItem {
   const BudgetItem({
     required this.id,
+    required this.uuid,
     required this.name,
     required this.amount,
     required this.period,
@@ -198,6 +217,7 @@ class BudgetItem {
     required this.endDate,
     required this.notes,
     required this.categoryId,
+    this.categoryUuid,
     required this.categoryName,
     required this.categoryColor,
     required this.spent,
@@ -205,10 +225,12 @@ class BudgetItem {
   });
 
   final int id;
+  final String uuid;
   final double amount;
   final double spent;
   final double remaining;
   final int? categoryId;
+  final String? categoryUuid;
   final String name;
   final String period;
   final String startDate;
@@ -219,7 +241,8 @@ class BudgetItem {
 
   factory BudgetItem.fromJson(Map<String, dynamic> json) {
     return BudgetItem(
-      id: json['id'] as int,
+      id: json['id'] as int? ?? 0,
+      uuid: json['uuid'] as String? ?? '',
       name: json['name'] as String? ?? '',
       amount: (json['amount'] as num).toDouble(),
       period: json['period'] as String? ?? '',
@@ -227,6 +250,7 @@ class BudgetItem {
       endDate: json['endDate'] as String? ?? '',
       notes: json['notes'] as String? ?? '',
       categoryId: json['categoryId'] as int?,
+      categoryUuid: json['categoryUuid'] as String?,
       categoryName: json['categoryName'] as String?,
       categoryColor: json['categoryColor'] as String?,
       spent: (json['spent'] as num).toDouble(),
@@ -398,9 +422,12 @@ class AccountSummary {
 class Transfer {
   const Transfer({
     required this.id,
+    required this.uuid,
     required this.fromAccountId,
+    required this.fromAccountUuid,
     required this.fromAccountName,
     required this.toAccountId,
+    required this.toAccountUuid,
     required this.toAccountName,
     required this.amount,
     required this.notes,
@@ -408,9 +435,12 @@ class Transfer {
   });
 
   final int id;
+  final String uuid;
   final int fromAccountId;
+  final String fromAccountUuid;
   final String fromAccountName;
   final int toAccountId;
+  final String toAccountUuid;
   final String toAccountName;
   final double amount;
   final String notes;
@@ -418,10 +448,13 @@ class Transfer {
 
   factory Transfer.fromJson(Map<String, dynamic> json) {
     return Transfer(
-      id: json['id'] as int,
-      fromAccountId: json['fromAccountId'] as int,
+      id: json['id'] as int? ?? 0,
+      uuid: json['uuid'] as String? ?? '',
+      fromAccountId: json['fromAccountId'] as int? ?? 0,
+      fromAccountUuid: json['fromAccountUuid'] as String? ?? '',
       fromAccountName: json['fromAccountName'] as String? ?? '',
-      toAccountId: json['toAccountId'] as int,
+      toAccountId: json['toAccountId'] as int? ?? 0,
+      toAccountUuid: json['toAccountUuid'] as String? ?? '',
       toAccountName: json['toAccountName'] as String? ?? '',
       amount: (json['amount'] as num).toDouble(),
       notes: json['notes'] as String? ?? '',

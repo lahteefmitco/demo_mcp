@@ -33,16 +33,19 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   final _amountController = TextEditingController();
   final _notesController = TextEditingController();
   late final TextEditingController _dateController;
-  int? _selectedCategoryId;
-  int? _selectedAccountId;
+  String? _selectedCategoryUuid;
+  String? _selectedAccountUuid;
 
   @override
   void initState() {
     super.initState();
     final initialEntry = widget.initialEntry;
-    _selectedCategoryId = initialEntry?.categoryId;
-    _selectedAccountId =
-        initialEntry?.accountId ?? widget.accounts.firstOrNull?.id;
+    _selectedCategoryUuid = initialEntry?.categoryUuid.isNotEmpty == true
+        ? initialEntry!.categoryUuid
+        : (widget.categories.isNotEmpty ? widget.categories.first.uuid : null);
+    _selectedAccountUuid = initialEntry?.accountUuid.isNotEmpty == true
+        ? initialEntry!.accountUuid
+        : (widget.accounts.where((a) => a.isActive).firstOrNull?.uuid);
     _titleController.text = initialEntry?.title ?? '';
     _amountController.text = initialEntry?.amount.toString() ?? '';
     _notesController.text = initialEntry?.notes ?? '';
@@ -83,8 +86,8 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     Navigator.of(context).pop({
       'title': _titleController.text.trim(),
       'amount': double.parse(_amountController.text.trim()),
-      'categoryId': _selectedCategoryId!,
-      'accountId': _selectedAccountId!,
+      'categoryUuid': _selectedCategoryUuid!,
+      'accountUuid': _selectedAccountUuid!,
       widget.dateKey: _dateController.text.trim(),
       'notes': _notesController.text.trim(),
     });
@@ -121,33 +124,33 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
               },
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<int>(
-              initialValue: _selectedCategoryId,
+            DropdownButtonFormField<String>(
+              initialValue: _selectedCategoryUuid,
               decoration: const InputDecoration(labelText: 'Category'),
               items: widget.categories
                   .map(
                     (category) => DropdownMenuItem(
-                      value: category.id,
+                      value: category.uuid,
                       child: Text(category.name),
                     ),
                   )
                   .toList(),
               onChanged: (value) {
                 setState(() {
-                  _selectedCategoryId = value;
+                  _selectedCategoryUuid = value;
                 });
               },
               validator: (value) => value == null ? 'Select a category' : null,
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<int>(
-              initialValue: _selectedAccountId,
+            DropdownButtonFormField<String>(
+              initialValue: _selectedAccountUuid,
               decoration: const InputDecoration(labelText: 'Account'),
               items: widget.accounts
                   .where((a) => a.isActive)
                   .map(
                     (account) => DropdownMenuItem(
-                      value: account.id,
+                      value: account.uuid,
                       child: Row(
                         children: [
                           Icon(
@@ -164,7 +167,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                   .toList(),
               onChanged: (value) {
                 setState(() {
-                  _selectedAccountId = value;
+                  _selectedAccountUuid = value;
                 });
               },
               validator: (value) => value == null ? 'Select an account' : null,

@@ -42,6 +42,25 @@ const router = express.Router();
 const validBudgetPeriods = ["daily", "weekly", "monthly", "yearly"];
 const validCategoryKinds = ["expense", "income", "both"];
 
+function parseOptionalUuid(body) {
+  const value = body?.uuid;
+  if (value == null || value === "") {
+    return null;
+  }
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      trimmed
+    )
+  ) {
+    return null;
+  }
+  return trimmed;
+}
+
 function parsePositiveId(value) {
   const id = Number(value);
   return Number.isInteger(id) && id > 0 ? id : null;
@@ -295,7 +314,9 @@ router.post("/categories", async (req, res, next) => {
       return res.status(400).json({ errors });
     }
 
-    res.status(201).json(await createCategory(req.user.id, value));
+    res
+      .status(201)
+      .json(await createCategory(req.user.id, value, { clientUuid: parseOptionalUuid(req.body) }));
   } catch (error) {
     next(error);
   }
@@ -391,7 +412,9 @@ router.post("/expenses", async (req, res, next) => {
       return res.status(400).json({ errors });
     }
 
-    res.status(201).json(await createExpense(req.user.id, value));
+    res
+      .status(201)
+      .json(await createExpense(req.user.id, value, { clientUuid: parseOptionalUuid(req.body) }));
   } catch (error) {
     next(error);
   }
@@ -460,7 +483,9 @@ router.post("/incomes", async (req, res, next) => {
       return res.status(400).json({ errors });
     }
 
-    res.status(201).json(await createIncome(req.user.id, value));
+    res
+      .status(201)
+      .json(await createIncome(req.user.id, value, { clientUuid: parseOptionalUuid(req.body) }));
   } catch (error) {
     next(error);
   }
@@ -527,7 +552,9 @@ router.post("/budgets", async (req, res, next) => {
       return res.status(400).json({ errors });
     }
 
-    res.status(201).json(await createBudget(req.user.id, value));
+    res
+      .status(201)
+      .json(await createBudget(req.user.id, value, { clientUuid: parseOptionalUuid(req.body) }));
   } catch (error) {
     next(error);
   }
@@ -670,7 +697,9 @@ router.post("/accounts", async (req, res, next) => {
       return res.status(400).json({ errors });
     }
 
-    res.status(201).json(await createAccount(req.user.id, value));
+    res
+      .status(201)
+      .json(await createAccount(req.user.id, value, { clientUuid: parseOptionalUuid(req.body) }));
   } catch (error) {
     next(error);
   }
@@ -746,7 +775,13 @@ router.post("/transfers", async (req, res, next) => {
       return res.status(400).json({ errors });
     }
 
-    res.status(201).json(await transferBetweenAccounts(req.user.id, value));
+    res
+      .status(201)
+      .json(
+        await transferBetweenAccounts(req.user.id, value, {
+          clientUuid: parseOptionalUuid(req.body)
+        })
+      );
   } catch (error) {
     if (error.message.includes("same account") || error.message.includes("positive")) {
       return res.status(400).json({ error: error.message });

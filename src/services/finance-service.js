@@ -6,9 +6,14 @@ import {
   parseProjectMonth
 } from "../utils/date-utils.js";
 
+function formatUuid(value) {
+  return value == null ? null : String(value);
+}
+
 function normalizeCategory(row) {
   return {
     id: row.id,
+    uuid: formatUuid(row.uuid),
     name: row.name,
     kind: row.kind,
     color: row.color,
@@ -21,6 +26,7 @@ function normalizeCategory(row) {
 function normalizeExpense(row) {
   return {
     id: row.id,
+    uuid: formatUuid(row.uuid),
     title: row.title,
     amount: Number(row.amount),
     categoryId: row.category_id,
@@ -39,6 +45,7 @@ function normalizeExpense(row) {
 function normalizeIncome(row) {
   return {
     id: row.id,
+    uuid: formatUuid(row.uuid),
     title: row.title,
     amount: Number(row.amount),
     categoryId: row.category_id,
@@ -57,6 +64,7 @@ function normalizeIncome(row) {
 function normalizeBudget(row) {
   return {
     id: row.id,
+    uuid: formatUuid(row.uuid),
     name: row.name,
     amount: Number(row.amount),
     period: row.period,
@@ -119,7 +127,7 @@ export async function listCategories(userId, filters = {}) {
   const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const rows = await query(
     `
-      SELECT id, name, kind, color, icon, created_at, updated_at
+      SELECT id, uuid, name, kind, color, icon, created_at, updated_at
       FROM categories
       ${whereClause}
       ORDER BY name ASC
@@ -133,15 +141,37 @@ export async function listCategories(userId, filters = {}) {
 
 export async function createCategory(
   userId,
-  { name, kind = "expense", color = "#0E7490", icon = "tag" }
+  { name, kind = "expense", color = "#0E7490", icon = "tag" },
+  { clientUuid = null } = {}
 ) {
+  if (clientUuid) {
+    const existing = await query(
+      `
+        SELECT id, uuid, name, kind, color, icon, created_at, updated_at
+        FROM categories
+        WHERE user_id = $1 AND uuid = $2::uuid
+      `,
+      [userId, clientUuid],
+      { type: QueryTypes.SELECT }
+    );
+    if (existing[0]) {
+      return normalizeCategory(existing[0]);
+    }
+  }
+
   const rows = await query(
+    clientUuid
+      ? `
+      INSERT INTO categories (user_id, name, kind, color, icon, uuid)
+      VALUES ($1, $2, $3, $4, $5, $6::uuid)
+      RETURNING id, uuid, name, kind, color, icon, created_at, updated_at
     `
+      : `
       INSERT INTO categories (user_id, name, kind, color, icon)
       VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, name, kind, color, icon, created_at, updated_at
+      RETURNING id, uuid, name, kind, color, icon, created_at, updated_at
     `,
-    [userId, name, kind, color, icon]
+    clientUuid ? [userId, name, kind, color, icon, clientUuid] : [userId, name, kind, color, icon]
   );
 
   return normalizeCategory(rows[0]);
@@ -175,7 +205,7 @@ export async function updateCategory(
 export async function getCategoryById(userId, id) {
   const rows = await query(
     `
-      SELECT id, name, kind, color, icon, created_at, updated_at
+      SELECT id, uuid, name, kind, color, icon, created_at, updated_at
       FROM categories
       WHERE id = $1 AND user_id = $2
     `,
@@ -261,6 +291,7 @@ export async function listExpenses(userId, filters = {}) {
     `
       SELECT
         e.id,
+        e.uuid,
         e.title,
         e.amount,
         e.category_id,
@@ -289,18 +320,43 @@ export async function listExpenses(userId, filters = {}) {
 
 export async function createExpense(
   userId,
-  { title, amount, categoryId, accountId, spentOn, notes = "" }
+  { title, amount, categoryId, accountId, spentOn, notes = "" },
+  { clientUuid = null } = {}
 ) {
   await ensureOwnedCategory(userId, categoryId);
   await ensureOwnedAccount(userId, accountId);
   const normalizedSpentOn = parseProjectDateToIso(spentOn) ?? spentOn;
+
+  if (clientUuid) {
+    const dup = await query(
+      `
+        SELECT e.id
+        FROM expenses e
+        WHERE e.user_id = $1 AND e.uuid = $2::uuid
+      `,
+      [userId, clientUuid],
+      { type: QueryTypes.SELECT }
+    );
+    if (dup[0]) {
+      return getExpenseById(userId, dup[0].id);
+    }
+  }
+
   const rows = await query(
+    clientUuid
+      ? `
+      INSERT INTO expenses (user_id, title, amount, category_id, account_id, spent_on, notes, uuid)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::uuid)
+      RETURNING id
     `
+      : `
       INSERT INTO expenses (user_id, title, amount, category_id, account_id, spent_on, notes)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING id, title, amount, category_id, account_id, spent_on, notes, created_at, updated_at
+      RETURNING id
     `,
-    [userId, title, amount, categoryId, accountId, normalizedSpentOn, notes]
+    clientUuid
+      ? [userId, title, amount, categoryId, accountId, normalizedSpentOn, notes, clientUuid]
+      : [userId, title, amount, categoryId, accountId, normalizedSpentOn, notes]
   );
 
   const expense = await getExpenseById(userId, rows[0].id);
@@ -342,6 +398,7 @@ export async function getExpenseById(userId, id) {
     `
       SELECT
         e.id,
+        e.uuid,
         e.title,
         e.amount,
         e.category_id,
@@ -409,6 +466,7 @@ export async function listIncomes(userId, filters = {}) {
     `
       SELECT
         i.id,
+        i.uuid,
         i.title,
         i.amount,
         i.category_id,
@@ -437,18 +495,43 @@ export async function listIncomes(userId, filters = {}) {
 
 export async function createIncome(
   userId,
-  { title, amount, categoryId, accountId, receivedOn, notes = "" }
+  { title, amount, categoryId, accountId, receivedOn, notes = "" },
+  { clientUuid = null } = {}
 ) {
   await ensureOwnedCategory(userId, categoryId);
   await ensureOwnedAccount(userId, accountId);
   const normalizedReceivedOn = parseProjectDateToIso(receivedOn) ?? receivedOn;
+
+  if (clientUuid) {
+    const dup = await query(
+      `
+        SELECT i.id
+        FROM incomes i
+        WHERE i.user_id = $1 AND i.uuid = $2::uuid
+      `,
+      [userId, clientUuid],
+      { type: QueryTypes.SELECT }
+    );
+    if (dup[0]) {
+      return getIncomeById(userId, dup[0].id);
+    }
+  }
+
   const rows = await query(
+    clientUuid
+      ? `
+      INSERT INTO incomes (user_id, title, amount, category_id, account_id, received_on, notes, uuid)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::uuid)
+      RETURNING id
     `
+      : `
       INSERT INTO incomes (user_id, title, amount, category_id, account_id, received_on, notes)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id
     `,
-    [userId, title, amount, categoryId, accountId, normalizedReceivedOn, notes]
+    clientUuid
+      ? [userId, title, amount, categoryId, accountId, normalizedReceivedOn, notes, clientUuid]
+      : [userId, title, amount, categoryId, accountId, normalizedReceivedOn, notes]
   );
 
   return getIncomeById(userId, rows[0].id);
@@ -489,6 +572,7 @@ export async function getIncomeById(userId, id) {
     `
       SELECT
         i.id,
+        i.uuid,
         i.title,
         i.amount,
         i.category_id,
@@ -554,6 +638,7 @@ export async function listBudgets(userId, filters = {}) {
       )
       SELECT
         bw.id,
+        bw.uuid,
         bw.name,
         bw.amount,
         bw.period,
@@ -575,7 +660,7 @@ export async function listBudgets(userId, filters = {}) {
         AND (bw.category_id IS NULL OR e.category_id = bw.category_id)
       ${whereClause}
       GROUP BY
-        bw.id, bw.name, bw.amount, bw.period, bw.start_date, bw.end_date, bw.notes,
+        bw.id, bw.uuid, bw.name, bw.amount, bw.period, bw.start_date, bw.end_date, bw.notes,
         bw.category_id, bw.created_at, bw.updated_at, c.name, c.color
       ORDER BY bw.start_date DESC, bw.id DESC
     `,
@@ -588,19 +673,44 @@ export async function listBudgets(userId, filters = {}) {
 
 export async function createBudget(
   userId,
-  { name, amount, period, startDate, categoryId = null, notes = "" }
+  { name, amount, period, startDate, categoryId = null, notes = "" },
+  { clientUuid = null } = {}
 ) {
   if (categoryId !== null) {
     await ensureOwnedCategory(userId, categoryId);
   }
   const normalizedStartDate = parseProjectDateToIso(startDate) ?? startDate;
+
+  if (clientUuid) {
+    const dup = await query(
+      `
+        SELECT id
+        FROM budgets
+        WHERE user_id = $1 AND uuid = $2::uuid
+      `,
+      [userId, clientUuid],
+      { type: QueryTypes.SELECT }
+    );
+    if (dup[0]) {
+      return getBudgetById(userId, dup[0].id);
+    }
+  }
+
   const rows = await query(
+    clientUuid
+      ? `
+      INSERT INTO budgets (user_id, name, amount, period, start_date, category_id, notes, uuid)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::uuid)
+      RETURNING id
     `
+      : `
       INSERT INTO budgets (user_id, name, amount, period, start_date, category_id, notes)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id
     `,
-    [userId, name, amount, period, normalizedStartDate, categoryId, notes]
+    clientUuid
+      ? [userId, name, amount, period, normalizedStartDate, categoryId, notes, clientUuid]
+      : [userId, name, amount, period, normalizedStartDate, categoryId, notes]
   );
 
   return getBudgetById(userId, rows[0].id);
@@ -886,6 +996,7 @@ export async function listAccounts(userId, filters = {}) {
     `
       SELECT 
         a.id,
+        a.uuid,
         a.name,
         a.type,
         a.initial_balance,
@@ -915,6 +1026,7 @@ export async function listAccounts(userId, filters = {}) {
 function normalizeAccount(row) {
   return {
     id: row.id,
+    uuid: formatUuid(row.uuid),
     name: row.name,
     type: row.type,
     initialBalance: Number(row.initial_balance),
@@ -930,15 +1042,39 @@ function normalizeAccount(row) {
 
 export async function createAccount(
   userId,
-  { name, type = "cash", initialBalance = 0, color = "#0E7490", icon = "account_balance_wallet", notes = "" }
+  { name, type = "cash", initialBalance = 0, color = "#0E7490", icon = "account_balance_wallet", notes = "" },
+  { clientUuid = null } = {}
 ) {
+  if (clientUuid) {
+    const existing = await query(
+      `
+        SELECT id
+        FROM accounts
+        WHERE user_id = $1 AND uuid = $2::uuid
+      `,
+      [userId, clientUuid],
+      { type: QueryTypes.SELECT }
+    );
+    if (existing[0]) {
+      return getAccountById(userId, existing[0].id);
+    }
+  }
+
   const rows = await query(
+    clientUuid
+      ? `
+      INSERT INTO accounts (user_id, name, type, initial_balance, color, icon, notes, uuid)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::uuid)
+      RETURNING id
     `
+      : `
       INSERT INTO accounts (user_id, name, type, initial_balance, color, icon, notes)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id
     `,
-    [userId, name, type, initialBalance, color, icon, notes]
+    clientUuid
+      ? [userId, name, type, initialBalance, color, icon, notes, clientUuid]
+      : [userId, name, type, initialBalance, color, icon, notes]
   );
 
   return getAccountById(userId, rows[0].id);
@@ -1005,6 +1141,7 @@ export async function getAccountById(userId, id) {
     `
       SELECT 
         a.id,
+        a.uuid,
         a.name,
         a.type,
         a.initial_balance,
@@ -1269,7 +1406,8 @@ export async function getAccountIncomes(userId, accountId, filters = {}) {
 
 export async function transferBetweenAccounts(
   userId,
-  { fromAccountId, toAccountId, amount, notes = "" }
+  { fromAccountId, toAccountId, amount, notes = "" },
+  { clientUuid = null } = {}
 ) {
   if (fromAccountId === toAccountId) {
     throw new Error("Cannot transfer to the same account");
@@ -1289,19 +1427,65 @@ export async function transferBetweenAccounts(
     throw new Error("Destination account not found");
   }
 
+  if (clientUuid) {
+    const dup = await query(
+      `
+        SELECT
+          t.id,
+          t.uuid,
+          t.from_account_id,
+          fa.name AS from_account_name,
+          t.to_account_id,
+          ta.name AS to_account_name,
+          t.amount,
+          t.notes,
+          t.created_at
+        FROM transfers t
+        JOIN accounts fa ON fa.id = t.from_account_id
+        JOIN accounts ta ON ta.id = t.to_account_id
+        WHERE t.user_id = $1 AND t.uuid = $2::uuid
+      `,
+      [userId, clientUuid],
+      { type: QueryTypes.SELECT }
+    );
+    if (dup[0]) {
+      const row = dup[0];
+      return {
+        id: row.id,
+        uuid: formatUuid(row.uuid),
+        fromAccountId: row.from_account_id,
+        fromAccountName: row.from_account_name,
+        toAccountId: row.to_account_id,
+        toAccountName: row.to_account_name,
+        amount: Number(row.amount),
+        notes: row.notes,
+        createdAt: row.created_at
+      };
+    }
+  }
+
   const result = await query(
+    clientUuid
+      ? `
+      INSERT INTO transfers (user_id, from_account_id, to_account_id, amount, notes, uuid)
+      VALUES ($1, $2, $3, $4, $5, $6::uuid)
+      RETURNING id, uuid, from_account_id, to_account_id, amount, notes, created_at
     `
+      : `
       INSERT INTO transfers (user_id, from_account_id, to_account_id, amount, notes)
       VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, from_account_id, to_account_id, amount, notes, created_at
+      RETURNING id, uuid, from_account_id, to_account_id, amount, notes, created_at
     `,
-    [userId, fromAccountId, toAccountId, amount, notes]
+    clientUuid
+      ? [userId, fromAccountId, toAccountId, amount, notes, clientUuid]
+      : [userId, fromAccountId, toAccountId, amount, notes]
   );
 
   const transfer = result[0];
 
   return {
     id: transfer.id,
+    uuid: formatUuid(transfer.uuid),
     fromAccountId: transfer.from_account_id,
     fromAccountName: fromAccount.name,
     toAccountId: transfer.to_account_id,
@@ -1347,6 +1531,7 @@ export async function listTransfers(userId, filters = {}) {
     `
       SELECT
         t.id,
+        t.uuid,
         t.from_account_id,
         fa.name AS from_account_name,
         t.to_account_id,
@@ -1367,6 +1552,7 @@ export async function listTransfers(userId, filters = {}) {
 
   return rows.map(row => ({
     id: row.id,
+    uuid: formatUuid(row.uuid),
     fromAccountId: row.from_account_id,
     fromAccountName: row.from_account_name,
     toAccountId: row.to_account_id,

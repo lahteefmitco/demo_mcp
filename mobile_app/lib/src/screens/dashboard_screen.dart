@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../api/finance_mcp_client.dart';
 import '../models/auth_session.dart';
+import '../repository/finance_repository.dart';
 import '../models/currency_option.dart';
 import '../models/finance_models.dart';
 import '../utils/currency_utils.dart';
@@ -194,11 +194,13 @@ class _DailyExpensesChartState extends State<_DailyExpensesChart> {
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({
     required this.session,
+    required this.repository,
     required this.currency,
     super.key,
   });
 
   final AuthSession session;
+  final FinanceRepository repository;
   final CurrencyOption currency;
 
   @override
@@ -207,7 +209,6 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen>
     with SingleTickerProviderStateMixin {
-  late final FinanceMcpClient _client;
   late final TabController _tabController;
   late Future<FinanceDashboard> _future;
   late Future<List<DailyExpense>> _dailyFuture;
@@ -218,7 +219,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _client = FinanceMcpClient(token: widget.session.token);
     _future = _load();
     _dailyFuture = _loadDaily();
     _weeklyFuture = _loadWeekly();
@@ -232,19 +232,19 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Future<FinanceDashboard> _load() async {
-    return _client.fetchDashboard(_currentMonth());
+    return widget.repository.fetchDashboard(_currentMonth());
   }
 
   Future<List<DailyExpense>> _loadDaily() async {
-    return _client.fetchDailyExpenses(days: 30);
+    return widget.repository.fetchDailyExpenses(days: 30);
   }
 
   Future<List<WeeklyExpense>> _loadWeekly() async {
-    return _client.fetchWeeklyExpenses(weeks: 8);
+    return widget.repository.fetchWeeklyExpenses(weeks: 8);
   }
 
   Future<List<MonthlyExpense>> _loadMonthly() async {
-    return _client.fetchMonthlyExpenses(months: 6);
+    return widget.repository.fetchMonthlyExpenses(months: 6);
   }
 
   Future<void> _refresh() async {
@@ -262,6 +262,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       MaterialPageRoute(
         builder: (_) => DayExpensesScreen(
           session: widget.session,
+          repository: widget.repository,
           currency: widget.currency,
           date: expense.date,
           dayName: expense.dayName,
@@ -275,6 +276,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       MaterialPageRoute(
         builder: (_) => DayExpensesScreen(
           session: widget.session,
+          repository: widget.repository,
           currency: widget.currency,
           date: expense.weekStart,
           dayName: 'Week of ${expense.dateRange}',
@@ -288,6 +290,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       MaterialPageRoute(
         builder: (_) => DayExpensesScreen(
           session: widget.session,
+          repository: widget.repository,
           currency: widget.currency,
           date: expense.monthStart,
           dayName: '${expense.monthName} ${expense.year}',

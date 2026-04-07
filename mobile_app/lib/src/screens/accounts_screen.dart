@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../api/finance_mcp_client.dart';
 import '../models/auth_session.dart';
+import '../repository/finance_repository.dart';
 import '../models/currency_option.dart';
 import '../models/finance_models.dart';
 import '../utils/currency_utils.dart';
@@ -10,10 +10,12 @@ class AccountsScreen extends StatefulWidget {
   const AccountsScreen({
     super.key,
     required this.session,
+    required this.repository,
     required this.currency,
   });
 
   final AuthSession session;
+  final FinanceRepository repository;
   final CurrencyOption currency;
 
   @override
@@ -21,18 +23,16 @@ class AccountsScreen extends StatefulWidget {
 }
 
 class _AccountsScreenState extends State<AccountsScreen> {
-  late final FinanceMcpClient _client;
   late Future<List<FinanceAccount>> _future;
 
   @override
   void initState() {
     super.initState();
-    _client = FinanceMcpClient(token: widget.session.token);
     _future = _load();
   }
 
   Future<List<FinanceAccount>> _load() async {
-    return _client.fetchAccounts();
+    return widget.repository.listAccountsLocal();
   }
 
   Future<void> _refresh() async {
@@ -51,7 +51,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
       return;
     }
 
-    await _client.createAccount(
+    await widget.repository.createAccount(
       name: payload['name'] as String,
       type: payload['type'] as String,
       initialBalance: payload['initialBalance'] as double,
@@ -74,8 +74,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
       return;
     }
 
-    await _client.updateAccount(
-      id: account.id,
+    await widget.repository.updateAccount(
+      uuid: account.uuid,
       name: payload['name'] as String,
       type: payload['type'] as String,
       color: payload['color'] as String,
@@ -111,7 +111,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
       return;
     }
 
-    await _client.deleteAccount(account.id);
+    await widget.repository.deleteAccountByUuid(account.uuid);
     _showMessage('Account deleted');
     await _refresh();
   }

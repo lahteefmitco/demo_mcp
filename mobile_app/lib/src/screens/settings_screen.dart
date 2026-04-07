@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../api/finance_mcp_client.dart';
 import '../models/auth_session.dart';
+import '../repository/finance_repository.dart';
 import '../models/currency_option.dart';
 import '../models/finance_models.dart';
 import '../models/mcp_tool.dart';
@@ -12,11 +13,13 @@ import 'add_budget_screen.dart';
 import 'add_category_screen.dart';
 import 'category_entries_screen.dart';
 import 'chat_db_viewer_screen.dart';
+import 'local_database_viewer_screen.dart';
 import 'transfer_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
     required this.session,
+    required this.repository,
     required this.currency,
     required this.onCurrencyChanged,
     required this.onLogout,
@@ -25,6 +28,7 @@ class SettingsScreen extends StatefulWidget {
   });
 
   final AuthSession session;
+  final FinanceRepository repository;
   final CurrencyOption currency;
   final Future<void> Function(CurrencyOption currency) onCurrencyChanged;
   final Future<void> Function() onLogout;
@@ -35,21 +39,21 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  late final FinanceMcpClient _client;
+  late final FinanceMcpClient _toolsClient;
   late Future<_SettingsData> _future;
 
   @override
   void initState() {
     super.initState();
-    _client = FinanceMcpClient(token: widget.session.token);
+    _toolsClient = FinanceMcpClient(token: widget.session.token);
     _future = _load();
   }
 
   Future<_SettingsData> _load() async {
     final month = _currentMonth();
     final results = await Future.wait([
-      _client.fetchDashboard(month),
-      _client.listTools(),
+      widget.repository.fetchDashboard(month),
+      _toolsClient.listTools(),
     ]);
 
     return _SettingsData(
@@ -70,6 +74,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       MaterialPageRoute(
         builder: (_) => CategoryEntriesScreen(
           session: widget.session,
+          repository: widget.repository,
           category: category,
           currency: widget.currency,
         ),
@@ -87,7 +92,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) =>
-            AccountsScreen(session: widget.session, currency: widget.currency),
+            AccountsScreen(
+              session: widget.session,
+              repository: widget.repository,
+              currency: widget.currency,
+            ),
       ),
     );
     await _refresh();
@@ -97,10 +106,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) =>
-            TransferScreen(session: widget.session, currency: widget.currency),
+            TransferScreen(
+              session: widget.session,
+              repository: widget.repository,
+              currency: widget.currency,
+            ),
       ),
     );
     await _refresh();
+  }
+
+  Future<void> _importAllData() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Import all data'),
+        content: const Text(
+          'This will download your finance data from the server and replace matching rows in the local database. '
+          'A network connection is required. Background sync may also run periodically to upload unsynced changes.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Import'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || confirmed != true) {
+      return;
+    }
+
+    try {
+      await widget.repository.importAllFromServer();
+      if (!mounted) {
+        return;
+      }
+      _showMessage('Import finished');
+      await _refresh();
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      _showMessage('Import failed: $e');
+    }
+  }
+
+  Future<void> _openLocalDatabaseViewer() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const LocalDatabaseViewerScreen(),
+      ),
+    );
   }
 
   Future<void> _selectCurrency() async {
@@ -153,8 +215,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
 
-    await _client.updateCategory(
-      id: payload['id'] as int,
+    await widget.repository.updateCategory(
+      uuid: payload['uuid'] as String,
       name: payload['name'] as String,
       kind: payload['kind'] as String,
       color: payload['color'] as String,
@@ -187,7 +249,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
 
-    await _client.deleteCategory(category.id);
+    await widget.repository.deleteCategoryByUuid(category.uuid);
     _showMessage('Category deleted');
     await _refresh();
   }
@@ -208,13 +270,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
 
-    await _client.updateBudget(
-      id: payload['id'] as int,
+    await widget.repository.updateBudget(
+      uuid: payload['uuid'] as String,
       name: payload['name'] as String,
       amount: payload['amount'] as double,
       period: payload['period'] as String,
       startDate: payload['startDate'] as String,
-      categoryId: payload['categoryId'] as int?,
+      categoryUuid: payload['categoryUuid'] as String?,
       notes: payload['notes'] as String? ?? '',
     );
     _showMessage('Budget updated');
@@ -244,7 +306,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
 
-    await _client.deleteBudget(budget.id);
+    await widget.repository.deleteBudgetByUuid(budget.uuid);
     _showMessage('Budget deleted');
     await _refresh();
   }
@@ -294,12 +356,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
 
       if (payload != null) {
-        await _client.createBudget(
+        await widget.repository.createBudget(
           name: payload['name'] as String,
           amount: payload['amount'] as double,
           period: payload['period'] as String,
           startDate: payload['startDate'] as String,
-          categoryId: payload['categoryId'] as int?,
+          categoryUuid: payload['categoryUuid'] as String?,
           notes: payload['notes'] as String? ?? '',
         );
         _showMessage('Budget added');
@@ -317,7 +379,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
 
       if (payload != null) {
-        await _client.createCategory(
+        await widget.repository.createCategory(
           name: payload['name'] as String,
           kind: payload['kind'] as String,
           color: payload['color'] as String,
@@ -395,6 +457,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     (category) => category.name == item.category,
                     orElse: () => FinanceCategory(
                       id: -1,
+                      uuid: '',
                       name: item.category,
                       kind: 'expense',
                       color: item.color,
@@ -438,6 +501,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           label: Text(
                             'Currency: ${widget.currency.code} (${widget.currency.symbol})',
                           ),
+                        ),
+                        const SizedBox(height: 16),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.cloud_download_outlined),
+                          title: const Text('Import all data'),
+                          subtitle: const Text(
+                            'Loads accounts, categories, transactions, and budgets from the server into this device.',
+                          ),
+                          onTap: _importAllData,
+                        ),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.table_rows),
+                          title: const Text('View local database'),
+                          subtitle: const Text(
+                            'Inspect SQLite tables stored on device (debug).',
+                          ),
+                          onTap: _openLocalDatabaseViewer,
                         ),
                       ],
                     ),

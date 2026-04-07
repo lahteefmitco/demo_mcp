@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../api/finance_mcp_client.dart';
 import '../models/auth_session.dart';
+import '../repository/finance_repository.dart';
 import '../models/currency_option.dart';
 import '../models/finance_models.dart';
 import 'add_entry_screen.dart';
@@ -10,12 +10,14 @@ import '../utils/currency_utils.dart';
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     required this.session,
+    required this.repository,
     required this.currency,
     required this.onOpenProfile,
     super.key,
   });
 
   final AuthSession session;
+  final FinanceRepository repository;
   final CurrencyOption currency;
   final Future<void> Function() onOpenProfile;
 
@@ -25,14 +27,12 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
-  late final FinanceMcpClient _client;
   late Future<FinanceDashboard> _future;
   late final TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _client = FinanceMcpClient(token: widget.session.token);
     _tabController = TabController(length: 2, vsync: this);
     _future = _load();
   }
@@ -44,7 +44,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<FinanceDashboard> _load() async {
-    return _client.fetchDashboard(_currentMonth());
+    return widget.repository.fetchDashboard(_currentMonth());
   }
 
   Future<void> _refresh() async {
@@ -120,12 +120,12 @@ class _HomeScreenState extends State<HomeScreen>
       return;
     }
 
-    await _client.updateExpense(
-      id: expense.id,
+    await widget.repository.updateExpense(
+      uuid: expense.uuid,
       title: payload['title'] as String,
       amount: payload['amount'] as double,
-      categoryId: payload['categoryId'] as int,
-      accountId: payload['accountId'] as int,
+      categoryUuid: payload['categoryUuid'] as String,
+      accountUuid: payload['accountUuid'] as String,
       spentOn: payload['spentOn'] as String,
       notes: payload['notes'] as String? ?? '',
     );
@@ -158,7 +158,7 @@ class _HomeScreenState extends State<HomeScreen>
       return;
     }
 
-    await _client.deleteExpense(expense.id);
+    await widget.repository.deleteExpenseByUuid(expense.uuid);
     _showMessage('Expense deleted');
     await _refresh();
   }
@@ -229,12 +229,12 @@ class _HomeScreenState extends State<HomeScreen>
       return;
     }
 
-    await _client.updateIncome(
-      id: income.id,
+    await widget.repository.updateIncome(
+      uuid: income.uuid,
       title: payload['title'] as String,
       amount: payload['amount'] as double,
-      categoryId: payload['categoryId'] as int,
-      accountId: payload['accountId'] as int,
+      categoryUuid: payload['categoryUuid'] as String,
+      accountUuid: payload['accountUuid'] as String,
       receivedOn: payload['receivedOn'] as String,
       notes: payload['notes'] as String? ?? '',
     );
@@ -267,7 +267,7 @@ class _HomeScreenState extends State<HomeScreen>
       return;
     }
 
-    await _client.deleteIncome(income.id);
+    await widget.repository.deleteIncomeByUuid(income.uuid);
     _showMessage('Income deleted');
     await _refresh();
   }
@@ -323,11 +323,11 @@ class _HomeScreenState extends State<HomeScreen>
       }
 
       if (payload != null) {
-        await _client.createExpense(
+        await widget.repository.createExpense(
           title: payload['title'] as String,
           amount: payload['amount'] as double,
-          categoryId: payload['categoryId'] as int,
-          accountId: payload['accountId'] as int,
+          categoryUuid: payload['categoryUuid'] as String,
+          accountUuid: payload['accountUuid'] as String,
           spentOn: payload['spentOn'] as String,
           notes: payload['notes'] as String? ?? '',
         );
@@ -359,11 +359,11 @@ class _HomeScreenState extends State<HomeScreen>
       }
 
       if (payload != null) {
-        await _client.createIncome(
+        await widget.repository.createIncome(
           title: payload['title'] as String,
           amount: payload['amount'] as double,
-          categoryId: payload['categoryId'] as int,
-          accountId: payload['accountId'] as int,
+          categoryUuid: payload['categoryUuid'] as String,
+          accountUuid: payload['accountUuid'] as String,
           receivedOn: payload['receivedOn'] as String,
           notes: payload['notes'] as String? ?? '',
         );

@@ -103,7 +103,7 @@ class _AddCategoryScreenState extends State<AddCategoryScreen> {
     };
 
     if (widget.isEditing) {
-      result['id'] = widget.category!.id;
+      result['uuid'] = widget.category!.uuid;
     }
 
     Navigator.of(context).pop(result);

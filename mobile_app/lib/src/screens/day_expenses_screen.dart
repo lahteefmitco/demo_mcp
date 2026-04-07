@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../api/finance_mcp_client.dart';
 import '../models/auth_session.dart';
+import '../repository/finance_repository.dart';
 import '../models/currency_option.dart';
 import '../models/finance_models.dart';
 import '../utils/currency_utils.dart';
@@ -9,6 +9,7 @@ import '../utils/currency_utils.dart';
 class DayExpensesScreen extends StatefulWidget {
   const DayExpensesScreen({
     required this.session,
+    required this.repository,
     required this.currency,
     required this.date,
     required this.dayName,
@@ -16,6 +17,7 @@ class DayExpensesScreen extends StatefulWidget {
   });
 
   final AuthSession session;
+  final FinanceRepository repository;
   final CurrencyOption currency;
   final String date;
   final String dayName;
@@ -25,18 +27,29 @@ class DayExpensesScreen extends StatefulWidget {
 }
 
 class _DayExpensesScreenState extends State<DayExpensesScreen> {
-  late final FinanceMcpClient _client;
   late Future<List<FinanceEntry>> _future;
 
   @override
   void initState() {
     super.initState();
-    _client = FinanceMcpClient(token: widget.session.token);
     _future = _load();
   }
 
+  String _spentOnDayKey() {
+    final t = widget.date.trim();
+    if (t.length >= 10 && t[4] == '-') {
+      final p = t.substring(0, 10).split('-');
+      if (p.length == 3) {
+        return '${p[2].padLeft(2, '0')}-${p[1].padLeft(2, '0')}-${p[0]}';
+      }
+    }
+    return t;
+  }
+
   Future<List<FinanceEntry>> _load() async {
-    return _client.listExpenses(from: widget.date, to: widget.date);
+    return widget.repository.listExpensesLocal(
+      spentOnEquals: _spentOnDayKey(),
+    );
   }
 
   Future<void> _refresh() async {

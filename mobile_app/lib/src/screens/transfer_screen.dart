@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../api/finance_mcp_client.dart';
 import '../models/auth_session.dart';
+import '../repository/finance_repository.dart';
 import '../models/currency_option.dart';
 import '../models/finance_models.dart';
 import '../utils/currency_utils.dart';
@@ -10,10 +10,12 @@ class TransferScreen extends StatefulWidget {
   const TransferScreen({
     super.key,
     required this.session,
+    required this.repository,
     required this.currency,
   });
 
   final AuthSession session;
+  final FinanceRepository repository;
   final CurrencyOption currency;
 
   @override
@@ -21,22 +23,25 @@ class TransferScreen extends StatefulWidget {
 }
 
 class _TransferScreenState extends State<TransferScreen> {
-  late final FinanceMcpClient _client;
   late Future<List<FinanceAccount>> _accountsFuture;
   late Future<List<Transfer>> _transfersFuture;
 
   @override
   void initState() {
     super.initState();
-    _client = FinanceMcpClient(token: widget.session.token);
-    _accountsFuture = _client.fetchAccounts();
-    _transfersFuture = _client.fetchTransfers(limit: 20);
+    _accountsFuture = widget.repository.listAccountsLocal();
+    _transfersFuture = _loadTransfers();
+  }
+
+  Future<List<Transfer>> _loadTransfers() async {
+    final list = await widget.repository.listTransfersLocal();
+    return list.length > 20 ? list.sublist(0, 20) : list;
   }
 
   Future<void> _refresh() async {
     setState(() {
-      _accountsFuture = _client.fetchAccounts();
-      _transfersFuture = _client.fetchTransfers(limit: 20);
+      _accountsFuture = widget.repository.listAccountsLocal();
+      _transfersFuture = _loadTransfers();
     });
   }
 
@@ -49,9 +54,9 @@ class _TransferScreenState extends State<TransferScreen> {
       return;
     }
 
-    await _client.transferBetweenAccounts(
-      fromAccountId: payload['fromAccountId'] as int,
-      toAccountId: payload['toAccountId'] as int,
+    await widget.repository.transferBetweenAccounts(
+      fromAccountUuid: payload['fromAccountUuid'] as String,
+      toAccountUuid: payload['toAccountUuid'] as String,
       amount: payload['amount'] as double,
       notes: payload['notes'] as String? ?? '',
     );
@@ -303,15 +308,16 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   final _notesController = TextEditingController();
-  int? _fromAccountId;
-  int? _toAccountId;
+  String? _fromAccountUuid;
+  String? _toAccountUuid;
 
   @override
   void initState() {
     super.initState();
-    if (widget.accounts.length >= 2) {
-      _fromAccountId = widget.accounts[0].id;
-      _toAccountId = widget.accounts[1].id;
+    final active = widget.accounts.where((a) => a.isActive).toList();
+    if (active.length >= 2) {
+      _fromAccountUuid = active[0].uuid;
+      _toAccountUuid = active[1].uuid;
     }
   }
 
@@ -328,8 +334,8 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
     }
 
     Navigator.of(context).pop({
-      'fromAccountId': _fromAccountId!,
-      'toAccountId': _toAccountId!,
+      'fromAccountUuid': _fromAccountUuid!,
+      'toAccountUuid': _toAccountUuid!,
       'amount': double.parse(_amountController.text.trim()),
       'notes': _notesController.text.trim(),
     });
@@ -346,8 +352,8 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            DropdownButtonFormField<int>(
-              initialValue: _fromAccountId,
+            DropdownButtonFormField<String>(
+              initialValue: _fromAccountUuid,
               decoration: const InputDecoration(
                 labelText: 'From Account',
                 prefixIcon: Icon(Icons.arrow_outward),
@@ -355,21 +361,21 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
               items: activeAccounts
                   .map(
                     (account) => DropdownMenuItem(
-                      value: account.id,
+                      value: account.uuid,
                       child: Text(account.name),
                     ),
                   )
                   .toList(),
               onChanged: (value) {
                 setState(() {
-                  _fromAccountId = value;
+                  _fromAccountUuid = value;
                 });
               },
               validator: (value) => value == null ? 'Select an account' : null,
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<int>(
-              initialValue: _toAccountId,
+            DropdownButtonFormField<String>(
+              initialValue: _toAccountUuid,
               decoration: const InputDecoration(
                 labelText: 'To Account',
                 prefixIcon: Icon(Icons.arrow_downward),
@@ -377,14 +383,14 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
               items: activeAccounts
                   .map(
                     (account) => DropdownMenuItem(
-                      value: account.id,
+                      value: account.uuid,
                       child: Text(account.name),
                     ),
                   )
                   .toList(),
               onChanged: (value) {
                 setState(() {
-                  _toAccountId = value;
+                  _toAccountUuid = value;
                 });
               },
               validator: (value) => value == null ? 'Select an account' : null,
@@ -421,10 +427,10 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
             ),
             const SizedBox(height: 24),
             FilledButton(
-              onPressed: _fromAccountId != _toAccountId ? _submit : null,
+              onPressed: _fromAccountUuid != _toAccountUuid ? _submit : null,
               child: const Text('Transfer'),
             ),
-            if (_fromAccountId == _toAccountId && _fromAccountId != null)
+            if (_fromAccountUuid == _toAccountUuid && _fromAccountUuid != null)
               const Padding(
                 padding: EdgeInsets.only(top: 8),
                 child: Text(

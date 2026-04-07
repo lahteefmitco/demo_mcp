@@ -10,7 +10,10 @@ import 'screens/dashboard_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/settings_screen.dart';
+import 'database/finance_database_holder.dart';
+import 'repository/finance_repository.dart';
 import 'settings/app_preferences_storage.dart';
+import 'sync/background_sync.dart';
 import 'utils/currency_utils.dart';
 
 class ExpenseMobileApp extends StatefulWidget {
@@ -113,6 +116,7 @@ class _ExpenseMobileAppState extends State<ExpenseMobileApp> {
   }
 
   Future<void> _logout() async {
+    await BackgroundSync.cancelPeriodicSync();
     await _authStorage.clear();
     if (!mounted) {
       return;
@@ -177,12 +181,24 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
+  late final FinanceRepository _financeRepository;
+
+  @override
+  void initState() {
+    super.initState();
+    _financeRepository = FinanceRepository(
+      database: FinanceDatabaseHolder.instance,
+      token: widget.session.token,
+    );
+    BackgroundSync.registerPeriodicSync();
+  }
 
   @override
   Widget build(BuildContext context) {
     final screens = [
       HomeScreen(
         session: widget.session,
+        repository: _financeRepository,
         currency: widget.selectedCurrency,
         onOpenProfile: () async {
           await Navigator.of(context).push(
@@ -197,6 +213,7 @@ class _AppShellState extends State<AppShell> {
       ),
       DashboardScreen(
         session: widget.session,
+        repository: _financeRepository,
         currency: widget.selectedCurrency,
       ),
       ChatScreen(
@@ -215,6 +232,7 @@ class _AppShellState extends State<AppShell> {
       ),
       SettingsScreen(
         session: widget.session,
+        repository: _financeRepository,
         currency: widget.selectedCurrency,
         onCurrencyChanged: widget.onCurrencyChanged,
         onLogout: widget.onLogout,

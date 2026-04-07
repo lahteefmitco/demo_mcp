@@ -22,7 +22,7 @@ class _AddBudgetScreenState extends State<AddBudgetScreen> {
   final _notesController = TextEditingController();
   late final TextEditingController _dateController;
   String _period = 'monthly';
-  int? _categoryId;
+  String? _categoryUuid;
 
   @override
   void initState() {
@@ -36,7 +36,7 @@ class _AddBudgetScreenState extends State<AddBudgetScreen> {
       _amountController.text = budget.amount.toString();
       _notesController.text = budget.notes;
       _period = budget.period;
-      _categoryId = budget.categoryId;
+      _categoryUuid = budget.categoryUuid;
     }
   }
 
@@ -74,12 +74,12 @@ class _AddBudgetScreenState extends State<AddBudgetScreen> {
       'amount': double.parse(_amountController.text.trim()),
       'period': _period,
       'startDate': _dateController.text.trim(),
-      'categoryId': _categoryId,
+      'categoryUuid': _categoryUuid,
       'notes': _notesController.text.trim(),
     };
 
     if (widget.isEditing) {
-      result['id'] = widget.budget!.id;
+      result['uuid'] = widget.budget!.uuid;
     }
 
     Navigator.of(context).pop(result);
@@ -136,26 +136,26 @@ class _AddBudgetScreenState extends State<AddBudgetScreen> {
               },
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<int?>(
-              initialValue: _categoryId,
+            DropdownButtonFormField<String?>(
+              initialValue: _categoryUuid,
               decoration: const InputDecoration(
                 labelText: 'Category (optional)',
               ),
               items: [
-                const DropdownMenuItem<int?>(
+                const DropdownMenuItem<String?>(
                   value: null,
                   child: Text('All categories'),
                 ),
                 ...widget.categories.map(
-                  (category) => DropdownMenuItem<int?>(
-                    value: category.id,
+                  (category) => DropdownMenuItem<String?>(
+                    value: category.uuid,
                     child: Text(category.name),
                   ),
                 ),
               ],
               onChanged: (value) {
                 setState(() {
-                  _categoryId = value;
+                  _categoryUuid = value;
                 });
               },
             ),
