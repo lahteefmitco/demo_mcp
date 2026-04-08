@@ -1,135 +1,50 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../cubits/add_account/add_account_cubit.dart';
 import '../models/auth_session.dart';
 import '../repository/finance_repository.dart';
+import '../cubits/accounts/accounts_cubit.dart';
+import '../cubits/accounts/accounts_state.dart';
 import '../models/currency_option.dart';
 import '../models/finance_models.dart';
 import '../utils/currency_utils.dart';
+import '../utils/toast.dart';
 
-class AccountsScreen extends StatefulWidget {
+class AccountsScreen extends StatelessWidget {
   const AccountsScreen({
     super.key,
     required this.session,
-    required this.repository,
     required this.currency,
   });
 
   final AuthSession session;
-  final FinanceRepository repository;
   final CurrencyOption currency;
 
   @override
-  State<AccountsScreen> createState() => _AccountsScreenState();
-}
-
-class _AccountsScreenState extends State<AccountsScreen> {
-  late Future<List<FinanceAccount>> _future;
-
-  @override
-  void initState() {
-    super.initState();
-    _future = _load();
-  }
-
-  Future<List<FinanceAccount>> _load() async {
-    return widget.repository.listAccountsLocal();
-  }
-
-  Future<void> _refresh() async {
-    setState(() {
-      _future = _load();
-    });
-    await _future;
-  }
-
-  Future<void> _openAddAccount() async {
-    final payload = await Navigator.of(context).push<Map<String, dynamic>>(
-      MaterialPageRoute(builder: (_) => const AddAccountScreen()),
-    );
-
-    if (!mounted || payload == null) {
-      return;
-    }
-
-    await widget.repository.createAccount(
-      name: payload['name'] as String,
-      type: payload['type'] as String,
-      initialBalance: payload['initialBalance'] as double,
-      color: payload['color'] as String,
-      icon: payload['icon'] as String,
-      notes: payload['notes'] as String? ?? '',
-    );
-    _showMessage('Account created');
-    await _refresh();
-  }
-
-  Future<void> _editAccount(FinanceAccount account) async {
-    final payload = await Navigator.of(context).push<Map<String, dynamic>>(
-      MaterialPageRoute(
-        builder: (_) => AddAccountScreen(initialAccount: account, isEdit: true),
-      ),
-    );
-
-    if (!mounted || payload == null) {
-      return;
-    }
-
-    await widget.repository.updateAccount(
-      uuid: account.uuid,
-      name: payload['name'] as String,
-      type: payload['type'] as String,
-      color: payload['color'] as String,
-      icon: payload['icon'] as String,
-      notes: payload['notes'] as String? ?? '',
-    );
-    _showMessage('Account updated');
-    await _refresh();
-  }
-
-  Future<void> _deleteAccount(FinanceAccount account) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete account?'),
-        content: Text(
-          'Delete "${account.name}"? This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) {
-      return;
-    }
-
-    await widget.repository.deleteAccountByUuid(account.uuid);
-    _showMessage('Account deleted');
-    await _refresh();
-  }
-
-  void _showMessage(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Accounts')),
-      body: FutureBuilder<List<FinanceAccount>>(
-        future: _future,
-        builder: (context, snapshot) {
+    final repo = context.read<FinanceRepository>();
+
+    return BlocProvider(
+      create: (_) => AccountsCubit(repository: repo),
+      child: BlocListener<AccountsCubit, AccountsState>(
+        listenWhen: (p, n) => p.toastNonce != n.toastNonce,
+        listener: (context, state) {
+          final msg = state.toastMessage;
+          if (msg == null || msg.isEmpty) return;
+          if (state.toastIsError) {
+            AppToast.error(context, msg);
+          } else {
+            AppToast.success(context, msg);
+          }
+        },
+        child: Builder(
+          builder: (blocContext) {
+            return Scaffold(
+              appBar: AppBar(title: const Text('Accounts')),
+              body: FutureBuilder<List<FinanceAccount>>(
+                future: blocContext.watch<AccountsCubit>().state.accountsFuture,
+                builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -143,7 +58,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   const SizedBox(height: 12),
                   Text(snapshot.error.toString()),
                   const SizedBox(height: 16),
-                  FilledButton(onPressed: _refresh, child: const Text('Retry')),
+                  FilledButton(
+                    onPressed: () => context.read<AccountsCubit>().refresh(),
+                    child: const Text('Retry'),
+                  ),
                 ],
               ),
             );
@@ -165,7 +83,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   const Text('No accounts yet'),
                   const SizedBox(height: 16),
                   FilledButton(
-                    onPressed: _openAddAccount,
+                    onPressed: () => _openAddAccount(context),
                     child: const Text('Add Account'),
                   ),
                 ],
@@ -174,7 +92,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
           }
 
           return RefreshIndicator(
-            onRefresh: _refresh,
+            onRefresh: () => context.read<AccountsCubit>().refresh(),
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: accounts.length,
@@ -182,22 +100,89 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 final account = accounts[index];
                 return _AccountCard(
                   account: account,
-                  currency: widget.currency,
-                  onEdit: () => _editAccount(account),
-                  onDelete: () => _deleteAccount(account),
+                  currency: currency,
+                  onEdit: () => _editAccount(context, account),
+                  onDelete: () => _deleteAccount(context, account),
                 );
               },
             ),
           );
-        },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openAddAccount,
-        icon: const Icon(Icons.add),
-        label: const Text('Add Account'),
+                },
+              ),
+              floatingActionButton: FloatingActionButton.extended(
+                onPressed: () => _openAddAccount(blocContext),
+                icon: const Icon(Icons.add),
+                label: const Text('Add Account'),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
+}
+
+Future<void> _openAddAccount(BuildContext context) async {
+  final payload = await Navigator.of(context).push<Map<String, dynamic>>(
+    MaterialPageRoute(builder: (_) => const AddAccountScreen()),
+  );
+  if (!context.mounted || payload == null) {
+    return;
+  }
+
+  await context.read<AccountsCubit>().createAccount(
+        name: payload['name'] as String,
+        type: payload['type'] as String,
+        initialBalance: payload['initialBalance'] as double,
+        color: payload['color'] as String,
+        icon: payload['icon'] as String,
+        notes: payload['notes'] as String? ?? '',
+      );
+}
+
+Future<void> _editAccount(BuildContext context, FinanceAccount account) async {
+  final payload = await Navigator.of(context).push<Map<String, dynamic>>(
+    MaterialPageRoute(
+      builder: (_) => AddAccountScreen(initialAccount: account, isEdit: true),
+    ),
+  );
+  if (!context.mounted || payload == null) {
+    return;
+  }
+
+  await context.read<AccountsCubit>().updateAccount(
+        uuid: account.uuid,
+        name: payload['name'] as String,
+        type: payload['type'] as String,
+        color: payload['color'] as String,
+        icon: payload['icon'] as String,
+        notes: payload['notes'] as String? ?? '',
+      );
+}
+
+Future<void> _deleteAccount(BuildContext context, FinanceAccount account) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Delete account?'),
+      content: Text('Delete "${account.name}"? This action cannot be undone.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Delete'),
+        ),
+      ],
+    ),
+  );
+
+  if (!context.mounted || confirmed != true) {
+    return;
+  }
+  await context.read<AccountsCubit>().deleteAccount(account.uuid);
 }
 
 class _AccountCard extends StatelessWidget {
@@ -380,24 +365,31 @@ class _AccountCard extends StatelessWidget {
   }
 }
 
-class AddAccountScreen extends StatefulWidget {
+class AddAccountScreen extends StatelessWidget {
   const AddAccountScreen({super.key, this.initialAccount, this.isEdit = false});
 
   final FinanceAccount? initialAccount;
   final bool isEdit;
 
   @override
-  State<AddAccountScreen> createState() => _AddAccountScreenState();
-}
+  Widget build(BuildContext context) {
+    final initial = initialAccount;
+    final initialType = initial?.type ?? 'cash';
+    final initialColor = initial?.color ?? '#0E7490';
+    final initialIcon = initial?.icon ?? 'account_balance_wallet';
 
-class _AddAccountScreenState extends State<AddAccountScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _initialBalanceController = TextEditingController();
-  final _notesController = TextEditingController();
-  String _selectedType = 'cash';
-  String _selectedColor = '#0E7490';
-  String _selectedIcon = 'account_balance_wallet';
+    return BlocProvider(
+      create: (_) => AddAccountCubit(
+        initialType: initialType,
+        initialColor: initialColor,
+        initialIcon: initialIcon,
+      ),
+      child: Scaffold(
+        appBar: AppBar(title: Text(isEdit ? 'Edit Account' : 'Add Account')),
+        body: const _AddAccountForm(),
+      ),
+    );
+  }
 
   static const _accountTypes = [
     {'value': 'cash', 'label': 'Cash', 'icon': Icons.account_balance_wallet},
@@ -423,19 +415,31 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
     'credit_card',
     'trending_up',
   ];
+}
+
+class _AddAccountForm extends StatefulWidget {
+  const _AddAccountForm();
+
+  @override
+  State<_AddAccountForm> createState() => _AddAccountFormState();
+}
+
+class _AddAccountFormState extends State<_AddAccountForm> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _initialBalanceController = TextEditingController();
+  final _notesController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    if (widget.initialAccount != null) {
-      _nameController.text = widget.initialAccount!.name;
-      _selectedType = widget.initialAccount!.type;
-      _selectedColor = widget.initialAccount!.color;
-      _selectedIcon = widget.initialAccount!.icon;
-      _notesController.text = widget.initialAccount!.notes;
+    final screen = context.findAncestorWidgetOfExactType<AddAccountScreen>()!;
+    final initial = screen.initialAccount;
+    if (initial != null) {
+      _nameController.text = initial.name;
+      _notesController.text = initial.notes;
     }
-    _initialBalanceController.text =
-        widget.initialAccount?.initialBalance.toString() ?? '0';
+    _initialBalanceController.text = initial?.initialBalance.toString() ?? '0';
   }
 
   @override
@@ -447,154 +451,18 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
   }
 
   void _submit() {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
+
+    final state = context.read<AddAccountCubit>().state;
 
     Navigator.of(context).pop({
       'name': _nameController.text.trim(),
-      'type': _selectedType,
+      'type': state.selectedType,
       'initialBalance': double.tryParse(_initialBalanceController.text) ?? 0,
-      'color': _selectedColor,
-      'icon': _selectedIcon,
+      'color': state.selectedColor,
+      'icon': state.selectedIcon,
       'notes': _notesController.text.trim(),
     });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.isEdit ? 'Edit Account' : 'Add Account'),
-      ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            TextFormField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Account Name'),
-              validator: (value) =>
-                  value == null || value.trim().isEmpty ? 'Enter a name' : null,
-            ),
-            const SizedBox(height: 16),
-            if (!widget.isEdit) ...[
-              TextFormField(
-                controller: _initialBalanceController,
-                decoration: const InputDecoration(
-                  labelText: 'Initial Balance',
-                  hintText: 'Starting balance for this account',
-                ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-            const Text('Account Type'),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: _accountTypes.map((type) {
-                final isSelected = _selectedType == type['value'];
-                return ChoiceChip(
-                  label: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        type['icon'] as IconData,
-                        size: 18,
-                        color: isSelected ? Colors.white : Colors.grey.shade700,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(type['label'] as String),
-                    ],
-                  ),
-                  selected: isSelected,
-                  onSelected: (selected) {
-                    setState(() {
-                      _selectedType = type['value'] as String;
-                    });
-                  },
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-            const Text('Color'),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: _accountColors.map((color) {
-                final isSelected = _selectedColor == color;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedColor = color;
-                    });
-                  },
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: _parseColor(color),
-                      shape: BoxShape.circle,
-                      border: isSelected
-                          ? Border.all(color: Colors.black, width: 3)
-                          : null,
-                    ),
-                    child: isSelected
-                        ? const Icon(Icons.check, color: Colors.white, size: 20)
-                        : null,
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-            const Text('Icon'),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: _accountIcons.map((icon) {
-                final isSelected = _selectedIcon == icon;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedIcon = icon;
-                    });
-                  },
-                  child: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? _parseColor(_selectedColor)
-                          : Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      _getIconData(icon),
-                      color: isSelected ? Colors.white : Colors.grey.shade700,
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _notesController,
-              decoration: const InputDecoration(labelText: 'Notes (optional)'),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _submit,
-              child: Text(widget.isEdit ? 'Update' : 'Create Account'),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   IconData _getIconData(String icon) {
@@ -616,5 +484,125 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
     } catch (_) {
       return const Color(0xFF0E7490);
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screen = context.findAncestorWidgetOfExactType<AddAccountScreen>()!;
+    final state = context.watch<AddAccountCubit>().state;
+
+    return Form(
+      key: _formKey,
+      child: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          TextFormField(
+            controller: _nameController,
+            decoration: const InputDecoration(labelText: 'Account Name'),
+            validator: (value) =>
+                value == null || value.trim().isEmpty ? 'Enter a name' : null,
+          ),
+          const SizedBox(height: 16),
+          if (!screen.isEdit) ...[
+            TextFormField(
+              controller: _initialBalanceController,
+              decoration: const InputDecoration(
+                labelText: 'Initial Balance',
+                hintText: 'Starting balance for this account',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            ),
+            const SizedBox(height: 16),
+          ],
+          const Text('Account Type'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: AddAccountScreen._accountTypes.map((type) {
+              final isSelected = state.selectedType == type['value'];
+              return ChoiceChip(
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      type['icon'] as IconData,
+                      size: 18,
+                      color: isSelected ? Colors.white : Colors.grey.shade700,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(type['label'] as String),
+                  ],
+                ),
+                selected: isSelected,
+                onSelected: (_) => context
+                    .read<AddAccountCubit>()
+                    .setType(type['value'] as String),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+          const Text('Color'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: AddAccountScreen._accountColors.map((color) {
+              final isSelected = state.selectedColor == color;
+              return GestureDetector(
+                onTap: () => context.read<AddAccountCubit>().setColor(color),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: _parseColor(color),
+                    shape: BoxShape.circle,
+                    border: isSelected
+                        ? Border.all(color: Colors.black, width: 3)
+                        : null,
+                  ),
+                  child: isSelected
+                      ? const Icon(Icons.check, color: Colors.white, size: 20)
+                      : null,
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+          const Text('Icon'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: AddAccountScreen._accountIcons.map((icon) {
+              final isSelected = state.selectedIcon == icon;
+              return GestureDetector(
+                onTap: () => context.read<AddAccountCubit>().setIcon(icon),
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: isSelected ? _parseColor(state.selectedColor) : Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    _getIconData(icon),
+                    color: isSelected ? Colors.white : Colors.grey.shade700,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _notesController,
+            decoration: const InputDecoration(labelText: 'Notes (optional)'),
+            maxLines: 3,
+          ),
+          const SizedBox(height: 24),
+          FilledButton(
+            onPressed: _submit,
+            child: Text(screen.isEdit ? 'Update' : 'Create Account'),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:sizer/sizer.dart';
 
 import '../theme/app_theme.dart';
 
@@ -95,52 +98,71 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
               ),
               Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  itemCount: _pages.length,
-                  onPageChanged: (i) => setState(() => _index = i),
-                  itemBuilder: (context, i) {
-                    final page = _pages[i];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 28),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(26),
-                            decoration: BoxDecoration(
-                              color: scheme.primary.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              page.icon,
-                              size: 56,
-                              color: scheme.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 36),
-                          Text(
-                            page.title,
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.4,
-                                ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            page.body,
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyLarge
-                                ?.copyWith(
-                                  color: scheme.onSurface.withValues(
-                                    alpha: 0.75,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final maxW = math.min(
+                      640.0,
+                      constraints.maxWidth - 8.w,
+                    );
+                    return Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: maxW),
+                        child: PageView.builder(
+                          controller: _pageController,
+                          itemCount: _pages.length,
+                          onPageChanged: (i) => setState(() => _index = i),
+                          itemBuilder: (context, i) {
+                            final page = _pages[i];
+                            return Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 4.w),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: EdgeInsets.all(6.w),
+                                    decoration: BoxDecoration(
+                                      color: scheme.primary.withValues(alpha: 0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      page.icon,
+                                      size: (14.w).clamp(48.0, 72.0),
+                                      color: scheme.primary,
+                                    ),
                                   ),
-                                  height: 1.45,
-                                ),
-                          ),
-                        ],
+                                  SizedBox(height: 3.h),
+                                  Text(
+                                    page.title,
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineSmall
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: -0.4,
+                                          fontSize: 20.sp,
+                                        ),
+                                  ),
+                                  SizedBox(height: 1.5.h),
+                                  Text(
+                                    page.body,
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyLarge
+                                        ?.copyWith(
+                                          color: scheme.onSurface.withValues(
+                                            alpha: 0.75,
+                                          ),
+                                          height: 1.45,
+                                          fontSize: 15.sp,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     );
                   },
@@ -164,22 +186,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   );
                 }),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 2.h),
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                padding: EdgeInsets.fromLTRB(6.w, 0, 6.w, 3.h),
                 child: FilledButton(
                   onPressed: _next,
                   style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
+                    minimumSize: Size.fromHeight((6.h).clamp(48.0, 56.0)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
                   child: Text(
                     _index == _pages.length - 1 ? 'Get started' : 'Next',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      fontSize: 16,
+                      fontSize: 16.sp,
                     ),
                   ),
                 ),

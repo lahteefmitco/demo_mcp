@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'api/auth_api.dart';
-import 'auth/auth_storage.dart';
+import 'cubits/app/app_cubit.dart';
+import 'cubits/app/app_state.dart';
+import 'cubits/shell/shell_cubit.dart';
+import 'cubits/shell/shell_state.dart';
+import 'di/service_locator.dart';
+import 'database/finance_database_holder.dart';
 import 'models/auth_session.dart';
 import 'models/currency_option.dart';
+import 'repository/finance_repository.dart';
 import 'screens/auth_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/dashboard_screen.dart';
@@ -12,168 +18,75 @@ import 'screens/onboarding_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/splash_screen.dart';
-import 'database/finance_database_holder.dart';
-import 'repository/finance_repository.dart';
-import 'settings/app_preferences_storage.dart';
 import 'sync/background_sync.dart';
 import 'theme/app_theme.dart';
-import 'utils/currency_utils.dart';
+import 'utils/app_responsive.dart';
 
-class ExpenseMobileApp extends StatefulWidget {
+class ExpenseMobileApp extends StatelessWidget {
   const ExpenseMobileApp({super.key});
 
   @override
-  State<ExpenseMobileApp> createState() => _ExpenseMobileAppState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => AppCubit(
+        authStorage: sl(),
+        preferencesStorage: sl(),
+        authApi: sl(),
+      )..bootstrap(),
+      child: MaterialApp(
+        title: 'Finance Mobile',
+        debugShowCheckedModeBanner: false,
+        theme: ExpenseAppTheme.light(),
+        builder: (context, child) {
+          final mq = MediaQuery.of(context);
+          return MediaQuery(
+            data: mq.copyWith(
+              textScaler: mq.textScaler.clamp(
+                minScaleFactor: 0.85,
+                maxScaleFactor: 1.15,
+              ),
+            ),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
+        home: const _AppRoot(),
+      ),
+    );
+  }
 }
 
-class _ExpenseMobileAppState extends State<ExpenseMobileApp> {
-  final AuthStorage _authStorage = AuthStorage();
-  final AppPreferencesStorage _preferencesStorage = AppPreferencesStorage();
-  final AuthApi _authApi = AuthApi();
-  AuthSession? _session;
-  bool _isBootstrapping = true;
-  bool _needsOnboarding = false;
-  CurrencyOption _selectedCurrency = defaultCurrency;
-
-  @override
-  void initState() {
-    super.initState();
-    _bootstrap();
-  }
-
-  static const _minSplash = Duration(milliseconds: 1500);
-
-  Future<void> _bootstrap() async {
-    final stopwatch = Stopwatch()..start();
-    final onboardingDone = await _preferencesStorage.readOnboardingCompleted();
-
-    try {
-      var code = await _preferencesStorage.readCurrencyCode();
-      if (code == null || code.isEmpty) {
-        await _preferencesStorage.writeCurrencyCode(defaultCurrency.code);
-        code = defaultCurrency.code;
-      }
-      final storedCurrency = currencyFromCode(code);
-
-      AuthSession? session;
-      final stored = await _authStorage.readSession();
-      if (stored != null) {
-        try {
-          final currentUser = await _authApi.fetchCurrentUser(stored.token);
-          session = AuthSession(token: stored.token, user: currentUser);
-        } catch (_) {
-          await _authStorage.clear();
-        }
-      }
-
-      final elapsed = stopwatch.elapsed;
-      if (elapsed < _minSplash) {
-        await Future<void>.delayed(_minSplash - elapsed);
-      }
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _session = session;
-        _selectedCurrency = storedCurrency;
-        _needsOnboarding = !onboardingDone;
-        _isBootstrapping = false;
-      });
-    } catch (_) {
-      await _authStorage.clear();
-      final elapsed = stopwatch.elapsed;
-      if (elapsed < _minSplash) {
-        await Future<void>.delayed(_minSplash - elapsed);
-      }
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _session = null;
-        _selectedCurrency = defaultCurrency;
-        _needsOnboarding = !onboardingDone;
-        _isBootstrapping = false;
-      });
-    }
-  }
-
-  Future<void> _completeOnboarding() async {
-    await _preferencesStorage.writeOnboardingCompleted(true);
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _needsOnboarding = false;
-    });
-  }
-
-  Future<void> _handleCurrencyChanged(CurrencyOption currency) async {
-    await _preferencesStorage.writeCurrencyCode(currency.code);
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _selectedCurrency = currency;
-    });
-  }
-
-  Future<void> _handleAuthenticated(AuthSession session) async {
-    await _authStorage.writeSession(session);
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _session = session;
-    });
-  }
-
-  Future<void> _handleSessionUpdated(AuthSession session) async {
-    await _authStorage.writeSession(session);
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _session = session;
-    });
-  }
-
-  Future<void> _logout() async {
-    await BackgroundSync.cancelPeriodicSync();
-    await _authStorage.clear();
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _session = null;
-    });
-  }
+class _AppRoot extends StatelessWidget {
+  const _AppRoot();
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Finance Mobile',
-      debugShowCheckedModeBanner: false,
-      theme: ExpenseAppTheme.light(),
-      home: _isBootstrapping
-          ? const SplashScreen()
-          : _needsOnboarding
-          ? OnboardingScreen(onComplete: _completeOnboarding)
-          : _session == null
-          ? AuthScreen(onAuthenticated: _handleAuthenticated)
-          : AppShell(
-              session: _session!,
-              onLogout: _logout,
-              onSessionUpdated: _handleSessionUpdated,
-              selectedCurrency: _selectedCurrency,
-              onCurrencyChanged: _handleCurrencyChanged,
-            ),
+    return BlocBuilder<AppCubit, AppState>(
+      buildWhen: (prev, next) => prev.runtimeType != next.runtimeType || prev != next,
+      builder: (context, state) {
+        if (state is AppBootstrapping) {
+          return const SplashScreen();
+        }
+        if (state is AppNeedsOnboarding) {
+          return OnboardingScreen(
+            onComplete: () => context.read<AppCubit>().completeOnboarding(),
+          );
+        }
+        if (state is AppUnauthenticated) {
+          return AuthScreen(
+            onAuthenticated: (session) => context.read<AppCubit>().authenticated(session),
+          );
+        }
+        if (state is AppAuthenticated) {
+          return AppShell(
+            session: state.session,
+            selectedCurrency: state.currency,
+            onLogout: () => context.read<AppCubit>().logout(),
+            onSessionUpdated: (s) => context.read<AppCubit>().sessionUpdated(s),
+            onCurrencyChanged: (c) => context.read<AppCubit>().setCurrency(c),
+          );
+        }
+        return const SplashScreen();
+      },
     );
   }
 }
@@ -199,7 +112,6 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  int _selectedIndex = 0;
   late final FinanceRepository _financeRepository;
 
   @override
@@ -214,95 +126,151 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    final screens = [
-      HomeScreen(
-        session: widget.session,
-        repository: _financeRepository,
-        currency: widget.selectedCurrency,
-        isActiveTab: _selectedIndex == 0,
-        onOpenProfile: () async {
-          await Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ProfileScreen(
+    return RepositoryProvider<FinanceRepository>.value(
+      value: _financeRepository,
+      child: BlocProvider(
+        create: (_) => ShellCubit(),
+        child: BlocBuilder<ShellCubit, ShellState>(
+          buildWhen: (p, n) => p.selectedIndex != n.selectedIndex,
+          builder: (context, shell) {
+            final selectedIndex = shell.selectedIndex;
+            final screens = [
+              HomeScreen(
                 session: widget.session,
-                onSessionUpdated: widget.onSessionUpdated,
+                currency: widget.selectedCurrency,
+                onOpenProfile: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ProfileScreen(
+                        session: widget.session,
+                        onSessionUpdated: widget.onSessionUpdated,
+                      ),
+                    ),
+                  );
+                },
               ),
-            ),
-          );
-        },
-      ),
-      DashboardScreen(
-        session: widget.session,
-        repository: _financeRepository,
-        currency: widget.selectedCurrency,
-        isActiveTab: _selectedIndex == 1,
-      ),
-      ChatScreen(
-        session: widget.session,
-        currency: widget.selectedCurrency,
-        isActiveTab: _selectedIndex == 2,
-        onOpenProfile: () async {
-          await Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ProfileScreen(
+              DashboardScreen(
                 session: widget.session,
-                onSessionUpdated: widget.onSessionUpdated,
+                currency: widget.selectedCurrency,
               ),
-            ),
-          );
-        },
-      ),
-      SettingsScreen(
-        session: widget.session,
-        repository: _financeRepository,
-        currency: widget.selectedCurrency,
-        isActiveTab: _selectedIndex == 3,
-        onCurrencyChanged: widget.onCurrencyChanged,
-        onLogout: widget.onLogout,
-        onOpenProfile: () async {
-          await Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ProfileScreen(
+              ChatScreen(
                 session: widget.session,
-                onSessionUpdated: widget.onSessionUpdated,
+                currency: widget.selectedCurrency,
+                isActiveTab: selectedIndex == 2,
+                onOpenProfile: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ProfileScreen(
+                        session: widget.session,
+                        onSessionUpdated: widget.onSessionUpdated,
+                      ),
+                    ),
+                  );
+                },
               ),
-            ),
-          );
-        },
-      ),
-    ];
+              SettingsScreen(
+                session: widget.session,
+                currency: widget.selectedCurrency,
+                onCurrencyChanged: widget.onCurrencyChanged,
+                onLogout: widget.onLogout,
+                onOpenProfile: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ProfileScreen(
+                        session: widget.session,
+                        onSessionUpdated: widget.onSessionUpdated,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ];
 
-    return Scaffold(
-      body: IndexedStack(index: _selectedIndex, children: screens),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline),
-            selectedIcon: Icon(Icons.chat_bubble),
-            label: 'Chat',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
-        ],
+            final wide = AppResponsive.useWideShellLayout(context);
+            final railExtended =
+                MediaQuery.sizeOf(context).width >= 900;
+
+            final stack = IndexedStack(
+              index: selectedIndex,
+              children: screens,
+            );
+
+            return Scaffold(
+              body: wide
+                  ? Row(
+                      children: [
+                        NavigationRail(
+                          selectedIndex: selectedIndex,
+                          onDestinationSelected: (index) {
+                            context.read<ShellCubit>().selectTab(index);
+                          },
+                          labelType: NavigationRailLabelType.all,
+                          extended: railExtended,
+                          destinations: const [
+                            NavigationRailDestination(
+                              icon: Icon(Icons.home_outlined),
+                              selectedIcon: Icon(Icons.home),
+                              label: Text('Home'),
+                            ),
+                            NavigationRailDestination(
+                              icon: Icon(Icons.dashboard_outlined),
+                              selectedIcon: Icon(Icons.dashboard),
+                              label: Text('Dashboard'),
+                            ),
+                            NavigationRailDestination(
+                              icon: Icon(Icons.chat_bubble_outline),
+                              selectedIcon: Icon(Icons.chat_bubble),
+                              label: Text('Chat'),
+                            ),
+                            NavigationRailDestination(
+                              icon: Icon(Icons.settings_outlined),
+                              selectedIcon: Icon(Icons.settings),
+                              label: Text('Settings'),
+                            ),
+                          ],
+                        ),
+                        const VerticalDivider(width: 1, thickness: 1),
+                        Expanded(
+                          child: ResponsiveContentWidth(
+                            child: stack,
+                          ),
+                        ),
+                      ],
+                    )
+                  : ResponsiveContentWidth(child: stack),
+              bottomNavigationBar: wide
+                  ? null
+                  : NavigationBar(
+                      selectedIndex: selectedIndex,
+                      onDestinationSelected: (index) {
+                        context.read<ShellCubit>().selectTab(index);
+                      },
+                      destinations: const [
+                        NavigationDestination(
+                          icon: Icon(Icons.home_outlined),
+                          selectedIcon: Icon(Icons.home),
+                          label: 'Home',
+                        ),
+                        NavigationDestination(
+                          icon: Icon(Icons.dashboard_outlined),
+                          selectedIcon: Icon(Icons.dashboard),
+                          label: 'Dashboard',
+                        ),
+                        NavigationDestination(
+                          icon: Icon(Icons.chat_bubble_outline),
+                          selectedIcon: Icon(Icons.chat_bubble),
+                          label: 'Chat',
+                        ),
+                        NavigationDestination(
+                          icon: Icon(Icons.settings_outlined),
+                          selectedIcon: Icon(Icons.settings),
+                          label: 'Settings',
+                        ),
+                      ],
+                    ),
+            );
+          },
+        ),
       ),
     );
   }

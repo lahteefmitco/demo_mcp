@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../models/auth_session.dart';
 import '../repository/finance_repository.dart';
+import '../cubits/category_entries/category_entries_cubit.dart';
+import '../cubits/category_entries/category_entries_state.dart';
 import '../models/currency_option.dart';
 import '../models/finance_models.dart';
 import '../utils/currency_utils.dart';
@@ -9,14 +12,12 @@ import '../utils/currency_utils.dart';
 class CategoryEntriesScreen extends StatefulWidget {
   const CategoryEntriesScreen({
     required this.session,
-    required this.repository,
     required this.category,
     required this.currency,
     super.key,
   });
 
   final AuthSession session;
-  final FinanceRepository repository;
   final FinanceCategory category;
   final CurrencyOption currency;
 
@@ -26,13 +27,16 @@ class CategoryEntriesScreen extends StatefulWidget {
 
 class _CategoryEntriesScreenState extends State<CategoryEntriesScreen>
     with SingleTickerProviderStateMixin {
-  late Future<_CategoryEntriesData> _future;
   TabController? _tabController;
+  late final CategoryEntriesCubit _cubit;
 
   @override
   void initState() {
     super.initState();
-    _future = _load();
+    _cubit = CategoryEntriesCubit(
+      repository: context.read<FinanceRepository>(),
+      category: widget.category,
+    );
     if (_showsBothTabs) {
       _tabController = TabController(length: 2, vsync: this);
     }
@@ -46,146 +50,111 @@ class _CategoryEntriesScreenState extends State<CategoryEntriesScreen>
     super.dispose();
   }
 
-  Future<_CategoryEntriesData> _load() async {
-    final futures = <Future<dynamic>>[];
-
-    if (widget.category.kind == 'expense' || widget.category.kind == 'both') {
-      futures.add(
-        widget.repository.listExpensesLocal(
-          categoryUuid: widget.category.uuid,
-        ),
-      );
-    }
-
-    if (widget.category.kind == 'income' || widget.category.kind == 'both') {
-      futures.add(
-        widget.repository.listIncomesLocal(
-          categoryUuid: widget.category.uuid,
-        ),
-      );
-    }
-
-    final results = await Future.wait(futures);
-    var resultIndex = 0;
-
-    List<FinanceEntry> expenses = const [];
-    if (widget.category.kind == 'expense' || widget.category.kind == 'both') {
-      expenses = results[resultIndex] as List<FinanceEntry>;
-      resultIndex += 1;
-    }
-
-    List<FinanceEntry> incomes = const [];
-    if (widget.category.kind == 'income' || widget.category.kind == 'both') {
-      incomes = results[resultIndex] as List<FinanceEntry>;
-    }
-
-    return _CategoryEntriesData(expenses: expenses, incomes: incomes);
-  }
-
   Future<void> _refresh() async {
-    setState(() {
-      _future = _load();
-    });
-    await _future;
+    await _cubit.refresh();
   }
 
   @override
   Widget build(BuildContext context) {
     final category = widget.category;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(category.name),
-        bottom: _showsBothTabs
-            ? TabBar(
-                controller: _tabController,
-                tabs: const [
-                  Tab(text: 'Expenses'),
-                  Tab(text: 'Income'),
-                ],
-              )
-            : null,
-      ),
-      body: FutureBuilder<_CategoryEntriesData>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    return BlocProvider.value(
+      value: _cubit,
+      child: Builder(
+        builder: (context) {
+          return Scaffold(
+            appBar: AppBar(
+              title: Text(category.name),
+              bottom: _showsBothTabs
+                  ? TabBar(
+                      controller: _tabController,
+                      tabs: const [
+                        Tab(text: 'Expenses'),
+                        Tab(text: 'Income'),
+                      ],
+                    )
+                  : null,
+            ),
+            body: FutureBuilder<CategoryEntriesData>(
+              future: context.watch<CategoryEntriesCubit>().state.future,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.receipt_long_outlined, size: 52),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Could not load category entries',
-                      style: Theme.of(context).textTheme.titleLarge,
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.receipt_long_outlined, size: 52),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Could not load category entries',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            snapshot.error.toString(),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          FilledButton(
+                            onPressed: _refresh,
+                            child: const Text('Try Again'),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      snapshot.error.toString(),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      onPressed: _refresh,
-                      child: const Text('Try Again'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
+                  );
+                }
 
-          final data = snapshot.data!;
+                final data = snapshot.data!;
 
-          if (_showsBothTabs) {
-            return TabBarView(
-              controller: _tabController,
-              children: [
-                _CategoryEntryList(
+                if (_showsBothTabs) {
+                  return TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _CategoryEntryList(
+                        currency: widget.currency,
+                        entries: data.expenses,
+                        isIncome: false,
+                        emptyMessage:
+                            'No expense records in this category.',
+                        onRefresh: _refresh,
+                      ),
+                      _CategoryEntryList(
+                        currency: widget.currency,
+                        entries: data.incomes,
+                        isIncome: true,
+                        emptyMessage:
+                            'No income records in this category.',
+                        onRefresh: _refresh,
+                      ),
+                    ],
+                  );
+                }
+
+                return _CategoryEntryList(
                   currency: widget.currency,
-                  entries: data.expenses,
-                  isIncome: false,
-                  emptyMessage: 'No expense records in this category.',
+                  entries: category.kind == 'income'
+                      ? data.incomes
+                      : data.expenses,
+                  isIncome: category.kind == 'income',
+                  emptyMessage: category.kind == 'income'
+                      ? 'No income records in this category.'
+                      : 'No expense records in this category.',
                   onRefresh: _refresh,
-                ),
-                _CategoryEntryList(
-                  currency: widget.currency,
-                  entries: data.incomes,
-                  isIncome: true,
-                  emptyMessage: 'No income records in this category.',
-                  onRefresh: _refresh,
-                ),
-              ],
-            );
-          }
-
-          return _CategoryEntryList(
-            currency: widget.currency,
-            entries: category.kind == 'income' ? data.incomes : data.expenses,
-            isIncome: category.kind == 'income',
-            emptyMessage: category.kind == 'income'
-                ? 'No income records in this category.'
-                : 'No expense records in this category.',
-            onRefresh: _refresh,
+                );
+              },
+            ),
           );
         },
       ),
     );
   }
-}
-
-class _CategoryEntriesData {
-  const _CategoryEntriesData({required this.expenses, required this.incomes});
-
-  final List<FinanceEntry> expenses;
-  final List<FinanceEntry> incomes;
 }
 
 class _CategoryEntryList extends StatelessWidget {

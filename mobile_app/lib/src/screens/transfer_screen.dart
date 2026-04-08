@@ -1,83 +1,51 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../cubits/add_transfer/add_transfer_cubit.dart';
+import '../cubits/add_transfer/add_transfer_state.dart';
 import '../models/auth_session.dart';
 import '../repository/finance_repository.dart';
+import '../cubits/transfers/transfers_cubit.dart';
+import '../cubits/transfers/transfers_state.dart';
 import '../models/currency_option.dart';
 import '../models/finance_models.dart';
 import '../utils/currency_utils.dart';
+import '../utils/toast.dart';
 
-class TransferScreen extends StatefulWidget {
+class TransferScreen extends StatelessWidget {
   const TransferScreen({
     super.key,
     required this.session,
-    required this.repository,
     required this.currency,
   });
 
   final AuthSession session;
-  final FinanceRepository repository;
   final CurrencyOption currency;
 
   @override
-  State<TransferScreen> createState() => _TransferScreenState();
-}
-
-class _TransferScreenState extends State<TransferScreen> {
-  late Future<List<FinanceAccount>> _accountsFuture;
-  late Future<List<Transfer>> _transfersFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _accountsFuture = widget.repository.listAccountsLocal();
-    _transfersFuture = _loadTransfers();
-  }
-
-  Future<List<Transfer>> _loadTransfers() async {
-    final list = await widget.repository.listTransfersLocal();
-    return list.length > 20 ? list.sublist(0, 20) : list;
-  }
-
-  Future<void> _refresh() async {
-    setState(() {
-      _accountsFuture = widget.repository.listAccountsLocal();
-      _transfersFuture = _loadTransfers();
-    });
-  }
-
-  Future<void> _openTransferDialog(List<FinanceAccount> accounts) async {
-    final payload = await Navigator.of(context).push<Map<String, dynamic>>(
-      MaterialPageRoute(builder: (_) => AddTransferScreen(accounts: accounts)),
-    );
-
-    if (!mounted || payload == null) {
-      return;
-    }
-
-    await widget.repository.transferBetweenAccounts(
-      fromAccountUuid: payload['fromAccountUuid'] as String,
-      toAccountUuid: payload['toAccountUuid'] as String,
-      amount: payload['amount'] as double,
-      notes: payload['notes'] as String? ?? '',
-    );
-    _showMessage('Transfer completed');
-    await _refresh();
-  }
-
-  void _showMessage(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Transfers')),
-      body: FutureBuilder<List<FinanceAccount>>(
-        future: _accountsFuture,
-        builder: (context, snapshot) {
+    final repo = context.read<FinanceRepository>();
+
+    return BlocProvider(
+      create: (_) => TransfersCubit(repository: repo),
+      child: BlocListener<TransfersCubit, TransfersState>(
+        listenWhen: (p, n) => p.toastNonce != n.toastNonce,
+        listener: (context, state) {
+          final msg = state.toastMessage;
+          if (msg == null || msg.isEmpty) return;
+          if (state.toastIsError) {
+            AppToast.error(context, msg);
+          } else {
+            AppToast.success(context, msg);
+          }
+        },
+        child: Builder(
+          builder: (blocContext) {
+            return Scaffold(
+              appBar: AppBar(title: const Text('Transfers')),
+              body: FutureBuilder<List<FinanceAccount>>(
+                future: blocContext.watch<TransfersCubit>().state.accountsFuture,
+                builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -91,7 +59,10 @@ class _TransferScreenState extends State<TransferScreen> {
                   const SizedBox(height: 12),
                   Text(snapshot.error.toString()),
                   const SizedBox(height: 16),
-                  FilledButton(onPressed: _refresh, child: const Text('Retry')),
+                  FilledButton(
+                    onPressed: () => context.read<TransfersCubit>().refresh(),
+                    child: const Text('Retry'),
+                  ),
                 ],
               ),
             );
@@ -100,7 +71,7 @@ class _TransferScreenState extends State<TransferScreen> {
           final accounts = snapshot.data!;
 
           return RefreshIndicator(
-            onRefresh: _refresh,
+            onRefresh: () => context.read<TransfersCubit>().refresh(),
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
@@ -152,7 +123,7 @@ class _TransferScreenState extends State<TransferScreen> {
                           width: double.infinity,
                           child: FilledButton.icon(
                             onPressed: accounts.length >= 2
-                                ? () => _openTransferDialog(accounts)
+                                ? () => _openTransferDialog(context, accounts)
                                 : null,
                             icon: const Icon(Icons.add),
                             label: const Text('New Transfer'),
@@ -180,7 +151,7 @@ class _TransferScreenState extends State<TransferScreen> {
                 ),
                 const SizedBox(height: 8),
                 FutureBuilder<List<Transfer>>(
-                  future: _transfersFuture,
+                  future: context.watch<TransfersCubit>().state.transfersFuture,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState != ConnectionState.done) {
                       return const Center(child: CircularProgressIndicator());
@@ -218,7 +189,7 @@ class _TransferScreenState extends State<TransferScreen> {
                           .map(
                             (transfer) => _TransferTile(
                               transfer: transfer,
-                              currency: widget.currency,
+                              currency: currency,
                             ),
                           )
                           .toList(),
@@ -228,10 +199,32 @@ class _TransferScreenState extends State<TransferScreen> {
               ],
             ),
           );
-        },
+                },
+              ),
+            );
+          },
+        ),
       ),
     );
   }
+}
+
+Future<void> _openTransferDialog(
+  BuildContext context,
+  List<FinanceAccount> accounts,
+) async {
+  final payload = await Navigator.of(context).push<Map<String, dynamic>>(
+    MaterialPageRoute(builder: (_) => AddTransferScreen(accounts: accounts)),
+  );
+  if (!context.mounted || payload == null) {
+    return;
+  }
+  await context.read<TransfersCubit>().createTransfer(
+        fromAccountUuid: payload['fromAccountUuid'] as String,
+        toAccountUuid: payload['toAccountUuid'] as String,
+        amount: payload['amount'] as double,
+        notes: payload['notes'] as String? ?? '',
+      );
 }
 
 class _TransferTile extends StatelessWidget {
@@ -308,16 +301,19 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   final _notesController = TextEditingController();
-  String? _fromAccountUuid;
-  String? _toAccountUuid;
+  late final AddTransferCubit _cubit;
 
   @override
   void initState() {
     super.initState();
     final active = widget.accounts.where((a) => a.isActive).toList();
     if (active.length >= 2) {
-      _fromAccountUuid = active[0].uuid;
-      _toAccountUuid = active[1].uuid;
+      _cubit = AddTransferCubit(
+        initialFromAccountUuid: active[0].uuid,
+        initialToAccountUuid: active[1].uuid,
+      );
+    } else {
+      _cubit = AddTransferCubit(initialFromAccountUuid: null, initialToAccountUuid: null);
     }
   }
 
@@ -325,6 +321,7 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
   void dispose() {
     _amountController.dispose();
     _notesController.dispose();
+    _cubit.close();
     super.dispose();
   }
 
@@ -333,9 +330,10 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
       return;
     }
 
+    final state = _cubit.state;
     Navigator.of(context).pop({
-      'fromAccountUuid': _fromAccountUuid!,
-      'toAccountUuid': _toAccountUuid!,
+      'fromAccountUuid': state.fromAccountUuid!,
+      'toAccountUuid': state.toAccountUuid!,
       'amount': double.parse(_amountController.text.trim()),
       'notes': _notesController.text.trim(),
     });
@@ -345,56 +343,59 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
   Widget build(BuildContext context) {
     final activeAccounts = widget.accounts.where((a) => a.isActive).toList();
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('New Transfer')),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            DropdownButtonFormField<String>(
-              initialValue: _fromAccountUuid,
-              decoration: const InputDecoration(
-                labelText: 'From Account',
-                prefixIcon: Icon(Icons.arrow_outward),
-              ),
-              items: activeAccounts
-                  .map(
-                    (account) => DropdownMenuItem(
-                      value: account.uuid,
-                      child: Text(account.name),
+    return BlocProvider.value(
+      value: _cubit,
+      child: Scaffold(
+        appBar: AppBar(title: const Text('New Transfer')),
+        body: BlocBuilder<AddTransferCubit, AddTransferState>(
+          buildWhen: (p, n) =>
+              p.fromAccountUuid != n.fromAccountUuid ||
+              p.toAccountUuid != n.toAccountUuid,
+          builder: (context, state) {
+            return Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  DropdownButtonFormField<String>(
+                    initialValue: state.fromAccountUuid,
+                    decoration: const InputDecoration(
+                      labelText: 'From Account',
+                      prefixIcon: Icon(Icons.arrow_outward),
                     ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                setState(() {
-                  _fromAccountUuid = value;
-                });
-              },
-              validator: (value) => value == null ? 'Select an account' : null,
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: _toAccountUuid,
-              decoration: const InputDecoration(
-                labelText: 'To Account',
-                prefixIcon: Icon(Icons.arrow_downward),
-              ),
-              items: activeAccounts
-                  .map(
-                    (account) => DropdownMenuItem(
-                      value: account.uuid,
-                      child: Text(account.name),
+                    items: activeAccounts
+                        .map(
+                          (account) => DropdownMenuItem(
+                            value: account.uuid,
+                            child: Text(account.name),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) =>
+                        context.read<AddTransferCubit>().setFrom(value),
+                    validator: (value) =>
+                        value == null ? 'Select an account' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    initialValue: state.toAccountUuid,
+                    decoration: const InputDecoration(
+                      labelText: 'To Account',
+                      prefixIcon: Icon(Icons.arrow_downward),
                     ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                setState(() {
-                  _toAccountUuid = value;
-                });
-              },
-              validator: (value) => value == null ? 'Select an account' : null,
-            ),
+                    items: activeAccounts
+                        .map(
+                          (account) => DropdownMenuItem(
+                            value: account.uuid,
+                            child: Text(account.name),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) =>
+                        context.read<AddTransferCubit>().setTo(value),
+                    validator: (value) =>
+                        value == null ? 'Select an account' : null,
+                  ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _amountController,
@@ -427,10 +428,12 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
             ),
             const SizedBox(height: 24),
             FilledButton(
-              onPressed: _fromAccountUuid != _toAccountUuid ? _submit : null,
+              onPressed:
+                  state.fromAccountUuid != state.toAccountUuid ? _submit : null,
               child: const Text('Transfer'),
             ),
-            if (_fromAccountUuid == _toAccountUuid && _fromAccountUuid != null)
+            if (state.fromAccountUuid == state.toAccountUuid &&
+                state.fromAccountUuid != null)
               const Padding(
                 padding: EdgeInsets.only(top: 8),
                 child: Text(
@@ -439,7 +442,10 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                   textAlign: TextAlign.center,
                 ),
               ),
-          ],
+                ],
+              ),
+            );
+          },
         ),
       ),
     );

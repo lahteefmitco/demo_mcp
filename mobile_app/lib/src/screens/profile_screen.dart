@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../api/auth_api.dart';
+import '../cubits/profile/profile_cubit.dart';
+import '../cubits/profile/profile_state.dart';
+import '../di/service_locator.dart';
 import '../models/auth_session.dart';
+import '../utils/toast.dart';
 
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends StatelessWidget {
   const ProfileScreen({
     required this.session,
     required this.onSessionUpdated,
@@ -14,15 +18,54 @@ class ProfileScreen extends StatefulWidget {
   final Future<void> Function(AuthSession session) onSessionUpdated;
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => ProfileCubit(
+        authApi: sl(),
+        session: session,
+        onSessionUpdated: onSessionUpdated,
+      ),
+      child: BlocConsumer<ProfileCubit, ProfileState>(
+        listenWhen: (p, n) => p.toastNonce != n.toastNonce,
+        listener: (context, state) {
+          final msg = state.toastMessage;
+          if (msg == null || msg.isEmpty) return;
+          if (state.toastIsError) {
+            AppToast.error(context, msg);
+          } else {
+            AppToast.success(context, msg);
+          }
+        },
+        buildWhen: (p, n) =>
+            p.session != n.session ||
+            p.isSavingName != n.isSavingName ||
+            p.isRequestingEmailChange != n.isRequestingEmailChange,
+        builder: (context, state) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Profile')),
+            body: Padding(
+              padding: const EdgeInsets.all(24),
+              child: _ProfileForm(session: state.session),
+            ),
+          );
+        },
+      ),
+    );
+  }
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileForm extends StatefulWidget {
+  const _ProfileForm({required this.session});
+
+  final AuthSession session;
+
+  @override
+  State<_ProfileForm> createState() => _ProfileFormState();
+}
+
+class _ProfileFormState extends State<_ProfileForm> {
   late final TextEditingController _nameController;
   late final TextEditingController _emailController;
-  final AuthApi _authApi = AuthApi();
-  bool _isSavingName = false;
-  bool _isRequestingEmailChange = false;
 
   @override
   void initState() {
@@ -32,160 +75,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   @override
+  void didUpdateWidget(_ProfileForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.session.user.name != widget.session.user.name) {
+      _nameController.text = widget.session.user.name;
+    }
+    if (oldWidget.session.user.email != widget.session.user.email) {
+      _emailController.text = widget.session.user.email;
+    }
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
     super.dispose();
   }
 
-  Future<void> _saveName() async {
-    if (_isSavingName || _nameController.text.trim().length < 2) {
-      return;
-    }
-
-    setState(() {
-      _isSavingName = true;
-    });
-
-    try {
-      final user = await _authApi.updateProfile(
-        token: widget.session.token,
-        name: _nameController.text.trim(),
-      );
-      if (!mounted) {
-        return;
-      }
-
-      await widget.onSessionUpdated(widget.session.copyWith(user: user));
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Name updated')));
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSavingName = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _requestEmailChange() async {
-    if (_isRequestingEmailChange || !_emailController.text.contains('@')) {
-      return;
-    }
-
-    setState(() {
-      _isRequestingEmailChange = true;
-    });
-
-    try {
-      final message = await _authApi.requestEmailChange(
-        token: widget.session.token,
-        email: _emailController.text.trim(),
-      );
-      if (!mounted) {
-        return;
-      }
-
-      await widget.onSessionUpdated(
-        widget.session.copyWith(
-          user: widget.session.user.copyWith(
-            pendingEmail: _emailController.text.trim(),
-          ),
-        ),
-      );
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isRequestingEmailChange = false;
-        });
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final user = widget.session.user;
+    final state = context.watch<ProfileCubit>().state;
+    final user = state.session.user;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          Text('Account', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _nameController,
-            decoration: const InputDecoration(
-              labelText: 'Name',
-              border: OutlineInputBorder(),
-            ),
+    return ListView(
+      children: [
+        Text('Account', style: Theme.of(context).textTheme.headlineSmall),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _nameController,
+          decoration: const InputDecoration(
+            labelText: 'Name',
+            border: OutlineInputBorder(),
           ),
+        ),
+        const SizedBox(height: 12),
+        FilledButton(
+          onPressed: state.isSavingName
+              ? null
+              : () => context.read<ProfileCubit>().saveName(_nameController.text),
+          child: Text(state.isSavingName ? 'Saving...' : 'Update name'),
+        ),
+        const SizedBox(height: 24),
+        TextFormField(
+          controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(
+            labelText: 'Email',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        FilledButton.tonal(
+          onPressed: state.isRequestingEmailChange
+              ? null
+              : () => context
+                  .read<ProfileCubit>()
+                  .requestEmailChange(_emailController.text),
+          child: Text(
+            state.isRequestingEmailChange
+                ? 'Sending...'
+                : 'Send email change verification',
+          ),
+        ),
+        if (user.pendingEmail != null && user.pendingEmail!.isNotEmpty) ...[
           const SizedBox(height: 12),
-          FilledButton(
-            onPressed: _isSavingName ? null : _saveName,
-            child: Text(_isSavingName ? 'Saving...' : 'Update name'),
+          Text(
+            'Pending email verification: ${user.pendingEmail}',
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(color: const Color(0xFF475569)),
           ),
-          const SizedBox(height: 24),
-          TextFormField(
-            controller: _emailController,
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: 'Email',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.tonal(
-            onPressed: _isRequestingEmailChange ? null : _requestEmailChange,
-            child: Text(
-              _isRequestingEmailChange
-                  ? 'Sending...'
-                  : 'Send email change verification',
-            ),
-          ),
-          if (user.pendingEmail != null && user.pendingEmail!.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(
-              'Pending email verification: ${user.pendingEmail}',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF475569)),
-            ),
-          ],
         ],
-      ),
+      ],
     );
   }
 }

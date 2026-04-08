@@ -1,47 +1,16 @@
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
-import '../api/chat_api.dart';
-import '../api/finance_mcp_client.dart';
+import '../cubits/chat/chat_cubit.dart';
+import '../cubits/chat/chat_state.dart';
 import '../database/chat_database.dart';
 import '../models/auth_session.dart';
-import '../models/chat_message.dart';
 import '../models/currency_option.dart';
-import '../settings/app_preferences_storage.dart';
+import '../utils/toast.dart';
 
-class ChartDataPoint {
-  final String label;
-  final double value;
-
-  ChartDataPoint({required this.label, required this.value});
-}
-
-class ChatChartData {
-  final String type;
-  final String title;
-  final List<ChartDataPoint> data;
-  final String? currencySymbol;
-
-  ChatChartData({
-    required this.type,
-    required this.title,
-    required this.data,
-    this.currencySymbol,
-  });
-}
-
-class ChatMessageData {
-  final String role;
-  final String content;
-  final ChatChartData? chartData;
-
-  ChatMessageData({required this.role, required this.content, this.chartData});
-}
-
-class ChatScreen extends StatefulWidget {
+class ChatScreen extends StatelessWidget {
   const ChatScreen({
     required this.session,
     required this.currency,
@@ -56,410 +25,97 @@ class ChatScreen extends StatefulWidget {
   final Future<void> Function() onOpenProfile;
 
   @override
-  State<ChatScreen> createState() => _ChatScreenState();
-}
-
-class _ChatScreenState extends State<ChatScreen> {
-  late final ChatApi _chatApi;
-  late final FinanceMcpClient _financeClient;
-  late final ChatDatabase _database;
-  final AppPreferencesStorage _preferencesStorage = AppPreferencesStorage();
-  final TextEditingController _controller = TextEditingController();
-  static const _providers = <String, String>{
-    'gemini': 'Gemini',
-    'mistral': 'Mistral',
-    'openrouter': 'OpenRouter',
-  };
-  static const _defaultProvider = 'gemini';
-  List<ChatMessageData> _messages = [];
-  bool _isSending = false;
-  String _selectedProvider = _defaultProvider;
-  int? _currentSessionId;
-  bool _isLoadingSessions = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _chatApi = ChatApi(token: widget.session.token);
-    _financeClient = FinanceMcpClient(token: widget.session.token);
-    _database = ChatDatabase();
-    _restoreSelectedProvider();
-    _loadSessions();
-    _startNewSession();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _database.close();
-    super.dispose();
-  }
-
-  Future<void> _loadSessions() async {}
-
-  /// Syncs the message list from [ChatDatabase] when returning to this tab.
-  Future<void> _reloadCurrentSessionFromLocalDb() async {
-    final id = _currentSessionId;
-    if (id == null) {
-      return;
-    }
-
-    final rows = await _database.getMessagesForSession(id);
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _messages = rows
-          .map((m) => ChatMessageData(role: m.role, content: m.content))
-          .toList();
-    });
-  }
-
-  Future<void> _restoreSelectedProvider() async {
-    final savedProvider = await _preferencesStorage.readChatAgent();
-    if (!mounted ||
-        savedProvider == null ||
-        !_providers.containsKey(savedProvider)) {
-      return;
-    }
-
-    setState(() {
-      _selectedProvider = savedProvider;
-    });
-  }
-
-  Future<void> _setSelectedProvider(String value) async {
-    await _preferencesStorage.writeChatAgent(value);
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _selectedProvider = value;
-    });
-  }
-
-  void _startNewSession() {
-    _currentSessionId = null;
-    setState(() {
-      _messages = [
-        ChatMessageData(
-          role: 'assistant',
-          content:
-              'Hi, I can help you analyze spending, list expenses, and create new expense entries. Ask me to show charts like "show me today\'s expenses in bar chart" or "show weekly expenses in line chart" or "show expenses by category as pie chart".',
-        ),
-      ];
-    });
-  }
-
-  @override
-  void didUpdateWidget(ChatScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isActiveTab && !oldWidget.isActiveTab) {
-      _reloadCurrentSessionFromLocalDb();
-    }
-  }
-
-  Future<void> _loadSession(ChatSessionData session) async {
-    setState(() {
-      _isLoadingSessions = true;
-    });
-
-    final messages = await _database.getMessagesForSession(session.id);
-    setState(() {
-      _currentSessionId = session.id;
-      _selectedProvider = session.model;
-      _messages = messages
-          .map((m) => ChatMessageData(role: m.role, content: m.content))
-          .toList();
-      _isLoadingSessions = false;
-    });
-
-    if (mounted) {
-      Navigator.pop(context);
-    }
-  }
-
-  String? _detectChartPeriod(String text) {
-    final lower = text.toLowerCase();
-
-    if (lower.contains("today") || lower.contains("today's")) {
-      return 'today';
-    }
-    if (lower.contains('week') && !lower.contains('month')) {
-      return 'weekly';
-    }
-    if (lower.contains('month') && !lower.contains('week')) {
-      return 'monthly';
-    }
-    if (lower.contains('category') ||
-        lower.contains('by category') ||
-        lower.contains('categories')) {
-      return 'category';
-    }
-
-    final daysMatch = RegExp(
-      r'past\s*(\d+)\s*days?|last\s*(\d+)\s*days?',
-    ).firstMatch(lower);
-    if (daysMatch != null) {
-      final days = int.tryParse(daysMatch.group(1) ?? daysMatch.group(2) ?? '');
-      if (days != null) {
-        return 'days_$days';
-      }
-    }
-
-    return null;
-  }
-
-  String _detectChartType(String text) {
-    final lower = text.toLowerCase();
-    if (lower.contains('pie')) return 'pie';
-    if (lower.contains('line')) return 'line';
-    return 'bar';
-  }
-
-  bool _isChartRequest(String text) {
-    final lower = text.toLowerCase();
-    return lower.contains('chart') ||
-        lower.contains('graph') ||
-        (lower.contains('show') && lower.contains('expense'));
-  }
-
-  Future<ChatChartData?> _fetchChartFromBackend(String text) async {
-    final period = _detectChartPeriod(text);
-    log("period: $period");
-    if (period == null) return null;
-
-    final type = _detectChartType(text);
-
-    try {
-      final chartData = await _financeClient.fetchChartData(
-        type: type,
-        period: period,
-      );
-
-      log("chartData from backend: $chartData");
-
-      if (chartData.data.isEmpty) {
-        return null;
-      }
-
-      return ChatChartData(
-        type: chartData.type,
-        title: chartData.title,
-        data: chartData.data
-            .map((d) => ChartDataPoint(label: d.label, value: d.value))
-            .toList(),
-        currencySymbol: widget.currency.symbol,
-      );
-    } catch (e) {
-      log("Error fetching chart: $e");
-      return null;
-    }
-  }
-
-  Future<void> _send() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty || _isSending) {
-      return;
-    }
-
-    if (_currentSessionId == null) {
-      _currentSessionId = await _database.createSession(_selectedProvider);
-      await _loadSessions();
-    }
-
-    final isChart = _isChartRequest(text);
-    log("isChart: $isChart");
-    ChatChartData? chartData;
-
-    if (isChart) {
-      chartData = await _fetchChartFromBackend(text);
-      log("chartData: $chartData");
-    }
-
-    setState(() {
-      _messages.add(ChatMessageData(role: 'user', content: text));
-      if (chartData != null) {
-        _messages.add(
-          ChatMessageData(
-            role: 'assistant',
-            content: chartData.title,
-            chartData: chartData,
-          ),
-        );
-      }
-      _controller.clear();
-      _isSending = true;
-    });
-
-    await _database.addMessage(_currentSessionId!, 'user', text);
-
-    if (chartData == null && isChart) {
-      setState(() {
-        _messages.add(
-          ChatMessageData(
-            role: 'assistant',
-            content: 'No expense data found for the requested period.',
-          ),
-        );
-      });
-      await _database.addMessage(
-        _currentSessionId!,
-        'assistant',
-        'No expense data found.',
-      );
-    } else if (chartData == null) {
-      try {
-        final reply = await _chatApi.sendMessage(
-          _messages
-              .where((m) => m.chartData == null)
-              .map((m) => ChatMessage(role: m.role, content: m.content))
-              .toList(),
-          provider: _selectedProvider,
-        );
-        if (!mounted) return;
-
-        final replyContent = reply.isEmpty ? 'Done.' : reply;
-        setState(() {
-          _messages.add(
-            ChatMessageData(role: 'assistant', content: replyContent),
-          );
-        });
-        await _database.addMessage(
-          _currentSessionId!,
-          'assistant',
-          replyContent,
-        );
-      } catch (error) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
-      }
-    } else {
-      await _database.addMessage(
-        _currentSessionId!,
-        'assistant',
-        chartData.title,
-      );
-    }
-
-    if (mounted) {
-      setState(() {
-        _isSending = false;
-      });
-    }
-  }
-
-  void _showChatHistory() async {
-    showModalBottomSheet(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (sheetContext) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        minChildSize: 0.5,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (sheetContext, scrollController) {
-          return StatefulBuilder(
-            builder: (context, setSheetState) {
-              return FutureBuilder<List<ChatSessionData>>(
-                future: _database.getAllSessions(),
-                builder: (context, snapshot) {
-                  final sessions = snapshot.data ?? [];
-
-                  return Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Chat History',
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            TextButton.icon(
-                              onPressed: () async {
-                                _startNewSession();
-                                Navigator.pop(context);
-                              },
-                              icon: const Icon(Icons.add),
-                              label: const Text('New Chat'),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Divider(),
-                      Expanded(
-                        child:
-                            snapshot.connectionState == ConnectionState.waiting
-                            ? const Center(child: CircularProgressIndicator())
-                            : sessions.isEmpty
-                            ? const Center(child: Text('No chat history yet'))
-                            : ListView.builder(
-                                controller: scrollController,
-                                itemCount: sessions.length,
-                                itemBuilder: (context, index) {
-                                  final session = sessions[index];
-                                  return ListTile(
-                                    leading: CircleAvatar(
-                                      backgroundColor: const Color(
-                                        0xFF0E7490,
-                                      ).withValues(alpha: 0.1),
-                                      child: Text(
-                                        _providers[session.model]?.substring(
-                                              0,
-                                              1,
-                                            ) ??
-                                            'C',
-                                        style: const TextStyle(
-                                          color: Color(0xFF0E7490),
-                                        ),
-                                      ),
-                                    ),
-                                    title: Text(
-                                      _providers[session.model] ??
-                                          session.model,
-                                    ),
-                                    subtitle: Text(
-                                      '${_formatDate(session.createdAt)} - Session #${session.id}',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.bodySmall,
-                                    ),
-                                    trailing: IconButton(
-                                      icon: const Icon(
-                                        Icons.delete_outline,
-                                        size: 20,
-                                      ),
-                                      onPressed: () async {
-                                        await _database.deleteSession(
-                                          session.id,
-                                        );
-                                        setSheetState(() {});
-                                      },
-                                    ),
-                                    onTap: () async {
-                                      await _loadSession(session);
-                                    },
-                                  );
-                                },
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => ChatCubit(
+        token: session.token,
+        currencySymbol: currency.symbol,
+      )..initialize(),
+      child: _ChatActiveWatcher(
+        isActiveTab: isActiveTab,
+        child: BlocConsumer<ChatCubit, ChatState>(
+          listenWhen: (p, n) => p.toastNonce != n.toastNonce,
+          listener: (context, state) {
+            final msg = state.toastMessage;
+            if (msg == null || msg.isEmpty) return;
+            AppToast.error(context, msg);
+          },
+          buildWhen: (p, n) =>
+              p.messages != n.messages ||
+              p.isSending != n.isSending ||
+              p.selectedProvider != n.selectedProvider,
+          builder: (context, state) {
+            return Scaffold(
+              appBar: AppBar(
+                title: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Chat'),
+                    Text(
+                      session.user.name,
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ],
+                ),
+                actions: [
+                  IconButton(
+                    onPressed: () => _showChatHistory(context),
+                    icon: const Icon(Icons.history),
+                    tooltip: 'Chat History',
+                  ),
+                  IconButton(
+                    onPressed: onOpenProfile,
+                    icon: const Icon(Icons.person_outline),
+                    tooltip: 'Profile',
+                  ),
+                ],
+              ),
+              body: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Row(
+                      children: [
+                        const Text('Agent'),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            initialValue: state.selectedProvider,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
                               ),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-          );
-        },
+                            ),
+                            items: ChatCubit.providers.entries
+                                .map(
+                                  (e) => DropdownMenuItem(
+                                    value: e.key,
+                                    child: Text(e.value),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: state.isSending
+                                ? null
+                                : (value) async {
+                                    if (value == null) return;
+                                    await context
+                                        .read<ChatCubit>()
+                                        .setSelectedProvider(value);
+                                  },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(child: _MessagesList(messages: state.messages)),
+                  _Composer(isSending: state.isSending),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -479,193 +135,197 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Chat'),
-            Text(
-              widget.session.user.name,
-              style: Theme.of(context).textTheme.labelSmall,
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            onPressed: _showChatHistory,
-            icon: const Icon(Icons.history),
-            tooltip: 'Chat History',
-          ),
-          IconButton(
-            onPressed: widget.onOpenProfile,
-            icon: const Icon(Icons.person_outline),
-            tooltip: 'Profile',
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Row(
-              children: [
-                const Text('Agent'),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _selectedProvider,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    items: _providers.entries
-                        .map(
-                          (entry) => DropdownMenuItem<String>(
-                            value: entry.key,
-                            child: Text(entry.value),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: _isSending
-                        ? null
-                        : (value) async {
-                            if (value == null) {
-                              return;
-                            }
-                            await _setSelectedProvider(value);
-                          },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: _isLoadingSessions
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    reverse: true,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final message = _messages[_messages.length - 1 - index];
-                      final isUser = message.role == 'user';
+  void _showChatHistory(BuildContext context) async {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (sheetContext, scrollController) {
+          return StatefulBuilder(
+            builder: (context, setSheetState) {
+              return FutureBuilder<List<ChatSessionData>>(
+                future: context.read<ChatCubit>().getAllSessions(),
+                builder: (context, snapshot) {
+                  final sessions = snapshot.data ?? [];
 
-                      return Align(
-                        alignment: isUser
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
-                        child: Container(
-                          constraints: const BoxConstraints(maxWidth: 320),
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: isUser
-                                ? const Color(0xFF0E7490)
-                                : Colors.white,
-                            borderRadius: BorderRadius.circular(18),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 5,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (message.content.isNotEmpty)
-                                MarkdownBody(
-                                  data: message.content,
-                                  styleSheet: MarkdownStyleSheet(
-                                    p: TextStyle(
-                                      color: isUser
-                                          ? Colors.white
-                                          : const Color(0xFF111827),
-                                    ),
-                                  ),
-                                ),
-                              if (message.chartData != null &&
-                                  message.chartData!.data.isNotEmpty) ...[
-                                if (message.content.isNotEmpty)
-                                  const SizedBox(height: 12),
-                                _ExpenseChart(chartData: message.chartData!),
-                              ],
-                            ],
-                          ),
+                  return Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
                         ),
-                      );
-                    },
-                  ),
-          ),
-          if (_isSending)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _ThinkingIndicator(),
-            ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    maxLines: 2,
-                    controller: _controller,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _send(),
-                    decoration: const InputDecoration(
-                      hintText: 'Ask Questions here...',
-                      hintStyle: TextStyle(color: Colors.black38),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(8)),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Chat History',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            TextButton.icon(
+                              onPressed: () async {
+                                context.read<ChatCubit>().startNewSession();
+                                Navigator.pop(context);
+                              },
+                              icon: const Icon(Icons.add),
+                              label: const Text('New Chat'),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                IconButton(
-                  onPressed: _isSending ? null : _send,
-                  style: IconButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    backgroundColor: const Color(0xFF0E7490),
-                    foregroundColor: Colors.white,
-                    iconSize: 36,
-                  ),
-                  icon: const Icon(Icons.send),
-                ),
-              ],
-            ),
-          ),
-        ],
+                      const Divider(),
+                      Expanded(
+                        child: snapshot.connectionState == ConnectionState.waiting
+                            ? const Center(child: CircularProgressIndicator())
+                            : sessions.isEmpty
+                                ? const Center(child: Text('No chat history yet'))
+                                : ListView.builder(
+                                    controller: scrollController,
+                                    itemCount: sessions.length,
+                                    itemBuilder: (context, index) {
+                                      final session = sessions[index];
+                                      return ListTile(
+                                        leading: CircleAvatar(
+                                          backgroundColor: const Color(0xFF0E7490)
+                                              .withValues(alpha: 0.1),
+                                          child: Text(
+                                            ChatCubit.providers[session.model]
+                                                    ?.substring(0, 1) ??
+                                                'C',
+                                            style: const TextStyle(
+                                              color: Color(0xFF0E7490),
+                                            ),
+                                          ),
+                                        ),
+                                        title: Text(
+                                          ChatCubit.providers[session.model] ??
+                                              session.model,
+                                        ),
+                                        subtitle: Text(
+                                          '${_formatDate(session.createdAt)} - Session #${session.id}',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall,
+                                        ),
+                                        trailing: IconButton(
+                                          icon: const Icon(
+                                            Icons.delete_outline,
+                                            size: 20,
+                                          ),
+                                          onPressed: () async {
+                                            await context
+                                                .read<ChatCubit>()
+                                                .deleteSession(session.id);
+                                            setSheetState(() {});
+                                          },
+                                        ),
+                                        onTap: () async {
+                                          await context
+                                              .read<ChatCubit>()
+                                              .loadSession(session);
+                                          if (context.mounted) {
+                                            Navigator.pop(context);
+                                          }
+                                        },
+                                      );
+                                    },
+                                  ),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          );
+        },
       ),
     );
   }
 }
 
-class _ThinkingIndicator extends StatefulWidget {
-  const _ThinkingIndicator();
+class _ChatActiveWatcher extends StatefulWidget {
+  const _ChatActiveWatcher({
+    required this.isActiveTab,
+    required this.child,
+  });
+
+  final bool isActiveTab;
+  final Widget child;
 
   @override
-  State<_ThinkingIndicator> createState() => _ThinkingIndicatorState();
+  State<_ChatActiveWatcher> createState() => _ChatActiveWatcherState();
 }
 
-class _ThinkingIndicatorState extends State<_ThinkingIndicator>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
+class _ChatActiveWatcherState extends State<_ChatActiveWatcher> {
+  @override
+  void didUpdateWidget(_ChatActiveWatcher oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActiveTab && !oldWidget.isActiveTab) {
+      context.read<ChatCubit>().reloadCurrentSessionFromLocalDb();
+    }
+  }
 
   @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    )..repeat();
+  Widget build(BuildContext context) => widget.child;
+}
+
+class _MessagesList extends StatelessWidget {
+  const _MessagesList({required this.messages});
+
+  final List<ChatUiMessage> messages;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: messages.length,
+      itemBuilder: (context, index) {
+        final message = messages[index];
+        final isUser = message.role == 'user';
+
+        if (message.chartData != null) {
+          return _ExpenseChart(chartData: message.chartData!);
+        }
+
+        return Align(
+          alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 6),
+            padding: const EdgeInsets.all(12),
+            constraints: const BoxConstraints(maxWidth: 320),
+            decoration: BoxDecoration(
+              color: isUser ? const Color(0xFF0E7490) : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: isUser
+                ? Text(
+                    message.content,
+                    style: const TextStyle(color: Colors.white),
+                  )
+                : MarkdownBody(data: message.content),
+          ),
+        );
+      },
+    );
   }
+}
+
+class _Composer extends StatefulWidget {
+  const _Composer({required this.isSending});
+
+  final bool isSending;
+
+  @override
+  State<_Composer> createState() => _ComposerState();
+}
+
+class _ComposerState extends State<_Composer> {
+  final TextEditingController _controller = TextEditingController();
 
   @override
   void dispose() {
@@ -673,31 +333,42 @@ class _ThinkingIndicatorState extends State<_ThinkingIndicator>
     super.dispose();
   }
 
+  Future<void> _send() async {
+    final text = _controller.text;
+    _controller.clear();
+    await context.read<ChatCubit>().sendMessage(text);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(3, (index) {
-            final delay = index * 0.2;
-            final value = ((_controller.value - delay) % 1.0);
-            final opacity = value < 0.5 ? value * 2 : (1 - value) * 2;
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 2),
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(
-                  0xFF0E7490,
-                ).withValues(alpha: opacity.clamp(0.3, 1.0)),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => _send(),
+              decoration: const InputDecoration(
+                hintText: 'Ask something...',
+                border: OutlineInputBorder(),
               ),
-            );
-          }),
-        );
-      },
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton.filled(
+            onPressed: widget.isSending ? null : _send,
+            icon: widget.isSending
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.send),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -965,9 +636,8 @@ class _ExpenseChart extends StatelessWidget {
               sectionsSpace: 2,
               centerSpaceRadius: 40,
               sections: chartData.data.asMap().entries.map((entry) {
-                final percentage = total > 0
-                    ? (entry.value.value / total * 100)
-                    : 0;
+                final percentage =
+                    total > 0 ? (entry.value.value / total * 100) : 0;
                 return PieChartSectionData(
                   color: _chartColors[entry.key % _chartColors.length],
                   value: entry.value.value,
@@ -1014,3 +684,4 @@ class _ExpenseChart extends StatelessWidget {
     );
   }
 }
+

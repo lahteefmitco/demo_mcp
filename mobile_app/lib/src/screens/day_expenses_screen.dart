@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../models/auth_session.dart';
 import '../repository/finance_repository.dart';
+import '../cubits/day_expenses/day_expenses_cubit.dart';
+import '../cubits/day_expenses/day_expenses_state.dart';
 import '../models/currency_option.dart';
 import '../models/finance_models.dart';
 import '../utils/currency_utils.dart';
 
-class DayExpensesScreen extends StatefulWidget {
+class DayExpensesScreen extends StatelessWidget {
   const DayExpensesScreen({
     required this.session,
-    required this.repository,
     required this.currency,
     required this.date,
     required this.dayName,
@@ -17,55 +19,23 @@ class DayExpensesScreen extends StatefulWidget {
   });
 
   final AuthSession session;
-  final FinanceRepository repository;
   final CurrencyOption currency;
   final String date;
   final String dayName;
 
   @override
-  State<DayExpensesScreen> createState() => _DayExpensesScreenState();
-}
-
-class _DayExpensesScreenState extends State<DayExpensesScreen> {
-  late Future<List<FinanceEntry>> _future;
-
-  @override
-  void initState() {
-    super.initState();
-    _future = _load();
-  }
-
-  String _spentOnDayKey() {
-    final t = widget.date.trim();
-    if (t.length >= 10 && t[4] == '-') {
-      final p = t.substring(0, 10).split('-');
-      if (p.length == 3) {
-        return '${p[2].padLeft(2, '0')}-${p[1].padLeft(2, '0')}-${p[0]}';
-      }
-    }
-    return t;
-  }
-
-  Future<List<FinanceEntry>> _load() async {
-    return widget.repository.listExpensesLocal(
-      spentOnEquals: _spentOnDayKey(),
-    );
-  }
-
-  Future<void> _refresh() async {
-    setState(() {
-      _future = _load();
-    });
-    await _future;
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final repo = context.read<FinanceRepository>();
     return Scaffold(
-      appBar: AppBar(title: Text('${widget.dayName} - ${widget.date}')),
-      body: FutureBuilder<List<FinanceEntry>>(
-        future: _future,
-        builder: (context, snapshot) {
+      appBar: AppBar(title: Text('$dayName - $date')),
+      body: BlocProvider(
+        create: (_) => DayExpensesCubit(repository: repo, date: date),
+        child: BlocBuilder<DayExpensesCubit, DayExpensesState>(
+          buildWhen: (p, n) => p.future != n.future,
+          builder: (context, state) {
+            return FutureBuilder<List<FinanceEntry>>(
+              future: state.future,
+              builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -87,7 +57,7 @@ class _DayExpensesScreenState extends State<DayExpensesScreen> {
                     Text(snapshot.error.toString()),
                     const SizedBox(height: 16),
                     FilledButton(
-                      onPressed: _refresh,
+                      onPressed: () => context.read<DayExpensesCubit>().refresh(),
                       child: const Text('Try Again'),
                     ),
                   ],
@@ -100,7 +70,7 @@ class _DayExpensesScreenState extends State<DayExpensesScreen> {
           final total = expenses.fold(0.0, (sum, e) => sum + e.amount);
 
           return RefreshIndicator(
-            onRefresh: _refresh,
+            onRefresh: () => context.read<DayExpensesCubit>().refresh(),
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
@@ -126,7 +96,7 @@ class _DayExpensesScreenState extends State<DayExpensesScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            formatMoney(widget.currency, total),
+                            formatMoney(currency, total),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 24,
@@ -155,13 +125,16 @@ class _DayExpensesScreenState extends State<DayExpensesScreen> {
                   ...expenses.map(
                     (expense) => _ExpenseTile(
                       expense: expense,
-                      currency: widget.currency,
+                      currency: currency,
                     ),
                   ),
               ],
             ),
           );
-        },
+              },
+            );
+          },
+        ),
       ),
     );
   }

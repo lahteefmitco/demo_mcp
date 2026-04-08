@@ -1,19 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../cubits/add_category/add_category_cubit.dart';
 import '../models/finance_models.dart';
 
-class AddCategoryScreen extends StatefulWidget {
+class AddCategoryScreen extends StatelessWidget {
   const AddCategoryScreen({super.key, this.category});
 
   final FinanceCategory? category;
 
   bool get isEditing => category != null;
 
-  @override
-  State<AddCategoryScreen> createState() => _AddCategoryScreenState();
-}
-
-class _AddCategoryScreenState extends State<AddCategoryScreen> {
   static const _colorOptions = <String>[
     '#EF4444',
     '#F97316',
@@ -67,20 +64,47 @@ class _AddCategoryScreenState extends State<AddCategoryScreen> {
     '#334155',
   ];
 
+  @override
+  Widget build(BuildContext context) {
+    final initialKind = category?.kind ?? 'expense';
+    final initialColor = category?.color ?? '#0E7490';
+
+    return BlocProvider(
+      create: (_) => AddCategoryCubit(
+        initialKind: initialKind,
+        initialColor: initialColor,
+      ),
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(isEditing ? 'Edit Category' : 'Add Category'),
+        ),
+        body: _AddCategoryForm(colorOptions: _colorOptions),
+      ),
+    );
+  }
+}
+
+class _AddCategoryForm extends StatefulWidget {
+  const _AddCategoryForm({required this.colorOptions});
+
+  final List<String> colorOptions;
+
+  @override
+  State<_AddCategoryForm> createState() => _AddCategoryFormState();
+}
+
+class _AddCategoryFormState extends State<_AddCategoryForm> {
+  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _iconController;
-  late String _kind;
-  late String _selectedColor;
-  final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
-    final category = widget.category;
+    final screen = context.findAncestorWidgetOfExactType<AddCategoryScreen>()!;
+    final category = screen.category;
     _nameController = TextEditingController(text: category?.name ?? '');
     _iconController = TextEditingController(text: category?.icon ?? 'tag');
-    _kind = category?.kind ?? 'expense';
-    _selectedColor = category?.color ?? '#0E7490';
   }
 
   @override
@@ -90,135 +114,121 @@ class _AddCategoryScreenState extends State<AddCategoryScreen> {
     super.dispose();
   }
 
-  void _submit() {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    final result = <String, dynamic>{
-      'name': _nameController.text.trim(),
-      'kind': _kind,
-      'color': _selectedColor,
-      'icon': _iconController.text.trim(),
-    };
-
-    if (widget.isEditing) {
-      result['uuid'] = widget.category!.uuid;
-    }
-
-    Navigator.of(context).pop(result);
-  }
-
   Color _parseColor(String hex) {
     final normalized = hex.replaceFirst('#', '');
     return Color(int.parse('FF$normalized', radix: 16));
   }
 
   Future<void> _pickColor() async {
+    final cubit = context.read<AddCategoryCubit>();
+    final current = context.read<AddCategoryCubit>().state.selectedColor;
     final selected = await Navigator.of(context).push<String>(
       MaterialPageRoute(
         builder: (_) => _ColorPickerScreen(
-          colorOptions: _colorOptions,
-          selectedColor: _selectedColor,
+          colorOptions: widget.colorOptions,
+          selectedColor: current,
         ),
       ),
     );
 
-    if (!mounted || selected == null) {
-      return;
+    if (!context.mounted || selected == null) return;
+    cubit.setColor(selected);
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+
+    final screen = context.findAncestorWidgetOfExactType<AddCategoryScreen>()!;
+    final state = context.read<AddCategoryCubit>().state;
+
+    final result = <String, dynamic>{
+      'name': _nameController.text.trim(),
+      'kind': state.kind,
+      'color': state.selectedColor,
+      'icon': _iconController.text.trim(),
+    };
+    if (screen.isEditing) {
+      result['uuid'] = screen.category!.uuid;
     }
 
-    setState(() {
-      _selectedColor = selected;
-    });
+    Navigator.of(context).pop(result);
   }
 
   @override
   Widget build(BuildContext context) {
-    final previewColor = _parseColor(_selectedColor);
+    final screen = context.findAncestorWidgetOfExactType<AddCategoryScreen>()!;
+    final state = context.watch<AddCategoryCubit>().state;
+    final previewColor = _parseColor(state.selectedColor);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.isEditing ? 'Edit Category' : 'Add Category'),
-      ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            TextFormField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Category name'),
-              validator: (value) => value == null || value.trim().isEmpty
-                  ? 'Enter a category name'
-                  : null,
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: _kind,
-              decoration: const InputDecoration(labelText: 'Kind'),
-              items: const [
-                DropdownMenuItem(value: 'expense', child: Text('Expense')),
-                DropdownMenuItem(value: 'income', child: Text('Income')),
-                DropdownMenuItem(value: 'both', child: Text('Both')),
-              ],
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _kind = value;
-                  });
-                }
-              },
-            ),
-            const SizedBox(height: 16),
-            Text('Color', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: _pickColor,
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Select color',
-                  suffixIcon: Icon(Icons.chevron_right),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: previewColor,
-                        shape: BoxShape.circle,
-                      ),
+    return Form(
+      key: _formKey,
+      child: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          TextFormField(
+            controller: _nameController,
+            decoration: const InputDecoration(labelText: 'Category name'),
+            validator: (value) => value == null || value.trim().isEmpty
+                ? 'Enter a category name'
+                : null,
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            initialValue: state.kind,
+            decoration: const InputDecoration(labelText: 'Kind'),
+            items: const [
+              DropdownMenuItem(value: 'expense', child: Text('Expense')),
+              DropdownMenuItem(value: 'income', child: Text('Income')),
+              DropdownMenuItem(value: 'both', child: Text('Both')),
+            ],
+            onChanged: (value) {
+              if (value != null) context.read<AddCategoryCubit>().setKind(value);
+            },
+          ),
+          const SizedBox(height: 16),
+          Text('Color', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: _pickColor,
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                labelText: 'Select color',
+                suffixIcon: Icon(Icons.chevron_right),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: previewColor,
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(width: 12),
-                    Text(
-                      _selectedColor,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    state.selectedColor,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _iconController,
-              decoration: const InputDecoration(labelText: 'Icon name'),
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _iconController,
+            decoration: const InputDecoration(labelText: 'Icon name'),
+          ),
+          const SizedBox(height: 24),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: screen.isEditing ? const Color(0xFF16A34A) : null,
             ),
-            const SizedBox(height: 24),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: widget.isEditing
-                    ? const Color(0xFF16A34A)
-                    : null,
-              ),
-              onPressed: _submit,
-              child: Text(
-                widget.isEditing ? 'Update Category' : 'Save Category',
-              ),
-            ),
-          ],
-        ),
+            onPressed: _submit,
+            child: Text(screen.isEditing ? 'Update Category' : 'Save Category'),
+          ),
+        ],
       ),
     );
   }

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../cubits/chat_db_viewer/chat_db_viewer_cubit.dart';
+import '../cubits/chat_db_viewer/chat_db_viewer_state.dart';
 import '../database/chat_database.dart';
 
 class ChatDbViewerScreen extends StatefulWidget {
@@ -13,36 +16,22 @@ class _ChatDbViewerScreenState extends State<ChatDbViewerScreen>
     with SingleTickerProviderStateMixin {
   late final ChatDatabase _database;
   late final TabController _tabController;
-  List<ChatSessionData> _sessions = [];
-  Map<int, List<ChatMessageData>> _sessionMessages = {};
-  bool _isLoading = true;
+  late final ChatDbViewerCubit _cubit;
 
   @override
   void initState() {
     super.initState();
     _database = ChatDatabase();
     _tabController = TabController(length: 2, vsync: this);
-    _loadData();
+    _cubit = ChatDbViewerCubit(database: _database)..load();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _cubit.close();
     _database.close();
     super.dispose();
-  }
-
-  Future<void> _loadData() async {
-    final sessions = await _database.getAllSessions();
-    final messages = <int, List<ChatMessageData>>{};
-    for (final session in sessions) {
-      messages[session.id] = await _database.getMessagesForSession(session.id);
-    }
-    setState(() {
-      _sessions = sessions;
-      _sessionMessages = messages;
-      _isLoading = false;
-    });
   }
 
   Future<void> _deleteSession(int sessionId) async {
@@ -67,8 +56,7 @@ class _ChatDbViewerScreenState extends State<ChatDbViewerScreen>
     );
 
     if (confirmed == true) {
-      await _database.deleteSession(sessionId);
-      _loadData();
+      await _cubit.deleteSession(sessionId);
     }
   }
 
@@ -95,8 +83,7 @@ class _ChatDbViewerScreenState extends State<ChatDbViewerScreen>
     );
 
     if (confirmed == true) {
-      await _database.deleteAllData();
-      _loadData();
+      await _cubit.deleteAllData();
     }
   }
 
@@ -106,49 +93,63 @@ class _ChatDbViewerScreenState extends State<ChatDbViewerScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Chat History'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_forever),
-            onPressed: _deleteAllData,
-            tooltip: 'Delete All',
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadData,
-            tooltip: 'Refresh',
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Sessions'),
-            Tab(text: 'Messages'),
-          ],
-        ),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
-              children: [_buildSessionsTab(), _buildMessagesTab()],
+    return BlocProvider.value(
+      value: _cubit,
+      child: BlocBuilder<ChatDbViewerCubit, ChatDbViewerState>(
+        buildWhen: (p, n) =>
+            p.isLoading != n.isLoading ||
+            p.sessions != n.sessions ||
+            p.sessionMessages != n.sessionMessages,
+        builder: (context, state) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Chat History'),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.delete_forever),
+                  onPressed: _deleteAllData,
+                  tooltip: 'Delete All',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: () => _cubit.load(),
+                  tooltip: 'Refresh',
+                ),
+              ],
+              bottom: TabBar(
+                controller: _tabController,
+                tabs: const [
+                  Tab(text: 'Sessions'),
+                  Tab(text: 'Messages'),
+                ],
+              ),
             ),
+            body: state.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildSessionsTab(state),
+                      _buildMessagesTab(state),
+                    ],
+                  ),
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildSessionsTab() {
-    if (_sessions.isEmpty) {
+  Widget _buildSessionsTab(ChatDbViewerState state) {
+    if (state.sessions.isEmpty) {
       return const Center(child: Text('No chat sessions found'));
     }
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _sessions.length,
+      itemCount: state.sessions.length,
       itemBuilder: (context, index) {
-        final session = _sessions[index];
-        final messages = _sessionMessages[session.id] ?? [];
+        final session = state.sessions[index];
+        final messages = state.sessionMessages[session.id] ?? [];
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           child: ListTile(
@@ -172,17 +173,17 @@ class _ChatDbViewerScreenState extends State<ChatDbViewerScreen>
     );
   }
 
-  Widget _buildMessagesTab() {
-    if (_sessions.isEmpty) {
+  Widget _buildMessagesTab(ChatDbViewerState state) {
+    if (state.sessions.isEmpty) {
       return const Center(child: Text('No chat sessions found'));
     }
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _sessions.length,
+      itemCount: state.sessions.length,
       itemBuilder: (context, index) {
-        final session = _sessions[index];
-        final messages = _sessionMessages[session.id] ?? [];
+        final session = state.sessions[index];
+        final messages = state.sessionMessages[session.id] ?? [];
 
         return ExpansionTile(
           title: Text('Session #${session.id} (${session.model})'),

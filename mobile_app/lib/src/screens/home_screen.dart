@@ -1,72 +1,108 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../models/auth_session.dart';
 import '../repository/finance_repository.dart';
+import '../cubits/home/home_cubit.dart';
+import '../cubits/home/home_state.dart';
 import '../models/currency_option.dart';
 import '../models/finance_models.dart';
 import 'add_entry_screen.dart';
 import '../utils/currency_utils.dart';
+import '../utils/toast.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends StatelessWidget {
   const HomeScreen({
     required this.session,
-    required this.repository,
     required this.currency,
-    required this.isActiveTab,
     required this.onOpenProfile,
     super.key,
   });
 
   final AuthSession session;
-  final FinanceRepository repository;
   final CurrencyOption currency;
-  final bool isActiveTab;
   final Future<void> Function() onOpenProfile;
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
+  Widget build(BuildContext context) {
+    final month = _currentMonth();
+    final repository = context.read<FinanceRepository>();
 
-class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
-  late Future<FinanceDashboard> _future;
-  late final TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _future = _load();
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  Future<FinanceDashboard> _load() async {
-    return widget.repository.fetchDashboard(_currentMonth());
-  }
-
-  Future<void> _refresh() async {
-    setState(() {
-      _future = _load();
-    });
-    await _future;
-  }
-
-  @override
-  void didUpdateWidget(HomeScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isActiveTab && !oldWidget.isActiveTab) {
-      _refresh();
-    }
+    return BlocProvider(
+      create: (_) => HomeCubit(repository: repository)..load(month),
+      child: BlocConsumer<HomeCubit, HomeState>(
+        listenWhen: (p, n) => p.toastNonce != n.toastNonce,
+        listener: (context, state) {
+          final msg = state.toastMessage;
+          if (msg == null || msg.isEmpty) return;
+          if (state.toastIsError) {
+            AppToast.error(context, msg);
+          } else {
+            AppToast.success(context, msg);
+          }
+        },
+        buildWhen: (p, n) =>
+            p.isLoading != n.isLoading ||
+            p.dashboard != n.dashboard ||
+            p.errorMessage != n.errorMessage,
+        builder: (context, state) {
+          return Scaffold(
+            appBar: AppBar(
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Gulfon Finance'),
+                  Text(
+                    session.user.email,
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                ],
+              ),
+              actions: [
+                IconButton(
+                  onPressed: onOpenProfile,
+                  icon: const Icon(Icons.person_outline),
+                  tooltip: 'Profile',
+                ),
+                IconButton(
+                  onPressed: () => context.read<HomeCubit>().refresh(month),
+                  icon: const Icon(Icons.refresh),
+                ),
+              ],
+            ),
+            body: _HomeBody(
+              month: month,
+              currency: currency,
+              state: state,
+              onExpenseTap: (dash, item) =>
+                  _openExpenseActions(context, dash, item, month),
+              onIncomeTap: (dash, item) =>
+                  _openIncomeActions(context, dash, item, month),
+              onAddPressed: (dash) => _openActionSheet(context, dash, month),
+            ),
+            floatingActionButton: state.dashboard == null
+                ? null
+                : FloatingActionButton.extended(
+                    heroTag: 'home_fab',
+                    onPressed: () => _openActionSheet(
+                      context,
+                      state.dashboard!,
+                      month,
+                    ),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add'),
+                  ),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _openExpenseActions(
+    BuildContext context,
     FinanceDashboard dashboard,
     FinanceEntry expense,
+    String month,
   ) async {
     final action = await showModalBottomSheet<String>(
       context: context,
@@ -90,22 +126,27 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
 
-    if (!mounted || action == null) {
+    if (!context.mounted || action == null) {
       return;
     }
 
     if (action == 'edit') {
-      await _editExpense(dashboard, expense);
+      await _editExpense(context, dashboard, expense, month);
     }
 
     if (action == 'delete') {
-      await _confirmDeleteExpense(expense);
+      if (!context.mounted) {
+        return;
+      }
+      await _confirmDeleteExpense(context, expense, month);
     }
   }
 
   Future<void> _editExpense(
+    BuildContext context,
     FinanceDashboard dashboard,
     FinanceEntry expense,
+    String month,
   ) async {
     final categories = dashboard.categories
         .where(
@@ -126,30 +167,33 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
 
-    if (!mounted || payload == null) {
+    if (!context.mounted || payload == null) {
       return;
     }
 
-    await widget.repository.updateExpense(
-      uuid: expense.uuid,
-      title: payload['title'] as String,
-      amount: payload['amount'] as double,
-      categoryUuid: payload['categoryUuid'] as String,
-      accountUuid: payload['accountUuid'] as String,
-      spentOn: payload['spentOn'] as String,
-      notes: payload['notes'] as String? ?? '',
-    );
-    _showMessage('Expense updated');
-    await _refresh();
+    await context.read<HomeCubit>().updateExpense(
+          uuid: expense.uuid,
+          title: payload['title'] as String,
+          amount: payload['amount'] as double,
+          categoryUuid: payload['categoryUuid'] as String,
+          accountUuid: payload['accountUuid'] as String,
+          spentOn: payload['spentOn'] as String,
+          notes: payload['notes'] as String? ?? '',
+          monthYyyyMm: month,
+        );
   }
 
-  Future<void> _confirmDeleteExpense(FinanceEntry expense) async {
+  Future<void> _confirmDeleteExpense(
+    BuildContext context,
+    FinanceEntry expense,
+    String month,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete expense?'),
         content: Text(
-          'Delete "${expense.title}" for ${formatMoney(widget.currency, expense.amount)}?',
+          'Delete "${expense.title}" for ${formatMoney(currency, expense.amount)}?',
         ),
         actions: [
           TextButton(
@@ -164,18 +208,21 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
 
-    if (confirmed != true) {
+    if (!context.mounted || confirmed != true) {
       return;
     }
 
-    await widget.repository.deleteExpenseByUuid(expense.uuid);
-    _showMessage('Expense deleted');
-    await _refresh();
+    await context.read<HomeCubit>().deleteExpense(
+          uuid: expense.uuid,
+          monthYyyyMm: month,
+        );
   }
 
   Future<void> _openIncomeActions(
+    BuildContext context,
     FinanceDashboard dashboard,
     FinanceEntry income,
+    String month,
   ) async {
     final action = await showModalBottomSheet<String>(
       context: context,
@@ -199,22 +246,27 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
 
-    if (!mounted || action == null) {
+    if (!context.mounted || action == null) {
       return;
     }
 
     if (action == 'edit') {
-      await _editIncome(dashboard, income);
+      await _editIncome(context, dashboard, income, month);
     }
 
     if (action == 'delete') {
-      await _confirmDeleteIncome(income);
+      if (!context.mounted) {
+        return;
+      }
+      await _confirmDeleteIncome(context, income, month);
     }
   }
 
   Future<void> _editIncome(
+    BuildContext context,
     FinanceDashboard dashboard,
     FinanceEntry income,
+    String month,
   ) async {
     final categories = dashboard.categories
         .where(
@@ -235,30 +287,33 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
 
-    if (!mounted || payload == null) {
+    if (!context.mounted || payload == null) {
       return;
     }
 
-    await widget.repository.updateIncome(
-      uuid: income.uuid,
-      title: payload['title'] as String,
-      amount: payload['amount'] as double,
-      categoryUuid: payload['categoryUuid'] as String,
-      accountUuid: payload['accountUuid'] as String,
-      receivedOn: payload['receivedOn'] as String,
-      notes: payload['notes'] as String? ?? '',
-    );
-    _showMessage('Income updated');
-    await _refresh();
+    await context.read<HomeCubit>().updateIncome(
+          uuid: income.uuid,
+          title: payload['title'] as String,
+          amount: payload['amount'] as double,
+          categoryUuid: payload['categoryUuid'] as String,
+          accountUuid: payload['accountUuid'] as String,
+          receivedOn: payload['receivedOn'] as String,
+          notes: payload['notes'] as String? ?? '',
+          monthYyyyMm: month,
+        );
   }
 
-  Future<void> _confirmDeleteIncome(FinanceEntry income) async {
+  Future<void> _confirmDeleteIncome(
+    BuildContext context,
+    FinanceEntry income,
+    String month,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete income?'),
         content: Text(
-          'Delete "${income.title}" for ${formatMoney(widget.currency, income.amount)}?',
+          'Delete "${income.title}" for ${formatMoney(currency, income.amount)}?',
         ),
         actions: [
           TextButton(
@@ -273,16 +328,21 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
 
-    if (confirmed != true) {
+    if (!context.mounted || confirmed != true) {
       return;
     }
 
-    await widget.repository.deleteIncomeByUuid(income.uuid);
-    _showMessage('Income deleted');
-    await _refresh();
+    await context.read<HomeCubit>().deleteIncome(
+          uuid: income.uuid,
+          monthYyyyMm: month,
+        );
   }
 
-  Future<void> _openActionSheet(FinanceDashboard dashboard) async {
+  Future<void> _openActionSheet(
+    BuildContext context,
+    FinanceDashboard dashboard,
+    String month,
+  ) async {
     final navigator = Navigator.of(context);
     final action = await showModalBottomSheet<String>(
       context: context,
@@ -306,7 +366,7 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
 
-    if (!mounted || action == null) {
+    if (!context.mounted || action == null) {
       return;
     }
 
@@ -328,21 +388,19 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       );
 
-      if (!mounted) {
+      if (!context.mounted) {
         return;
       }
-
       if (payload != null) {
-        await widget.repository.createExpense(
-          title: payload['title'] as String,
-          amount: payload['amount'] as double,
-          categoryUuid: payload['categoryUuid'] as String,
-          accountUuid: payload['accountUuid'] as String,
-          spentOn: payload['spentOn'] as String,
-          notes: payload['notes'] as String? ?? '',
-        );
-        _showMessage('Expense added');
-        await _refresh();
+        await context.read<HomeCubit>().createExpense(
+              title: payload['title'] as String,
+              amount: payload['amount'] as double,
+              categoryUuid: payload['categoryUuid'] as String,
+              accountUuid: payload['accountUuid'] as String,
+              spentOn: payload['spentOn'] as String,
+              notes: payload['notes'] as String? ?? '',
+              monthYyyyMm: month,
+            );
       }
     }
 
@@ -364,189 +422,196 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       );
 
-      if (!mounted) {
+      if (!context.mounted) {
         return;
       }
-
       if (payload != null) {
-        await widget.repository.createIncome(
-          title: payload['title'] as String,
-          amount: payload['amount'] as double,
-          categoryUuid: payload['categoryUuid'] as String,
-          accountUuid: payload['accountUuid'] as String,
-          receivedOn: payload['receivedOn'] as String,
-          notes: payload['notes'] as String? ?? '',
-        );
-        _showMessage('Income added');
-        await _refresh();
+        await context.read<HomeCubit>().createIncome(
+              title: payload['title'] as String,
+              amount: payload['amount'] as double,
+              categoryUuid: payload['categoryUuid'] as String,
+              accountUuid: payload['accountUuid'] as String,
+              receivedOn: payload['receivedOn'] as String,
+              notes: payload['notes'] as String? ?? '',
+              monthYyyyMm: month,
+            );
       }
     }
-  }
-
-  void _showMessage(String message) {
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Gulfon Finance'),
-            Text(
-              widget.session.user.email,
-              style: Theme.of(context).textTheme.labelSmall,
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            onPressed: widget.onOpenProfile,
-            icon: const Icon(Icons.person_outline),
-            tooltip: 'Profile',
-          ),
-          IconButton(onPressed: _refresh, icon: const Icon(Icons.refresh)),
-        ],
-      ),
-      body: FutureBuilder<FinanceDashboard>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.cloud_off, size: 52),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Could not load finance data',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      snapshot.error.toString(),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      onPressed: _refresh,
-                      child: const Text('Try Again'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          final dashboard = snapshot.data!;
-          final summary = dashboard.summary;
-
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _SectionTitle(
-                  title: 'Recent Activity',
-                  subtitle:
-                      '${dashboard.recentExpenses.length + dashboard.recentIncomes.length} items',
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Column(
-                    children: [
-                      TabBar(
-                        controller: _tabController,
-                        tabs: const [
-                          Tab(text: 'Expenses'),
-                          Tab(text: 'Income'),
-                        ],
-                      ),
-                      SizedBox(
-                        height: 360,
-                        child: TabBarView(
-                          controller: _tabController,
-                          children: [
-                            _EntryList(
-                              currency: widget.currency,
-                              items: dashboard.recentExpenses,
-                              isIncome: false,
-                              emptyMessage: 'No expense records found.',
-                              onTap: (item) =>
-                                  _openExpenseActions(dashboard, item),
-                            ),
-                            _EntryList(
-                              currency: widget.currency,
-                              items: dashboard.recentIncomes,
-                              isIncome: true,
-                              emptyMessage: 'No income records found.',
-                              onTap: (item) =>
-                                  _openIncomeActions(dashboard, item),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _SectionTitle(
-                  title: 'Spending by Category',
-                  subtitle: summary.month,
-                ),
-                const SizedBox(height: 8),
-                if (summary.expenseByCategory.isEmpty)
-                  const _EmptyCard(message: 'No category spending yet.')
-                else
-                  ...summary.expenseByCategory.map(
-                    (item) => _CategorySpendTile(
-                      item: item,
-                      currency: widget.currency,
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
-      ),
-      floatingActionButton: FutureBuilder<FinanceDashboard>(
-        future: _future,
-        builder: (context, snapshot) {
-          return FloatingActionButton.extended(
-            heroTag: 'home_fab',
-            onPressed: snapshot.hasData
-                ? () => _openActionSheet(snapshot.data!)
-                : null,
-            icon: const Icon(Icons.add),
-            label: const Text('Add'),
-          );
-        },
-      ),
-    );
   }
 
   String _currentMonth() {
     final now = DateTime.now();
     final month = now.month.toString().padLeft(2, '0');
     return '${now.year}-$month';
+  }
+}
+
+class _HomeBody extends StatelessWidget {
+  const _HomeBody({
+    required this.month,
+    required this.currency,
+    required this.state,
+    required this.onExpenseTap,
+    required this.onIncomeTap,
+    required this.onAddPressed,
+  });
+
+  final String month;
+  final CurrencyOption currency;
+  final HomeState state;
+  final Future<void> Function(FinanceDashboard dashboard) onAddPressed;
+  final Future<void> Function(FinanceDashboard dashboard, FinanceEntry entry)
+      onExpenseTap;
+  final Future<void> Function(FinanceDashboard dashboard, FinanceEntry entry)
+      onIncomeTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (state.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (state.errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_off, size: 52),
+              const SizedBox(height: 12),
+              Text(
+                'Could not load finance data',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(state.errorMessage!, textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => context.read<HomeCubit>().load(month),
+                child: const Text('Try Again'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final dashboard = state.dashboard!;
+    final summary = dashboard.summary;
+
+    return RefreshIndicator(
+      onRefresh: () => context.read<HomeCubit>().refresh(month),
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _SectionTitle(
+            title: 'Recent Activity',
+            subtitle:
+                '${dashboard.recentExpenses.length + dashboard.recentIncomes.length} items',
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: _RecentTabs(
+              currency: currency,
+              expenses: dashboard.recentExpenses,
+              incomes: dashboard.recentIncomes,
+              onExpenseTap: (e) => onExpenseTap(dashboard, e),
+              onIncomeTap: (i) => onIncomeTap(dashboard, i),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _SectionTitle(
+            title: 'Spending by Category',
+            subtitle: summary.month,
+          ),
+          const SizedBox(height: 8),
+          if (summary.expenseByCategory.isEmpty)
+            const _EmptyCard(message: 'No category spending yet.')
+          else
+            ...summary.expenseByCategory.map(
+              (item) => _CategorySpendTile(item: item, currency: currency),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecentTabs extends StatefulWidget {
+  const _RecentTabs({
+    required this.currency,
+    required this.expenses,
+    required this.incomes,
+    required this.onExpenseTap,
+    required this.onIncomeTap,
+  });
+
+  final CurrencyOption currency;
+  final List<FinanceEntry> expenses;
+  final List<FinanceEntry> incomes;
+  final ValueChanged<FinanceEntry> onExpenseTap;
+  final ValueChanged<FinanceEntry> onIncomeTap;
+
+  @override
+  State<_RecentTabs> createState() => _RecentTabsState();
+}
+
+class _RecentTabsState extends State<_RecentTabs>
+    with SingleTickerProviderStateMixin {
+  late final TabController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        TabBar(
+          controller: _controller,
+          tabs: const [
+            Tab(text: 'Expenses'),
+            Tab(text: 'Income'),
+          ],
+        ),
+        SizedBox(
+          height: 360,
+          child: TabBarView(
+            controller: _controller,
+            children: [
+              _EntryList(
+                currency: widget.currency,
+                items: widget.expenses,
+                isIncome: false,
+                emptyMessage: 'No expense records found.',
+                onTap: widget.onExpenseTap,
+              ),
+              _EntryList(
+                currency: widget.currency,
+                items: widget.incomes,
+                isIncome: true,
+                emptyMessage: 'No income records found.',
+                onTap: widget.onIncomeTap,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 

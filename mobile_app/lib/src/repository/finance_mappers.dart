@@ -2,7 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../database/finance_database.dart';
 
-String? _s(dynamic v) => v == null ? null : v.toString();
+String? _s(dynamic v) => v?.toString();
 
 double _n(dynamic v) {
   if (v is num) {

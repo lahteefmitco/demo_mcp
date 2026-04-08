@@ -1,20 +1,62 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../api/auth_api.dart';
+import '../cubits/forgot_password/forgot_password_cubit.dart';
+import '../cubits/forgot_password/forgot_password_state.dart';
+import '../di/service_locator.dart';
+import '../utils/toast.dart';
 
-class ForgotPasswordScreen extends StatefulWidget {
+class ForgotPasswordScreen extends StatelessWidget {
   const ForgotPasswordScreen({super.key});
 
   @override
-  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => ForgotPasswordCubit(authApi: sl()),
+      child: BlocConsumer<ForgotPasswordCubit, ForgotPasswordState>(
+        listenWhen: (p, n) => p.toastNonce != n.toastNonce,
+        listener: (context, state) {
+          final msg = state.toastMessage;
+          if (msg == null || msg.isEmpty) return;
+          if (state.toastIsError) {
+            AppToast.error(context, msg);
+          } else {
+            AppToast.success(context, msg);
+          }
+        },
+        buildWhen: (p, n) =>
+            p.isSubmitting != n.isSubmitting || p.message != n.message,
+        builder: (context, state) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Forgot Password')),
+            body: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: _ForgotPasswordForm(message: state.message),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 }
 
-class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
-  final AuthApi _authApi = AuthApi();
+class _ForgotPasswordForm extends StatefulWidget {
+  const _ForgotPasswordForm({required this.message});
+
+  final String? message;
+
+  @override
+  State<_ForgotPasswordForm> createState() => _ForgotPasswordFormState();
+}
+
+class _ForgotPasswordFormState extends State<_ForgotPasswordForm> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  bool _isSubmitting = false;
-  String? _message;
 
   @override
   void dispose() {
@@ -23,92 +65,51 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Future<void> _submit() async {
-    if (_isSubmitting || !_formKey.currentState!.validate()) {
+    final cubit = context.read<ForgotPasswordCubit>();
+    if (cubit.state.isSubmitting || !_formKey.currentState!.validate()) {
       return;
     }
-
-    setState(() {
-      _isSubmitting = true;
-      _message = null;
-    });
-
-    try {
-      final message = await _authApi.requestPasswordReset(
-        _emailController.text.trim(),
-      );
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _message = message;
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
-    }
+    await cubit.submit(_emailController.text);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Forgot Password')),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Registered email',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || !value.contains('@')) {
-                        return 'Enter a valid email';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: _isSubmitting ? null : _submit,
-                      child: Text(
-                        _isSubmitting ? 'Please wait...' : 'Send reset email',
-                      ),
-                    ),
-                  ),
-                  if (_message != null) ...[
-                    const SizedBox(height: 16),
-                    Text(_message!, textAlign: TextAlign.center),
-                  ],
-                ],
+    final state = context.watch<ForgotPasswordCubit>().state;
+
+    return Form(
+      key: _formKey,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextFormField(
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(
+              labelText: 'Registered email',
+              border: OutlineInputBorder(),
+            ),
+            validator: (value) {
+              if (value == null || !value.contains('@')) {
+                return 'Enter a valid email';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: state.isSubmitting ? null : _submit,
+              child: Text(
+                state.isSubmitting ? 'Please wait...' : 'Send reset email',
               ),
             ),
           ),
-        ),
+          if (widget.message != null) ...[
+            const SizedBox(height: 16),
+            Text(widget.message!, textAlign: TextAlign.center),
+          ],
+        ],
       ),
     );
   }

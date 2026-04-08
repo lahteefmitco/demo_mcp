@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../models/auth_session.dart';
 import '../repository/finance_repository.dart';
+import '../cubits/dashboard/dashboard_cubit.dart';
+import '../cubits/dashboard/dashboard_state.dart';
 import '../models/currency_option.dart';
 import '../models/finance_models.dart';
 import '../utils/currency_utils.dart';
+import '../utils/finance_repository_scope.dart';
 import 'day_expenses_screen.dart';
 
 class _DailyExpensesChart extends StatefulWidget {
@@ -191,119 +195,240 @@ class _DailyExpensesChartState extends State<_DailyExpensesChart> {
   }
 }
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends StatelessWidget {
   const DashboardScreen({
     required this.session,
-    required this.repository,
     required this.currency,
-    required this.isActiveTab,
     super.key,
   });
 
   final AuthSession session;
-  final FinanceRepository repository;
   final CurrencyOption currency;
-  final bool isActiveTab;
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
-}
+  Widget build(BuildContext context) {
+    final repo = context.read<FinanceRepository>();
+    final month = _currentMonth();
 
-class _DashboardScreenState extends State<DashboardScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
-  late Future<FinanceDashboard> _future;
-  late Future<List<DailyExpense>> _dailyFuture;
-  late Future<List<WeeklyExpense>> _weeklyFuture;
-  late Future<List<MonthlyExpense>> _monthlyFuture;
+    return BlocProvider(
+      create: (_) => DashboardCubit(repository: repo, monthYyyyMm: month),
+      child: DefaultTabController(
+        length: 3,
+        child: BlocBuilder<DashboardCubit, DashboardState>(
+          buildWhen: (p, n) =>
+              p.dashboardFuture != n.dashboardFuture ||
+              p.dailyFuture != n.dailyFuture ||
+              p.weeklyFuture != n.weeklyFuture ||
+              p.monthlyFuture != n.monthlyFuture,
+          builder: (context, state) {
+            return Scaffold(
+              appBar: AppBar(
+                title: const Text('Dashboard'),
+                actions: [
+                  IconButton(
+                    onPressed: () => context.read<DashboardCubit>().refresh(),
+                    icon: const Icon(Icons.refresh),
+                  ),
+                ],
+              ),
+              body: FutureBuilder<FinanceDashboard>(
+                future: state.dashboardFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _future = _load();
-    _dailyFuture = _loadDaily();
-    _weeklyFuture = _loadWeekly();
-    _monthlyFuture = _loadMonthly();
-  }
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.cloud_off, size: 52),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Could not load dashboard',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              snapshot.error.toString(),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            FilledButton(
+                              onPressed: () =>
+                                  context.read<DashboardCubit>().refresh(),
+                              child: const Text('Try Again'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+                  final dashboard = snapshot.data!;
+                  final summary = dashboard.summary;
+                  final maxSpend = summary.expenseByCategory.isEmpty
+                      ? 1.0
+                      : summary.expenseByCategory
+                          .map((e) => e.total)
+                          .reduce((a, b) => a > b ? a : b);
 
-  Future<FinanceDashboard> _load() async {
-    return widget.repository.fetchDashboard(_currentMonth());
-  }
-
-  Future<List<DailyExpense>> _loadDaily() async {
-    return widget.repository.fetchDailyExpenses(days: 30);
-  }
-
-  Future<List<WeeklyExpense>> _loadWeekly() async {
-    return widget.repository.fetchWeeklyExpenses(weeks: 8);
-  }
-
-  Future<List<MonthlyExpense>> _loadMonthly() async {
-    return widget.repository.fetchMonthlyExpenses(months: 6);
-  }
-
-  Future<void> _refresh() async {
-    setState(() {
-      _future = _load();
-      _dailyFuture = _loadDaily();
-      _weeklyFuture = _loadWeekly();
-      _monthlyFuture = _loadMonthly();
-    });
-    await Future.wait([_future, _dailyFuture, _weeklyFuture, _monthlyFuture]);
-  }
-
-  @override
-  void didUpdateWidget(DashboardScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isActiveTab && !oldWidget.isActiveTab) {
-      _refresh();
-    }
-  }
-
-  Future<void> _openDayExpenses(DailyExpense expense) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => DayExpensesScreen(
-          session: widget.session,
-          repository: widget.repository,
-          currency: widget.currency,
-          date: expense.date,
-          dayName: expense.dayName,
-        ),
-      ),
-    );
-  }
-
-  Future<void> _openWeekExpenses(WeeklyExpense expense) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => DayExpensesScreen(
-          session: widget.session,
-          repository: widget.repository,
-          currency: widget.currency,
-          date: expense.weekStart,
-          dayName: 'Week of ${expense.dateRange}',
-        ),
-      ),
-    );
-  }
-
-  Future<void> _openMonthExpenses(MonthlyExpense expense) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => DayExpensesScreen(
-          session: widget.session,
-          repository: widget.repository,
-          currency: widget.currency,
-          date: expense.monthStart,
-          dayName: '${expense.monthName} ${expense.year}',
+                  return RefreshIndicator(
+                    onRefresh: () => context.read<DashboardCubit>().refresh(),
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: [
+                        _AccountsBalanceCard(
+                          accounts: dashboard.accounts,
+                          currency: currency,
+                        ),
+                        const SizedBox(height: 24),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withValues(alpha: 0.2),
+                                spreadRadius: 2,
+                                blurRadius: 5,
+                                offset: const Offset(0, 0),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              const TabBar(
+                                labelColor: Color(0xFF0F766E),
+                                unselectedLabelColor: Colors.grey,
+                                indicatorColor: Color(0xFF0F766E),
+                                tabs: [
+                                  Tab(text: 'Daily'),
+                                  Tab(text: 'Weekly'),
+                                  Tab(text: 'Monthly'),
+                                ],
+                              ),
+                              SizedBox(
+                                height: 200,
+                                child: TabBarView(
+                                  children: [
+                                    FutureBuilder<List<DailyExpense>>(
+                                      future: state.dailyFuture,
+                                      builder: (context, snapshot) {
+                                        if (snapshot.connectionState !=
+                                            ConnectionState.done) {
+                                          return const Center(
+                                            child: CircularProgressIndicator(),
+                                          );
+                                        }
+                                        if (snapshot.hasError) {
+                                          return const _EmptyCard(
+                                            message: 'Could not load daily data',
+                                          );
+                                        }
+                                        return _DailyExpensesChart(
+                                          dailyExpenses: snapshot.data!,
+                                          currency: currency,
+                                          onDayTap: (e) =>
+                                              _openDayExpenses(context, e),
+                                        );
+                                      },
+                                    ),
+                                    FutureBuilder<List<WeeklyExpense>>(
+                                      future: state.weeklyFuture,
+                                      builder: (context, snapshot) {
+                                        if (snapshot.connectionState !=
+                                            ConnectionState.done) {
+                                          return const Center(
+                                            child: CircularProgressIndicator(),
+                                          );
+                                        }
+                                        if (snapshot.hasError) {
+                                          return const _EmptyCard(
+                                            message:
+                                                'Could not load weekly data',
+                                          );
+                                        }
+                                        return _WeeklyExpensesChart(
+                                          weeklyExpenses: snapshot.data!,
+                                          currency: currency,
+                                          onWeekTap: (e) =>
+                                              _openWeekExpenses(context, e),
+                                        );
+                                      },
+                                    ),
+                                    FutureBuilder<List<MonthlyExpense>>(
+                                      future: state.monthlyFuture,
+                                      builder: (context, snapshot) {
+                                        if (snapshot.connectionState !=
+                                            ConnectionState.done) {
+                                          return const Center(
+                                            child: CircularProgressIndicator(),
+                                          );
+                                        }
+                                        if (snapshot.hasError) {
+                                          return const _EmptyCard(
+                                            message:
+                                                'Could not load monthly data',
+                                          );
+                                        }
+                                        return _MonthlyExpensesChart(
+                                          monthlyExpenses: snapshot.data!,
+                                          currency: currency,
+                                          onMonthTap: (e) =>
+                                              _openMonthExpenses(context, e),
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        _StatsRow(summary: summary, currency: currency),
+                        const SizedBox(height: 24),
+                        _SectionTitle(
+                          title: 'Spending by Category',
+                          subtitle: summary.month,
+                        ),
+                        const SizedBox(height: 12),
+                        if (summary.expenseByCategory.isEmpty)
+                          const _EmptyCard(message: 'No spending this month.')
+                        else
+                          ...summary.expenseByCategory.map(
+                            (item) => _CategoryBar(
+                              item: item,
+                              currency: currency,
+                              maxValue: maxSpend,
+                            ),
+                          ),
+                        const SizedBox(height: 24),
+                        _SectionTitle(
+                          title: 'Budget Overview',
+                          subtitle: '${dashboard.budgets.length} budgets',
+                        ),
+                        const SizedBox(height: 12),
+                        if (dashboard.budgets.isEmpty)
+                          const _EmptyCard(message: 'No budgets set.')
+                        else
+                          ...dashboard.budgets.map(
+                            (budget) => _BudgetProgressCard(
+                              budget: budget,
+                              currency: currency,
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            );
+          },
         ),
       ),
     );
@@ -315,207 +440,52 @@ class _DashboardScreenState extends State<DashboardScreen>
     return '${now.year}-$month';
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dashboard'),
-        actions: [
-          IconButton(onPressed: _refresh, icon: const Icon(Icons.refresh)),
-        ],
+  Future<void> _pushDayExpenses(
+    BuildContext context, {
+    required String date,
+    required String dayName,
+  }) async {
+    await pushRouteWithFinanceRepository<void>(
+      context,
+      DayExpensesScreen(
+        session: session,
+        currency: currency,
+        date: date,
+        dayName: dayName,
       ),
-      body: FutureBuilder<FinanceDashboard>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    );
+  }
 
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.cloud_off, size: 52),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Could not load dashboard',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      snapshot.error.toString(),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      onPressed: _refresh,
-                      child: const Text('Try Again'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
+  Future<void> _openDayExpenses(
+    BuildContext context,
+    DailyExpense expense,
+  ) async {
+    await _pushDayExpenses(
+      context,
+      date: expense.date,
+      dayName: expense.dayName,
+    );
+  }
 
-          final dashboard = snapshot.data!;
-          final summary = dashboard.summary;
-          final maxSpend = summary.expenseByCategory.isEmpty
-              ? 1.0
-              : summary.expenseByCategory
-                    .map((e) => e.total)
-                    .reduce((a, b) => a > b ? a : b);
+  Future<void> _openWeekExpenses(
+    BuildContext context,
+    WeeklyExpense expense,
+  ) async {
+    await _pushDayExpenses(
+      context,
+      date: expense.weekStart,
+      dayName: 'Week of ${expense.dateRange}',
+    );
+  }
 
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _AccountsBalanceCard(
-                  accounts: dashboard.accounts,
-                  currency: widget.currency,
-                ),
-                const SizedBox(height: 24),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withValues(alpha: 0.2),
-                        spreadRadius: 2,
-                        blurRadius: 5,
-                        offset: const Offset(0, 0),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      TabBar(
-                        controller: _tabController,
-                        labelColor: const Color(0xFF0F766E),
-                        unselectedLabelColor: Colors.grey,
-                        indicatorColor: const Color(0xFF0F766E),
-                        tabs: const [
-                          Tab(text: 'Daily'),
-                          Tab(text: 'Weekly'),
-                          Tab(text: 'Monthly'),
-                        ],
-                      ),
-                      SizedBox(
-                        height: 200,
-                        child: TabBarView(
-                          controller: _tabController,
-                          children: [
-                            FutureBuilder<List<DailyExpense>>(
-                              future: _dailyFuture,
-                              builder: (context, snapshot) {
-                                if (snapshot.connectionState !=
-                                    ConnectionState.done) {
-                                  return const Center(
-                                    child: CircularProgressIndicator(),
-                                  );
-                                }
-                                if (snapshot.hasError) {
-                                  return _EmptyCard(
-                                    message: 'Could not load daily data',
-                                  );
-                                }
-                                return _DailyExpensesChart(
-                                  dailyExpenses: snapshot.data!,
-                                  currency: widget.currency,
-                                  onDayTap: _openDayExpenses,
-                                );
-                              },
-                            ),
-                            FutureBuilder<List<WeeklyExpense>>(
-                              future: _weeklyFuture,
-                              builder: (context, snapshot) {
-                                if (snapshot.connectionState !=
-                                    ConnectionState.done) {
-                                  return const Center(
-                                    child: CircularProgressIndicator(),
-                                  );
-                                }
-                                if (snapshot.hasError) {
-                                  return _EmptyCard(
-                                    message: 'Could not load weekly data',
-                                  );
-                                }
-                                return _WeeklyExpensesChart(
-                                  weeklyExpenses: snapshot.data!,
-                                  currency: widget.currency,
-                                  onWeekTap: _openWeekExpenses,
-                                );
-                              },
-                            ),
-                            FutureBuilder<List<MonthlyExpense>>(
-                              future: _monthlyFuture,
-                              builder: (context, snapshot) {
-                                if (snapshot.connectionState !=
-                                    ConnectionState.done) {
-                                  return const Center(
-                                    child: CircularProgressIndicator(),
-                                  );
-                                }
-                                if (snapshot.hasError) {
-                                  return _EmptyCard(
-                                    message: 'Could not load monthly data',
-                                  );
-                                }
-                                return _MonthlyExpensesChart(
-                                  monthlyExpenses: snapshot.data!,
-                                  currency: widget.currency,
-                                  onMonthTap: _openMonthExpenses,
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                _StatsRow(summary: summary, currency: widget.currency),
-                const SizedBox(height: 24),
-                _SectionTitle(
-                  title: 'Spending by Category',
-                  subtitle: summary.month,
-                ),
-                const SizedBox(height: 12),
-                if (summary.expenseByCategory.isEmpty)
-                  const _EmptyCard(message: 'No spending this month.')
-                else
-                  ...summary.expenseByCategory.map(
-                    (item) => _CategoryBar(
-                      item: item,
-                      currency: widget.currency,
-                      maxValue: maxSpend,
-                    ),
-                  ),
-                const SizedBox(height: 24),
-                _SectionTitle(
-                  title: 'Budget Overview',
-                  subtitle: '${dashboard.budgets.length} budgets',
-                ),
-                const SizedBox(height: 12),
-                if (dashboard.budgets.isEmpty)
-                  const _EmptyCard(message: 'No budgets set.')
-                else
-                  ...dashboard.budgets.map(
-                    (budget) => _BudgetProgressCard(
-                      budget: budget,
-                      currency: widget.currency,
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
-      ),
+  Future<void> _openMonthExpenses(
+    BuildContext context,
+    MonthlyExpense expense,
+  ) async {
+    await _pushDayExpenses(
+      context,
+      date: expense.monthStart,
+      dayName: '${expense.monthName} ${expense.year}',
     );
   }
 }

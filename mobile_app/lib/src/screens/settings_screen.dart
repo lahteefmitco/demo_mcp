@@ -1,15 +1,17 @@
-import 'dart:developer';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../api/finance_mcp_client.dart';
+import '../cubits/settings/settings_cubit.dart';
+import '../cubits/settings/settings_state.dart';
 import '../models/auth_session.dart';
 import '../repository/finance_repository.dart';
 import '../models/currency_option.dart';
 import '../models/finance_models.dart';
-import '../models/mcp_tool.dart';
 import '../utils/currency_utils.dart';
+import '../utils/finance_repository_scope.dart';
+import '../utils/toast.dart';
 import 'accounts_screen.dart';
 import 'add_budget_screen.dart';
 import 'add_category_screen.dart';
@@ -18,12 +20,10 @@ import 'chat_db_viewer_screen.dart';
 import 'local_database_viewer_screen.dart';
 import 'transfer_screen.dart';
 
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
     required this.session,
-    required this.repository,
     required this.currency,
-    required this.isActiveTab,
     required this.onCurrencyChanged,
     required this.onLogout,
     required this.onOpenProfile,
@@ -31,104 +31,57 @@ class SettingsScreen extends StatefulWidget {
   });
 
   final AuthSession session;
-  final FinanceRepository repository;
   final CurrencyOption currency;
-  final bool isActiveTab;
   final Future<void> Function(CurrencyOption currency) onCurrencyChanged;
   final Future<void> Function() onLogout;
   final Future<void> Function() onOpenProfile;
 
-  @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends State<SettingsScreen> {
-  late final FinanceMcpClient _toolsClient;
-  late Future<_SettingsData> _future;
-
-  @override
-  void initState() {
-    super.initState();
-    _toolsClient = FinanceMcpClient(token: widget.session.token);
-    _future = _load();
-  }
-
-  Future<_SettingsData> _load() async {
-    final month = _currentMonth();
-    final results = await Future.wait([
-      widget.repository.fetchDashboard(month),
-      _toolsClient.listTools(),
-    ]);
-
-    return _SettingsData(
-      dashboard: results[0] as FinanceDashboard,
-      tools: results[1] as List<McpTool>,
-    );
-  }
-
-  Future<void> _refresh() async {
-    setState(() {
-      _future = _load();
-    });
-    await _future;
-  }
-
-  @override
-  void didUpdateWidget(SettingsScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isActiveTab && !oldWidget.isActiveTab) {
-      _refresh();
-    }
-  }
-
-  Future<void> _openCategoryEntries(FinanceCategory category) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => CategoryEntriesScreen(
-          session: widget.session,
-          repository: widget.repository,
-          category: category,
-          currency: widget.currency,
-        ),
+  Future<void> _openCategoryEntries(
+    BuildContext context,
+    FinanceCategory category,
+  ) async {
+    await pushRouteWithFinanceRepository<void>(
+      context,
+      CategoryEntriesScreen(
+        session: session,
+        category: category,
+        currency: currency,
       ),
     );
   }
 
-  Future<void> _openChatDbViewer() async {
+  Future<void> _openChatDbViewer(BuildContext context) async {
     await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => const ChatDbViewerScreen()));
   }
 
-  Future<void> _openAccounts() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) =>
-            AccountsScreen(
-              session: widget.session,
-              repository: widget.repository,
-              currency: widget.currency,
-            ),
+  Future<void> _openAccounts(BuildContext context) async {
+    final cubit = context.read<SettingsCubit>();
+    await pushRouteWithFinanceRepository<void>(
+      context,
+      AccountsScreen(
+        session: session,
+        currency: currency,
       ),
     );
-    await _refresh();
+    await cubit.refresh();
   }
 
-  Future<void> _openTransfers() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) =>
-            TransferScreen(
-              session: widget.session,
-              repository: widget.repository,
-              currency: widget.currency,
-            ),
+  Future<void> _openTransfers(BuildContext context) async {
+    final cubit = context.read<SettingsCubit>();
+    await pushRouteWithFinanceRepository<void>(
+      context,
+      TransferScreen(
+        session: session,
+        currency: currency,
       ),
     );
-    await _refresh();
+    await cubit.refresh();
   }
 
-  Future<void> _importAllData() async {
+  Future<void> _importAllData(BuildContext context) async {
+    final cubit = context.read<SettingsCubit>();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -150,27 +103,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
 
-    if (!mounted || confirmed != true) {
+    if (!context.mounted || confirmed != true) {
       return;
     }
 
-    try {
-      await widget.repository.importAllFromServer();
-      if (!mounted) {
-        return;
-      }
-      _showMessage('Import finished');
-      await _refresh();
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-      log("Import failed: $e");
-      _showMessage('Import failed: $e');
-    }
+    await cubit.importAllFromServer();
   }
 
-  Future<void> _openLocalDatabaseViewer() async {
+  Future<void> _openLocalDatabaseViewer(BuildContext context) async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => const LocalDatabaseViewerScreen(),
@@ -178,7 +118,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _selectCurrency() async {
+  Future<void> _selectCurrency(BuildContext context) async {
     final selected = await showModalBottomSheet<CurrencyOption>(
       context: context,
       showDragHandle: true,
@@ -196,7 +136,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   title: Text(option.label),
                   subtitle: Text('${option.code} • ${option.symbol}'),
-                  trailing: option.code == widget.currency.code
+                  trailing: option.code == currency.code
                       ? const Icon(Icons.check)
                       : null,
                   onTap: () => Navigator.pop(context, option),
@@ -207,39 +147,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
 
-    if (!mounted || selected == null || selected.code == widget.currency.code) {
+    if (!context.mounted || selected == null || selected.code == currency.code) {
       return;
     }
 
-    await widget.onCurrencyChanged(selected);
-    if (!mounted) {
+    await onCurrencyChanged(selected);
+    if (!context.mounted) {
       return;
     }
 
-    _showMessage('${selected.currency} selected');
+    _showMessage(context, '${selected.currency} selected');
   }
 
-  Future<void> _editCategory(FinanceCategory category) async {
+  Future<void> _editCategory(
+    BuildContext context,
+    FinanceCategory category,
+  ) async {
+    final cubit = context.read<SettingsCubit>();
     final payload = await Navigator.of(context).push<Map<String, dynamic>>(
       MaterialPageRoute(builder: (_) => AddCategoryScreen(category: category)),
     );
 
-    if (!mounted || payload == null) {
+    if (!context.mounted || payload == null) {
       return;
     }
 
-    await widget.repository.updateCategory(
+    await cubit.updateCategory(
       uuid: payload['uuid'] as String,
       name: payload['name'] as String,
       kind: payload['kind'] as String,
       color: payload['color'] as String,
       icon: payload['icon'] as String,
     );
-    _showMessage('Category updated');
-    await _refresh();
   }
 
-  Future<void> _deleteCategory(FinanceCategory category) async {
+  Future<void> _deleteCategory(
+    BuildContext context,
+    FinanceCategory category,
+  ) async {
+    final cubit = context.read<SettingsCubit>();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -258,16 +204,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
 
-    if (!mounted || confirmed != true) {
+    if (!context.mounted || confirmed != true) {
       return;
     }
 
-    await widget.repository.deleteCategoryByUuid(category.uuid);
-    _showMessage('Category deleted');
-    await _refresh();
+    await cubit.deleteCategoryByUuid(category.uuid);
   }
 
-  Future<void> _editBudget(BudgetItem budget, _SettingsData data) async {
+  Future<void> _editBudget(
+    BuildContext context,
+    BudgetItem budget,
+    SettingsData data,
+  ) async {
+    final cubit = context.read<SettingsCubit>();
     final categories = data.dashboard.categories
         .where(
           (category) => category.kind == 'expense' || category.kind == 'both',
@@ -279,11 +228,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
 
-    if (!mounted || payload == null) {
+    if (!context.mounted || payload == null) {
       return;
     }
 
-    await widget.repository.updateBudget(
+    await cubit.updateBudget(
       uuid: payload['uuid'] as String,
       name: payload['name'] as String,
       amount: payload['amount'] as double,
@@ -292,11 +241,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       categoryUuid: payload['categoryUuid'] as String?,
       notes: payload['notes'] as String? ?? '',
     );
-    _showMessage('Budget updated');
-    await _refresh();
   }
 
-  Future<void> _deleteBudget(BudgetItem budget) async {
+  Future<void> _deleteBudget(BuildContext context, BudgetItem budget) async {
+    final cubit = context.read<SettingsCubit>();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -315,16 +263,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
 
-    if (!mounted || confirmed != true) {
+    if (!context.mounted || confirmed != true) {
       return;
     }
 
-    await widget.repository.deleteBudgetByUuid(budget.uuid);
-    _showMessage('Budget deleted');
-    await _refresh();
+    await cubit.deleteBudgetByUuid(budget.uuid);
   }
 
-  Future<void> _openActionSheet(_SettingsData data) async {
+  Future<void> _openActionSheet(
+    BuildContext context,
+    SettingsData data,
+  ) async {
+    final cubit = context.read<SettingsCubit>();
     final navigator = Navigator.of(context);
     final action = await showModalBottomSheet<String>(
       context: context,
@@ -348,7 +298,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
 
-    if (!mounted || action == null) {
+    if (!context.mounted || action == null) {
       return;
     }
 
@@ -364,12 +314,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       );
 
-      if (!mounted) {
+      if (!context.mounted) {
         return;
       }
 
       if (payload != null) {
-        await widget.repository.createBudget(
+        await cubit.createBudget(
           name: payload['name'] as String,
           amount: payload['amount'] as double,
           period: payload['period'] as String,
@@ -377,8 +327,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           categoryUuid: payload['categoryUuid'] as String?,
           notes: payload['notes'] as String? ?? '',
         );
-        _showMessage('Budget added');
-        await _refresh();
       }
     }
 
@@ -387,45 +335,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
         MaterialPageRoute(builder: (_) => const AddCategoryScreen()),
       );
 
-      if (!mounted) {
+      if (!context.mounted) {
         return;
       }
 
       if (payload != null) {
-        await widget.repository.createCategory(
+        await cubit.createCategory(
           name: payload['name'] as String,
           kind: payload['kind'] as String,
           color: payload['color'] as String,
           icon: payload['icon'] as String,
         );
-        _showMessage('Category added');
-        await _refresh();
       }
     }
   }
 
-  void _showMessage(String message) {
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+  void _showMessage(BuildContext context, String message) {
+    AppToast.success(context, message);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-        actions: [
-          IconButton(onPressed: _refresh, icon: const Icon(Icons.refresh)),
-        ],
+    final toolsClient = FinanceMcpClient(token: session.token);
+    return BlocProvider(
+      create: (_) => SettingsCubit(
+        repository: context.read<FinanceRepository>(),
+        toolsClient: toolsClient,
       ),
-      body: FutureBuilder<_SettingsData>(
-        future: _future,
-        builder: (context, snapshot) {
+      child: Builder(
+        builder: (blocContext) {
+          return BlocListener<SettingsCubit, SettingsState>(
+            listenWhen: (p, n) => p.toastNonce != n.toastNonce,
+            listener: (context, state) {
+              final msg = state.toastMessage;
+              if (msg == null || msg.isEmpty) return;
+              if (state.toastIsError) {
+                AppToast.error(context, msg);
+              } else {
+                AppToast.success(context, msg);
+              }
+            },
+            child: Scaffold(
+              appBar: AppBar(
+                title: const Text('Settings'),
+                actions: [
+                  IconButton(
+                    onPressed: () =>
+                        blocContext.read<SettingsCubit>().refresh(),
+                    icon: const Icon(Icons.refresh),
+                  ),
+                ],
+              ),
+              body: FutureBuilder<SettingsData>(
+                future: blocContext.watch<SettingsCubit>().state.future,
+                builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -450,7 +413,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const SizedBox(height: 16),
                     FilledButton(
-                      onPressed: _refresh,
+                      onPressed: () => context.read<SettingsCubit>().refresh(),
                       child: const Text('Try Again'),
                     ),
                   ],
@@ -482,7 +445,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               .toList();
 
           return RefreshIndicator(
-            onRefresh: _refresh,
+            onRefresh: () => context.read<SettingsCubit>().refresh(),
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
@@ -493,26 +456,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.session.user.name,
+                          session.user.name,
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          widget.session.user.email,
+                          session.user.email,
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                         const SizedBox(height: 16),
                         FilledButton.tonalIcon(
-                          onPressed: widget.onOpenProfile,
+                          onPressed: onOpenProfile,
                           icon: const Icon(Icons.person_outline),
                           label: const Text('Open profile'),
                         ),
                         const SizedBox(height: 12),
                         OutlinedButton.icon(
-                          onPressed: _selectCurrency,
+                          onPressed: () => _selectCurrency(context),
                           icon: const Icon(Icons.currency_exchange),
                           label: Text(
-                            'Currency: ${widget.currency.code} (${widget.currency.symbol})',
+                            'Currency: ${currency.code} (${currency.symbol})',
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -523,7 +486,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           subtitle: const Text(
                             'Loads accounts, categories, transactions, and budgets from the server into this device.',
                           ),
-                          onTap: _importAllData,
+                          onTap: () {
+                            _importAllData(context);
+                          },
                         ),
                         ListTile(
                           contentPadding: EdgeInsets.zero,
@@ -532,7 +497,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           subtitle: const Text(
                             'Inspect SQLite tables stored on device (debug).',
                           ),
-                          onTap: _openLocalDatabaseViewer,
+                          onTap: () {
+                            _openLocalDatabaseViewer(context);
+                          },
                         ),
                       ],
                     ),
@@ -561,11 +528,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ...topExpenseCategories.map(
                     (item) => _CategoryTotalTile(
                       category: item.category,
-                      currency: widget.currency,
+                      currency: currency,
                       spend: item.spend,
                       onTap: item.category.id == -1
                           ? null
-                          : () => _openCategoryEntries(item.category),
+                          : () => _openCategoryEntries(context, item.category),
                     ),
                   ),
                 const SizedBox(height: 16),
@@ -580,9 +547,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ...dashboard.budgets.map(
                     (budget) => _BudgetTile(
                       budget: budget,
-                      currency: widget.currency,
-                      onEdit: () => _editBudget(budget, data),
-                      onDelete: () => _deleteBudget(budget),
+                      currency: currency,
+                      onEdit: () => _editBudget(context, budget, data),
+                      onDelete: () => _deleteBudget(context, budget),
                     ),
                   ),
                 const SizedBox(height: 16),
@@ -601,7 +568,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         title: const Text('Manage Accounts'),
                         subtitle: const Text('Add, edit, or delete accounts'),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: _openAccounts,
+                        onTap: () => _openAccounts(context),
                       ),
                       const Divider(height: 1),
                       ListTile(
@@ -609,7 +576,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         title: const Text('Transfers'),
                         subtitle: const Text('Move money between accounts'),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: _openTransfers,
+                        onTap: () => _openTransfers(context),
                       ),
                     ],
                   ),
@@ -626,8 +593,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ...dashboard.categories.map(
                     (category) => _CategoryTile(
                       category: category,
-                      onEdit: () => _editCategory(category),
-                      onDelete: () => _deleteCategory(category),
+                      onEdit: () => _editCategory(context, category),
+                      onDelete: () => _deleteCategory(context, category),
                     ),
                   ),
                 if (kDebugMode) ...[
@@ -640,13 +607,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: const Text('Chat History DB'),
                       subtitle: const Text('View stored chat sessions'),
                       trailing: const Icon(Icons.chevron_right),
-                      onTap: _openChatDbViewer,
+                      onTap: () => _openChatDbViewer(context),
                     ),
                   ),
                 ],
                 const SizedBox(height: 24),
                 FilledButton.icon(
-                  onPressed: widget.onLogout,
+                  onPressed: onLogout,
                   icon: const Icon(Icons.logout),
                   label: const Text('Log out'),
                 ),
@@ -655,35 +622,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
           );
         },
       ),
-      floatingActionButton: FutureBuilder<_SettingsData>(
-        future: _future,
-        builder: (context, snapshot) {
-          return FloatingActionButton.extended(
-            heroTag: 'settings_fab',
-            onPressed: snapshot.hasData
-                ? () => _openActionSheet(snapshot.data!)
-                : null,
-            icon: const Icon(Icons.tune),
-            label: const Text('Manage'),
+              floatingActionButton: FutureBuilder<SettingsData>(
+                future: blocContext.watch<SettingsCubit>().state.future,
+                builder: (context, snapshot) {
+                  return FloatingActionButton.extended(
+                    heroTag: 'settings_fab',
+                    onPressed: snapshot.hasData
+                        ? () => _openActionSheet(context, snapshot.data!)
+                        : null,
+                    icon: const Icon(Icons.tune),
+                    label: const Text('Manage'),
+                  );
+                },
+              ),
+            ),
           );
         },
       ),
     );
   }
 
-  String _currentMonth() {
-    final now = DateTime.now();
-    final month = now.month.toString().padLeft(2, '0');
-    return '${now.year}-$month';
-  }
+  // Month selection is owned by SettingsCubit (same month format: YYYY-MM).
 }
 
-class _SettingsData {
-  const _SettingsData({required this.dashboard, required this.tools});
-
-  final FinanceDashboard dashboard;
-  final List<McpTool> tools;
-}
+// _SettingsData moved to cubit layer as SettingsData.
 
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({required this.title, required this.subtitle});
