@@ -12,6 +12,7 @@ class HomeScreen extends StatefulWidget {
     required this.session,
     required this.repository,
     required this.currency,
+    required this.isActiveTab,
     required this.onOpenProfile,
     super.key,
   });
@@ -19,6 +20,7 @@ class HomeScreen extends StatefulWidget {
   final AuthSession session;
   final FinanceRepository repository;
   final CurrencyOption currency;
+  final bool isActiveTab;
   final Future<void> Function() onOpenProfile;
 
   @override
@@ -52,6 +54,14 @@ class _HomeScreenState extends State<HomeScreen>
       _future = _load();
     });
     await _future;
+  }
+
+  @override
+  void didUpdateWidget(HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActiveTab && !oldWidget.isActiveTab) {
+      _refresh();
+    }
   }
 
   Future<void> _openExpenseActions(

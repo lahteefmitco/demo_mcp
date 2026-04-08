@@ -196,12 +196,14 @@ class DashboardScreen extends StatefulWidget {
     required this.session,
     required this.repository,
     required this.currency,
+    required this.isActiveTab,
     super.key,
   });
 
   final AuthSession session;
   final FinanceRepository repository;
   final CurrencyOption currency;
+  final bool isActiveTab;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -255,6 +257,14 @@ class _DashboardScreenState extends State<DashboardScreen>
       _monthlyFuture = _loadMonthly();
     });
     await Future.wait([_future, _dailyFuture, _weeklyFuture, _monthlyFuture]);
+  }
+
+  @override
+  void didUpdateWidget(DashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActiveTab && !oldWidget.isActiveTab) {
+      _refresh();
+    }
   }
 
   Future<void> _openDayExpenses(DailyExpense expense) async {

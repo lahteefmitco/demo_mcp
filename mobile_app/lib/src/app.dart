@@ -200,6 +200,7 @@ class _AppShellState extends State<AppShell> {
         session: widget.session,
         repository: _financeRepository,
         currency: widget.selectedCurrency,
+        isActiveTab: _selectedIndex == 0,
         onOpenProfile: () async {
           await Navigator.of(context).push(
             MaterialPageRoute(
@@ -215,10 +216,12 @@ class _AppShellState extends State<AppShell> {
         session: widget.session,
         repository: _financeRepository,
         currency: widget.selectedCurrency,
+        isActiveTab: _selectedIndex == 1,
       ),
       ChatScreen(
         session: widget.session,
         currency: widget.selectedCurrency,
+        isActiveTab: _selectedIndex == 2,
         onOpenProfile: () async {
           await Navigator.of(context).push(
             MaterialPageRoute(
@@ -234,6 +237,7 @@ class _AppShellState extends State<AppShell> {
         session: widget.session,
         repository: _financeRepository,
         currency: widget.selectedCurrency,
+        isActiveTab: _selectedIndex == 3,
         onCurrencyChanged: widget.onCurrencyChanged,
         onLogout: widget.onLogout,
         onOpenProfile: () async {

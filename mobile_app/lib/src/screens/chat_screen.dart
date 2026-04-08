@@ -45,12 +45,14 @@ class ChatScreen extends StatefulWidget {
   const ChatScreen({
     required this.session,
     required this.currency,
+    required this.isActiveTab,
     required this.onOpenProfile,
     super.key,
   });
 
   final AuthSession session;
   final CurrencyOption currency;
+  final bool isActiveTab;
   final Future<void> Function() onOpenProfile;
 
   @override
@@ -95,6 +97,25 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _loadSessions() async {}
 
+  /// Syncs the message list from [ChatDatabase] when returning to this tab.
+  Future<void> _reloadCurrentSessionFromLocalDb() async {
+    final id = _currentSessionId;
+    if (id == null) {
+      return;
+    }
+
+    final rows = await _database.getMessagesForSession(id);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _messages = rows
+          .map((m) => ChatMessageData(role: m.role, content: m.content))
+          .toList();
+    });
+  }
+
   Future<void> _restoreSelectedProvider() async {
     final savedProvider = await _preferencesStorage.readChatAgent();
     if (!mounted ||
@@ -130,6 +151,14 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       ];
     });
+  }
+
+  @override
+  void didUpdateWidget(ChatScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActiveTab && !oldWidget.isActiveTab) {
+      _reloadCurrentSessionFromLocalDb();
+    }
   }
 
   Future<void> _loadSession(ChatSessionData session) async {

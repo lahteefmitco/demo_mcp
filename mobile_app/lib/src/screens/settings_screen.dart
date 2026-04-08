@@ -23,6 +23,7 @@ class SettingsScreen extends StatefulWidget {
     required this.session,
     required this.repository,
     required this.currency,
+    required this.isActiveTab,
     required this.onCurrencyChanged,
     required this.onLogout,
     required this.onOpenProfile,
@@ -32,6 +33,7 @@ class SettingsScreen extends StatefulWidget {
   final AuthSession session;
   final FinanceRepository repository;
   final CurrencyOption currency;
+  final bool isActiveTab;
   final Future<void> Function(CurrencyOption currency) onCurrencyChanged;
   final Future<void> Function() onLogout;
   final Future<void> Function() onOpenProfile;
@@ -69,6 +71,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _future = _load();
     });
     await _future;
+  }
+
+  @override
+  void didUpdateWidget(SettingsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActiveTab && !oldWidget.isActiveTab) {
+      _refresh();
+    }
   }
 
   Future<void> _openCategoryEntries(FinanceCategory category) async {
