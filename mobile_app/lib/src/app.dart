@@ -8,12 +8,15 @@ import 'screens/auth_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/onboarding_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/splash_screen.dart';
 import 'database/finance_database_holder.dart';
 import 'repository/finance_repository.dart';
 import 'settings/app_preferences_storage.dart';
 import 'sync/background_sync.dart';
+import 'theme/app_theme.dart';
 import 'utils/currency_utils.dart';
 
 class ExpenseMobileApp extends StatefulWidget {
@@ -24,52 +27,66 @@ class ExpenseMobileApp extends StatefulWidget {
 }
 
 class _ExpenseMobileAppState extends State<ExpenseMobileApp> {
-  static const _seedColor = Color(0xFF0E7490);
   final AuthStorage _authStorage = AuthStorage();
   final AppPreferencesStorage _preferencesStorage = AppPreferencesStorage();
   final AuthApi _authApi = AuthApi();
   AuthSession? _session;
-  bool _isLoadingSession = true;
+  bool _isBootstrapping = true;
+  bool _needsOnboarding = false;
   CurrencyOption _selectedCurrency = defaultCurrency;
 
   @override
   void initState() {
     super.initState();
-    _restoreSession();
+    _bootstrap();
   }
 
-  Future<void> _restoreSession() async {
+  static const _minSplash = Duration(milliseconds: 1500);
+
+  Future<void> _bootstrap() async {
+    final stopwatch = Stopwatch()..start();
+    final onboardingDone = await _preferencesStorage.readOnboardingCompleted();
+
     try {
-      final storedCurrencyCode = await _preferencesStorage.readCurrencyCode();
-      if (storedCurrencyCode == null || storedCurrencyCode.isEmpty) {
+      var code = await _preferencesStorage.readCurrencyCode();
+      if (code == null || code.isEmpty) {
         await _preferencesStorage.writeCurrencyCode(defaultCurrency.code);
+        code = defaultCurrency.code;
       }
-      final storedCurrency = currencyFromCode(storedCurrencyCode);
+      final storedCurrency = currencyFromCode(code);
+
+      AuthSession? session;
       final stored = await _authStorage.readSession();
-      if (stored == null) {
-        if (!mounted) {
-          return;
+      if (stored != null) {
+        try {
+          final currentUser = await _authApi.fetchCurrentUser(stored.token);
+          session = AuthSession(token: stored.token, user: currentUser);
+        } catch (_) {
+          await _authStorage.clear();
         }
-
-        setState(() {
-          _selectedCurrency = storedCurrency;
-          _isLoadingSession = false;
-        });
-        return;
       }
 
-      final currentUser = await _authApi.fetchCurrentUser(stored.token);
+      final elapsed = stopwatch.elapsed;
+      if (elapsed < _minSplash) {
+        await Future<void>.delayed(_minSplash - elapsed);
+      }
+
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _session = AuthSession(token: stored.token, user: currentUser);
+        _session = session;
         _selectedCurrency = storedCurrency;
-        _isLoadingSession = false;
+        _needsOnboarding = !onboardingDone;
+        _isBootstrapping = false;
       });
     } catch (_) {
       await _authStorage.clear();
+      final elapsed = stopwatch.elapsed;
+      if (elapsed < _minSplash) {
+        await Future<void>.delayed(_minSplash - elapsed);
+      }
       if (!mounted) {
         return;
       }
@@ -77,9 +94,20 @@ class _ExpenseMobileAppState extends State<ExpenseMobileApp> {
       setState(() {
         _session = null;
         _selectedCurrency = defaultCurrency;
-        _isLoadingSession = false;
+        _needsOnboarding = !onboardingDone;
+        _isBootstrapping = false;
       });
     }
+  }
+
+  Future<void> _completeOnboarding() async {
+    await _preferencesStorage.writeOnboardingCompleted(true);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _needsOnboarding = false;
+    });
   }
 
   Future<void> _handleCurrencyChanged(CurrencyOption currency) async {
@@ -132,20 +160,11 @@ class _ExpenseMobileAppState extends State<ExpenseMobileApp> {
     return MaterialApp(
       title: 'Finance Mobile',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: _seedColor,
-          brightness: Brightness.light,
-        ),
-        scaffoldBackgroundColor: const Color(0xFFF4F7FB),
-        useMaterial3: true,
-        inputDecorationTheme: const InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.white,
-        ),
-      ),
-      home: _isLoadingSession
-          ? const _LoadingScreen()
+      theme: ExpenseAppTheme.light(),
+      home: _isBootstrapping
+          ? const SplashScreen()
+          : _needsOnboarding
+          ? OnboardingScreen(onComplete: _completeOnboarding)
           : _session == null
           ? AuthScreen(onAuthenticated: _handleAuthenticated)
           : AppShell(
@@ -286,14 +305,5 @@ class _AppShellState extends State<AppShell> {
         ],
       ),
     );
-  }
-}
-
-class _LoadingScreen extends StatelessWidget {
-  const _LoadingScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }
