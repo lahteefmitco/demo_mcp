@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
@@ -412,6 +414,13 @@ class FinanceRepository {
     final incomesJson = await api.getIncomes();
     final transfersJson = await api.getTransfers();
     final budgetsJson = await api.getBudgets();
+
+    log("accountsJson: $accountsJson");
+    log("categoriesJson: $categoriesJson");
+    log("expensesJson: $expensesJson");
+    log("incomesJson: $incomesJson");
+    log("transfersJson: $transfersJson");
+    log("budgetsJson: $budgetsJson");
 
     final accountIdToUuid = <int, String>{};
     for (final j in accountsJson) {
