@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 
 import '../models/finance_models.dart';
@@ -38,6 +40,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
 
   @override
   void initState() {
+    log("AddEntryScreen initState");
     super.initState();
     final initialEntry = widget.initialEntry;
     _selectedCategoryUuid = initialEntry?.categoryUuid.isNotEmpty == true

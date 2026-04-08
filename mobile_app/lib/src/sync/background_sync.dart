@@ -7,6 +7,7 @@ import '../repository/finance_repository.dart';
 
 const _periodicTaskName = 'financeBackgroundSync';
 const _uniqueTaskName = 'finance.sync.periodic';
+const _oneOffUniqueName = 'finance.sync.oneoff';
 
 /// Registers Workmanager and periodic finance sync (best-effort when OS allows).
 class BackgroundSync {
@@ -20,6 +21,19 @@ class BackgroundSync {
       _uniqueTaskName,
       _periodicTaskName,
       frequency: const Duration(minutes: 15),
+      constraints: Constraints(
+        networkType: NetworkType.connected,
+      ),
+    );
+  }
+
+  /// Runs once when online after a short delay (e.g. immediate sync left rows pending).
+  static Future<void> scheduleDeferredSync() async {
+    await Workmanager().cancelByUniqueName(_oneOffUniqueName);
+    await Workmanager().registerOneOffTask(
+      _oneOffUniqueName,
+      _periodicTaskName,
+      initialDelay: const Duration(seconds: 20),
       constraints: Constraints(
         networkType: NetworkType.connected,
       ),

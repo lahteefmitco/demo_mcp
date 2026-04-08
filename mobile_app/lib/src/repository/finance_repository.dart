@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 
 import 'package:drift/drift.dart';
@@ -6,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../api/finance_rest_api.dart';
 import '../database/finance_database.dart';
 import '../models/finance_models.dart';
+import '../sync/background_sync.dart';
 import 'finance_local_dashboard.dart';
 import 'finance_mappers.dart';
 
@@ -517,6 +519,70 @@ class FinanceRepository {
     await recomputeAccountBalances();
   }
 
+  /// True if any row is still waiting to be uploaded (or a failed PUT retry).
+  Future<bool> hasUnsyncedRows() async {
+    if ((await (_db.select(_db.localAccounts)
+              ..where((t) => t.isSynced.equals(false))
+              ..limit(1))
+            .get())
+        .isNotEmpty) {
+      return true;
+    }
+    if ((await (_db.select(_db.localCategories)
+              ..where((t) => t.isSynced.equals(false))
+              ..limit(1))
+            .get())
+        .isNotEmpty) {
+      return true;
+    }
+    if ((await (_db.select(_db.localExpenses)
+              ..where((t) => t.isSynced.equals(false))
+              ..limit(1))
+            .get())
+        .isNotEmpty) {
+      return true;
+    }
+    if ((await (_db.select(_db.localIncomes)
+              ..where((t) => t.isSynced.equals(false))
+              ..limit(1))
+            .get())
+        .isNotEmpty) {
+      return true;
+    }
+    if ((await (_db.select(_db.localTransfers)
+              ..where((t) => t.isSynced.equals(false))
+              ..limit(1))
+            .get())
+        .isNotEmpty) {
+      return true;
+    }
+    if ((await (_db.select(_db.localBudgets)
+              ..where((t) => t.isSynced.equals(false))
+              ..limit(1))
+            .get())
+        .isNotEmpty) {
+      return true;
+    }
+    return false;
+  }
+
+  void _scheduleSyncAfterMutation() {
+    unawaited(_runSyncAfterMutation());
+  }
+
+  Future<void> _runSyncAfterMutation() async {
+    try {
+      await pushUnsynced();
+    } catch (e, st) {
+      log('pushUnsynced failed', error: e, stackTrace: st);
+    }
+    if (await hasUnsyncedRows()) {
+      await BackgroundSync.scheduleDeferredSync();
+    }
+  }
+
+  /// Pushes local rows with [LocalAccounts.isSynced] (etc.) `false` to the API.
+  /// Order: accounts → categories → expenses/incomes/transfers/budgets (FK-friendly).
   Future<void> pushUnsynced() async {
     final api = _api;
 
@@ -524,10 +590,21 @@ class FinanceRepository {
           ..where((t) => t.isSynced.equals(false)))
         .get();
     for (final row in unsyncedAccounts) {
-      if (row.serverId != null) {
-        continue;
-      }
       try {
+        if (row.serverId != null) {
+          await api.putAccount(row.serverId!, {
+            'name': row.name,
+            'type': row.type,
+            'initialBalance': row.initialBalance,
+            'color': row.color,
+            'icon': row.icon,
+            'notes': row.notes,
+            'isActive': row.isActive,
+          });
+          await (_db.update(_db.localAccounts)..where((t) => t.uuid.equals(row.uuid)))
+              .write(const LocalAccountsCompanion(isSynced: Value(true)));
+          continue;
+        }
         final res = await api.postAccount({
           'name': row.name,
           'type': row.type,
@@ -557,10 +634,18 @@ class FinanceRepository {
           ..where((t) => t.isSynced.equals(false)))
         .get();
     for (final row in unsyncedCategories) {
-      if (row.serverId != null) {
-        continue;
-      }
       try {
+        if (row.serverId != null) {
+          await api.putCategory(row.serverId!, {
+            'name': row.name,
+            'kind': row.kind,
+            'color': row.color,
+            'icon': row.icon,
+          });
+          await (_db.update(_db.localCategories)..where((t) => t.uuid.equals(row.uuid)))
+              .write(const LocalCategoriesCompanion(isSynced: Value(true)));
+          continue;
+        }
         final res = await api.postCategory({
           'name': row.name,
           'kind': row.kind,
@@ -585,15 +670,25 @@ class FinanceRepository {
           ..where((t) => t.isSynced.equals(false)))
         .get();
     for (final row in unsyncedExpenses) {
-      if (row.serverId != null) {
-        continue;
-      }
       final cId = await catSid(row.categoryUuid);
       final aId = await accSid(row.accountUuid);
       if (cId == null || aId == null) {
         continue;
       }
       try {
+        if (row.serverId != null) {
+          await api.putExpense(row.serverId!, {
+            'title': row.title,
+            'amount': row.amount,
+            'categoryId': cId,
+            'accountId': aId,
+            'spentOn': row.spentOn,
+            'notes': row.notes,
+          });
+          await (_db.update(_db.localExpenses)..where((t) => t.uuid.equals(row.uuid)))
+              .write(const LocalExpensesCompanion(isSynced: Value(true)));
+          continue;
+        }
         final res = await api.postExpense({
           'title': row.title,
           'amount': row.amount,
@@ -620,15 +715,25 @@ class FinanceRepository {
           ..where((t) => t.isSynced.equals(false)))
         .get();
     for (final row in unsyncedIncomes) {
-      if (row.serverId != null) {
-        continue;
-      }
       final cId = await catSid(row.categoryUuid);
       final aId = await accSid(row.accountUuid);
       if (cId == null || aId == null) {
         continue;
       }
       try {
+        if (row.serverId != null) {
+          await api.putIncome(row.serverId!, {
+            'title': row.title,
+            'amount': row.amount,
+            'categoryId': cId,
+            'accountId': aId,
+            'receivedOn': row.receivedOn,
+            'notes': row.notes,
+          });
+          await (_db.update(_db.localIncomes)..where((t) => t.uuid.equals(row.uuid)))
+              .write(const LocalIncomesCompanion(isSynced: Value(true)));
+          continue;
+        }
         final res = await api.postIncome({
           'title': row.title,
           'amount': row.amount,
@@ -688,9 +793,6 @@ class FinanceRepository {
           ..where((t) => t.isSynced.equals(false)))
         .get();
     for (final row in unsyncedBudgets) {
-      if (row.serverId != null) {
-        continue;
-      }
       int? catId;
       if (row.categoryUuid != null && row.categoryUuid!.isNotEmpty) {
         catId = await catSid(row.categoryUuid!);
@@ -699,6 +801,22 @@ class FinanceRepository {
         }
       }
       try {
+        if (row.serverId != null) {
+          final body = <String, dynamic>{
+            'name': row.name,
+            'amount': row.amount,
+            'period': row.period,
+            'startDate': row.startDate,
+            'notes': row.notes,
+          };
+          if (catId != null) {
+            body['categoryId'] = catId;
+          }
+          await api.putBudget(row.serverId!, body);
+          await (_db.update(_db.localBudgets)..where((t) => t.uuid.equals(row.uuid)))
+              .write(const LocalBudgetsCompanion(isSynced: Value(true)));
+          continue;
+        }
         final body = <String, dynamic>{
           'name': row.name,
           'amount': row.amount,
@@ -759,6 +877,7 @@ class FinanceRepository {
           ),
         );
     await recomputeAccountBalances();
+    _scheduleSyncAfterMutation();
   }
 
   Future<void> updateExpense({
@@ -813,6 +932,7 @@ class FinanceRepository {
       } catch (_) {}
     }
     await recomputeAccountBalances();
+    _scheduleSyncAfterMutation();
   }
 
   Future<int?> catSid(String u) async {
@@ -837,6 +957,7 @@ class FinanceRepository {
       } catch (_) {}
     }
     await recomputeAccountBalances();
+    _scheduleSyncAfterMutation();
   }
 
   Future<void> createIncome({
@@ -871,6 +992,7 @@ class FinanceRepository {
           ),
         );
     await recomputeAccountBalances();
+    _scheduleSyncAfterMutation();
   }
 
   Future<void> updateIncome({
@@ -924,6 +1046,7 @@ class FinanceRepository {
       } catch (_) {}
     }
     await recomputeAccountBalances();
+    _scheduleSyncAfterMutation();
   }
 
   Future<void> deleteIncomeByUuid(String uuid) async {
@@ -936,6 +1059,7 @@ class FinanceRepository {
       } catch (_) {}
     }
     await recomputeAccountBalances();
+    _scheduleSyncAfterMutation();
   }
 
   Future<void> createCategory({
@@ -955,6 +1079,7 @@ class FinanceRepository {
             isSynced: const Value(false),
           ),
         );
+    _scheduleSyncAfterMutation();
   }
 
   Future<void> updateCategory({
@@ -988,6 +1113,7 @@ class FinanceRepository {
             .write(const LocalCategoriesCompanion(isSynced: Value(true)));
       } catch (_) {}
     }
+    _scheduleSyncAfterMutation();
   }
 
   Future<void> deleteCategoryByUuid(String uuid) async {
@@ -1000,6 +1126,7 @@ class FinanceRepository {
         await _api.deleteCategory(row!.serverId!);
       } catch (_) {}
     }
+    _scheduleSyncAfterMutation();
   }
 
   Future<void> createAccount({
@@ -1024,6 +1151,7 @@ class FinanceRepository {
             isSynced: const Value(false),
           ),
         );
+    _scheduleSyncAfterMutation();
   }
 
   Future<void> updateAccount({
@@ -1076,6 +1204,7 @@ class FinanceRepository {
         }
       } catch (_) {}
     }
+    _scheduleSyncAfterMutation();
   }
 
   Future<void> deleteAccountByUuid(String uuid) async {
@@ -1087,6 +1216,7 @@ class FinanceRepository {
       } catch (_) {}
     }
     await (_db.delete(_db.localAccounts)..where((t) => t.uuid.equals(uuid))).go();
+    _scheduleSyncAfterMutation();
   }
 
   Future<void> createBudget({
@@ -1126,6 +1256,7 @@ class FinanceRepository {
             isSynced: const Value(false),
           ),
         );
+    _scheduleSyncAfterMutation();
   }
 
   Future<void> updateBudget({
@@ -1181,6 +1312,7 @@ class FinanceRepository {
             .write(const LocalBudgetsCompanion(isSynced: Value(true)));
       } catch (_) {}
     }
+    _scheduleSyncAfterMutation();
   }
 
   Future<void> deleteBudgetByUuid(String uuid) async {
@@ -1192,6 +1324,7 @@ class FinanceRepository {
         await _api.deleteBudget(row!.serverId!);
       } catch (_) {}
     }
+    _scheduleSyncAfterMutation();
   }
 
   Future<void> transferBetweenAccounts({
@@ -1219,5 +1352,6 @@ class FinanceRepository {
             isSynced: const Value(false),
           ),
         );
+    _scheduleSyncAfterMutation();
   }
 }
