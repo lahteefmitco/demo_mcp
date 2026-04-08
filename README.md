@@ -73,16 +73,16 @@ npm run dev
 Useful endpoints:
 
 - `GET /health`
-- `GET /api/dashboard?month=2026-04`
-- `GET /api/summary?month=2026-04`
-- `GET /api/categories`
-- `POST /api/categories`
-- `GET /api/expenses`
-- `POST /api/expenses`
-- `GET /api/incomes`
-- `POST /api/incomes`
-- `GET /api/budgets`
-- `POST /api/budgets`
+- `GET /api/finance/dashboard?month=2026-04`
+- `GET /api/finance/summary?month=2026-04`
+- `GET /api/finance/categories`
+- `POST /api/finance/categories`
+- `GET /api/finance/expenses`
+- `POST /api/finance/expenses`
+- `GET /api/finance/incomes`
+- `POST /api/finance/incomes`
+- `GET /api/finance/budgets`
+- `POST /api/finance/budgets`
 - `POST /api/chat`
 - `POST /mcp`
 

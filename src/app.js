@@ -91,7 +91,7 @@ app.delete("/mcp", (_req, res) => {
   });
 });
 
-app.use("/api", requireAuth, financeRouter);
+app.use("/api/finance", requireAuth, financeRouter);
 
 app.use((error, _req, res, _next) => {
   console.error(error);
