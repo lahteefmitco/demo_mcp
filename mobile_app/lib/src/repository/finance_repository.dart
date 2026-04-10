@@ -97,6 +97,79 @@ class FinanceRepository {
     return rows.map(_expenseRowToModel).toList();
   }
 
+  /// Local expenses only; newest-first by [spentOn]. [maxRows] null means no SQL limit.
+  Future<List<FinanceEntry>> listExpensesLocalInDateRange({
+    required DateTime fromInclusive,
+    required DateTime toInclusive,
+    int? maxRows,
+  }) async {
+    final from = DateTime(fromInclusive.year, fromInclusive.month, fromInclusive.day);
+    final to = DateTime(toInclusive.year, toInclusive.month, toInclusive.day);
+    final fromDd = _toDdMmYyyyDateOnly(from);
+    final toDd = _toDdMmYyyyDateOnly(to);
+    final rows = await _db.listLocalExpensesInDateRangeOrderedDesc(
+      fromDdMmYyyy: fromDd,
+      toDdMmYyyy: toDd,
+      limit: maxRows,
+    );
+    return rows.map(_expenseRowToModel).toList();
+  }
+
+  String _toDdMmYyyyDateOnly(DateTime d) {
+    final x = DateTime(d.year, d.month, d.day);
+    return '${x.day.toString().padLeft(2, '0')}-${x.month.toString().padLeft(2, '0')}-${x.year}';
+  }
+
+  /// Expenses and incomes for [accountUuid] from local SQLite only, merged by date.
+  Future<List<AccountLedgerItem>> listAccountLedgerLocal({
+    required String accountUuid,
+    required DateTime fromInclusive,
+    required DateTime toInclusive,
+    required AccountLedgerKind kind,
+    String searchQuery = '',
+    int? maxRows,
+  }) async {
+    final from = DateTime(fromInclusive.year, fromInclusive.month, fromInclusive.day);
+    final to = DateTime(toInclusive.year, toInclusive.month, toInclusive.day);
+    final fromDd = _toDdMmYyyyDateOnly(from);
+    final toDd = _toDdMmYyyyDateOnly(to);
+    final includeExpenses = kind != AccountLedgerKind.income;
+    final includeIncomes = kind != AccountLedgerKind.expense;
+    final sanitized = FinanceDatabase.sanitizeLikeContains(searchQuery.trim());
+    final pattern = sanitized.isEmpty ? '' : '%$sanitized%';
+    final rows = await _db.listLocalAccountLedgerRows(
+      accountUuid: accountUuid,
+      fromDdMmYyyy: fromDd,
+      toDdMmYyyy: toDd,
+      includeExpenses: includeExpenses,
+      includeIncomes: includeIncomes,
+      searchLikePattern: pattern,
+      limit: maxRows,
+    );
+    return rows.map(_ledgerQueryRowToItem).toList();
+  }
+
+  AccountLedgerItem _ledgerQueryRowToItem(QueryRow row) {
+    final isExpense = row.read<String>('tx_kind') == 'expense';
+    final entry = FinanceEntry(
+      id: row.readNullable<int>('server_id') ?? 0,
+      uuid: row.read<String>('uuid'),
+      title: row.read<String>('title'),
+      amount: row.read<double>('amount'),
+      categoryId: 0,
+      categoryUuid: row.read<String>('category_uuid'),
+      categoryName: row.read<String>('category_name'),
+      categoryColor: row.read<String>('category_color'),
+      accountId: 0,
+      accountUuid: row.read<String>('account_uuid'),
+      accountName: row.read<String>('account_name'),
+      accountColor: row.read<String>('account_color'),
+      date: row.read<String>('tx_date'),
+      notes: row.read<String>('notes'),
+    );
+    return AccountLedgerItem(isExpense: isExpense, entry: entry);
+  }
+
   Future<List<FinanceEntry>> listIncomesLocal({
     int? categoryServerId,
     String? categoryUuid,

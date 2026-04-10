@@ -22,6 +22,7 @@ import 'add_category_screen.dart';
 import 'category_entries_screen.dart';
 import 'chat_db_viewer_screen.dart';
 import 'local_database_viewer_screen.dart';
+import 'period_expenses_screen.dart';
 import 'transfer_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -167,6 +168,13 @@ class SettingsScreen extends StatelessWidget {
       MaterialPageRoute<void>(
         builder: (_) => const LocalDatabaseViewerScreen(),
       ),
+    );
+  }
+
+  Future<void> _openPeriodExpenses(BuildContext context) async {
+    await pushRouteWithFinanceRepository<void>(
+      context,
+      PeriodExpensesScreen(currency: currency),
     );
   }
 
@@ -551,6 +559,17 @@ class SettingsScreen extends StatelessWidget {
                           ),
                           onTap: () {
                             _importAllData(context);
+                          },
+                        ),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.date_range_outlined),
+                          title: const Text('View Expenses by Period'),
+                          subtitle: const Text(
+                            'Browse local expense rows by date range (works offline).',
+                          ),
+                          onTap: () {
+                            _openPeriodExpenses(context);
                           },
                         ),
                         ListTile(

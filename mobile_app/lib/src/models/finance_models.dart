@@ -151,6 +151,20 @@ class FinanceEntry {
   }
 }
 
+/// Local expense or income row shown on the account ledger screen.
+enum AccountLedgerKind {
+  all,
+  expense,
+  income,
+}
+
+class AccountLedgerItem {
+  const AccountLedgerItem({required this.isExpense, required this.entry});
+
+  final bool isExpense;
+  final FinanceEntry entry;
+}
+
 class CategorySpend {
   const CategorySpend({
     required this.category,

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sizer/sizer.dart';
@@ -8,6 +9,7 @@ import '../di/service_locator.dart';
 import '../models/auth_session.dart';
 import '../utils/toast.dart';
 import 'forgot_password_screen.dart';
+import 'local_database_viewer_screen.dart';
 
 class AuthScreen extends StatelessWidget {
   const AuthScreen({required this.onAuthenticated, super.key});
@@ -37,6 +39,33 @@ class AuthScreen extends StatelessWidget {
             p.infoMessage != n.infoMessage,
         builder: (context, state) {
           return Scaffold(
+            appBar: kDebugMode
+                ? AppBar(
+                    automaticallyImplyLeading: false,
+                    title: const Text(
+                      'DEBUG',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    actions: [
+                      IconButton(
+                        icon: const Icon(Icons.table_rows_outlined),
+                        tooltip: 'Local finance database',
+                        onPressed: () {
+                          Navigator.of(context).push<void>(
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  const LocalDatabaseViewerScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  )
+                : null,
             body: SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {

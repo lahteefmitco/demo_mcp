@@ -11,6 +11,7 @@ import '../models/currency_option.dart';
 import '../models/finance_models.dart';
 import '../utils/currency_utils.dart';
 import '../utils/finance_repository_scope.dart';
+import 'account_transactions_screen.dart';
 import 'day_expenses_screen.dart';
 
 class _DailyExpensesChart extends StatefulWidget {
@@ -292,6 +293,15 @@ class DashboardScreen extends StatelessWidget {
                         _AccountsBalanceCard(
                           accounts: dashboard.accounts,
                           currency: currency,
+                          onAccountTap: (account) async {
+                            await pushRouteWithFinanceRepository<void>(
+                              context,
+                              AccountTransactionsScreen(
+                                account: account,
+                                currency: currency,
+                              ),
+                            );
+                          },
                         ),
                         const SizedBox(height: 24),
                         Container(
@@ -500,10 +510,15 @@ class DashboardScreen extends StatelessWidget {
 }
 
 class _AccountsBalanceCard extends StatelessWidget {
-  const _AccountsBalanceCard({required this.accounts, required this.currency});
+  const _AccountsBalanceCard({
+    required this.accounts,
+    required this.currency,
+    required this.onAccountTap,
+  });
 
   final List<FinanceAccount> accounts;
   final CurrencyOption currency;
+  final ValueChanged<FinanceAccount> onAccountTap;
 
   @override
   Widget build(BuildContext context) {
@@ -568,8 +583,11 @@ class _AccountsBalanceCard extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           ...activeAccounts.map(
-            (account) =>
-                _AccountBalanceItem(account: account, currency: currency),
+            (account) => _AccountBalanceItem(
+              account: account,
+              currency: currency,
+              onTap: () => onAccountTap(account),
+            ),
           ),
         ],
       ),
@@ -578,10 +596,15 @@ class _AccountsBalanceCard extends StatelessWidget {
 }
 
 class _AccountBalanceItem extends StatelessWidget {
-  const _AccountBalanceItem({required this.account, required this.currency});
+  const _AccountBalanceItem({
+    required this.account,
+    required this.currency,
+    required this.onTap,
+  });
 
   final FinanceAccount account;
   final CurrencyOption currency;
+  final VoidCallback onTap;
 
   Color _parseColor(String hex) {
     final normalized = hex.replaceFirst('#', '');
@@ -608,55 +631,68 @@ class _AccountBalanceItem extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.15),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
           borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: accountColor.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(_getAccountIcon(), color: Colors.white, size: 20),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    account.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: accountColor.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  Text(
-                    _getAccountTypeLabel(account.type),
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 12,
-                    ),
+                  child: Icon(_getAccountIcon(), color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        account.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        _getAccountTypeLabel(account.type),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                Text(
+                  formatMoney(currency, account.currentBalance),
+                  style: TextStyle(
+                    color: isPositive
+                        ? const Color(0xFF4ADE80)
+                        : const Color(0xFFFCA5A5),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.chevron_right,
+                  color: Colors.white.withValues(alpha: 0.6),
+                  size: 20,
+                ),
+              ],
             ),
-            Text(
-              formatMoney(currency, account.currentBalance),
-              style: TextStyle(
-                color: isPositive
-                    ? const Color(0xFF4ADE80)
-                    : const Color(0xFFFCA5A5),
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

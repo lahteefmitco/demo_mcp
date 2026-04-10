@@ -202,6 +202,7 @@
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				AF56644CC4079FEF65AFA2B4 /* [CP] Embed Pods Frameworks */,
+				F4A8123C2B4D5E6F007C1180 /* Sign native asset frameworks */,
 			);
 			buildRules = (
 			);
@@ -319,6 +320,21 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		F4A8123C2B4D5E6F007C1180 /* Sign native asset frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Sign native asset frameworks";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\n# Dart native assets ship ad-hoc signed; physical devices reject that (0xe8008014).\nif [ \"${PLATFORM_NAME}\" != \"iphoneos\" ]; then exit 0; fi\nFW_DIR=\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}/Frameworks\"\nif [ ! -d \"${FW_DIR}\" ]; then exit 0; fi\nif [ -z \"${EXPANDED_CODE_SIGN_IDENTITY}\" ] || [ \"${EXPANDED_CODE_SIGN_IDENTITY}\" = \"-\" ]; then\n  echo \"warning: EXPANDED_CODE_SIGN_IDENTITY missing; skipping ad-hoc framework re-sign\"\n  exit 0\nfi\nfor framework in \"${FW_DIR}\"/*.framework; do\n  [ -e \"${framework}\" ] || continue\n  name=$(basename \"${framework}\" .framework)\n  binary=\"${framework}/${name}\"\n  [ -f \"${binary}\" ] || continue\n  if /usr/bin/codesign -dv \"${binary}\" 2>&1 | grep -q \"adhoc\"; then\n    echo \"Re-signing ${framework} for device\"\n    /usr/bin/codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" --timestamp=none --preserve-metadata=identifier,entitlements,flags --generate-entitlement-der \"${framework}\"\n  fi\ndone\n";
 			showEnvVarsInLog = 0;
 		};
 		CA63BD6DD2437F991FDF5905 /* [CP] Check Pods Manifest.lock */ = {
