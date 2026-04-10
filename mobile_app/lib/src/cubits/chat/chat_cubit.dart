@@ -173,6 +173,18 @@ class ChatCubit extends Cubit<ChatState> {
   String? _detectChartPeriod(String text) {
     final lower = text.toLowerCase();
 
+    // "last 7 days", "past 30 days" — use one `\` in raw strings so `\s`/`\d` work.
+    final daysMatch = RegExp(
+      r'(?:past|last)\s+(\d+)\s+days?',
+      caseSensitive: false,
+    ).firstMatch(lower);
+    if (daysMatch != null) {
+      final days = int.tryParse(daysMatch.group(1) ?? '');
+      if (days != null && days > 0) {
+        return 'days_$days';
+      }
+    }
+
     if (lower.contains("today") || lower.contains("today's")) {
       return 'today';
     }
@@ -186,15 +198,6 @@ class ChatCubit extends Cubit<ChatState> {
         lower.contains('by category') ||
         lower.contains('categories')) {
       return 'category';
-    }
-
-    final daysMatch = RegExp(r'past\\s*(\\d+)\\s*days?|last\\s*(\\d+)\\s*days?')
-        .firstMatch(lower);
-    if (daysMatch != null) {
-      final days = int.tryParse(daysMatch.group(1) ?? daysMatch.group(2) ?? '');
-      if (days != null) {
-        return 'days_$days';
-      }
     }
 
     return null;

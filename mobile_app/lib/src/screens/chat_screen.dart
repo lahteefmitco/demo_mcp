@@ -136,21 +136,24 @@ class ChatScreen extends StatelessWidget {
   }
 
   void _showChatHistory(BuildContext context) async {
+    final chatCubit = context.read<ChatCubit>();
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (sheetContext) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        minChildSize: 0.5,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (sheetContext, scrollController) {
-          return StatefulBuilder(
-            builder: (context, setSheetState) {
-              return FutureBuilder<List<ChatSessionData>>(
-                future: context.read<ChatCubit>().getAllSessions(),
-                builder: (context, snapshot) {
+      builder: (sheetContext) => BlocProvider.value(
+        value: chatCubit,
+        child: DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.5,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (sheetContext, scrollController) {
+            return StatefulBuilder(
+              builder: (context, setSheetState) {
+                return FutureBuilder<List<ChatSessionData>>(
+                  future: chatCubit.getAllSessions(),
+                  builder: (context, snapshot) {
                   final sessions = snapshot.data ?? [];
 
                   return Column(
@@ -239,10 +242,11 @@ class ChatScreen extends StatelessWidget {
                     ],
                   );
                 },
-              );
-            },
-          );
-        },
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
