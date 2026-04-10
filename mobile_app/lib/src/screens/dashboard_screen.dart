@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../models/auth_session.dart';
 import '../repository/finance_repository.dart';
+import '../cubits/shell/shell_cubit.dart';
+import '../cubits/shell/shell_state.dart';
 import '../cubits/dashboard/dashboard_cubit.dart';
 import '../cubits/dashboard/dashboard_state.dart';
 import '../models/currency_option.dart';
@@ -212,9 +214,15 @@ class DashboardScreen extends StatelessWidget {
 
     return BlocProvider(
       create: (_) => DashboardCubit(repository: repo, monthYyyyMm: month),
-      child: DefaultTabController(
-        length: 3,
-        child: BlocBuilder<DashboardCubit, DashboardState>(
+      child: BlocListener<ShellCubit, ShellState>(
+        listenWhen: (prev, next) =>
+            next.selectedIndex == 1 && prev.selectedIndex != next.selectedIndex,
+        listener: (context, state) {
+          context.read<DashboardCubit>().refresh();
+        },
+        child: DefaultTabController(
+          length: 3,
+          child: BlocBuilder<DashboardCubit, DashboardState>(
           buildWhen: (p, n) =>
               p.dashboardFuture != n.dashboardFuture ||
               p.dailyFuture != n.dailyFuture ||
@@ -431,6 +439,7 @@ class DashboardScreen extends StatelessWidget {
           },
         ),
       ),
+    ),
     );
   }
 

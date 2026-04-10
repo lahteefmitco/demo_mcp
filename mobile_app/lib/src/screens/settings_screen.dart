@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api/finance_mcp_client.dart';
 import '../cubits/settings/settings_cubit.dart';
 import '../cubits/settings/settings_state.dart';
+import '../cubits/shell/shell_cubit.dart';
+import '../cubits/shell/shell_state.dart';
 import '../models/auth_session.dart';
 import '../repository/finance_repository.dart';
 import '../models/currency_option.dart';
@@ -362,9 +364,15 @@ class SettingsScreen extends StatelessWidget {
         repository: context.read<FinanceRepository>(),
         toolsClient: toolsClient,
       ),
-      child: Builder(
-        builder: (blocContext) {
-          return BlocListener<SettingsCubit, SettingsState>(
+      child: BlocListener<ShellCubit, ShellState>(
+        listenWhen: (prev, next) =>
+            next.selectedIndex == 3 && prev.selectedIndex != next.selectedIndex,
+        listener: (context, state) {
+          context.read<SettingsCubit>().refresh();
+        },
+        child: Builder(
+          builder: (blocContext) {
+            return BlocListener<SettingsCubit, SettingsState>(
             listenWhen: (p, n) => p.toastNonce != n.toastNonce,
             listener: (context, state) {
               final msg = state.toastMessage;
@@ -620,8 +628,8 @@ class SettingsScreen extends StatelessWidget {
               ],
             ),
           );
-        },
-      ),
+                },
+              ),
               floatingActionButton: FutureBuilder<SettingsData>(
                 future: blocContext.watch<SettingsCubit>().state.future,
                 builder: (context, snapshot) {
@@ -638,6 +646,7 @@ class SettingsScreen extends StatelessWidget {
             ),
           );
         },
+        ),
       ),
     );
   }

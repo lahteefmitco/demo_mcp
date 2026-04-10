@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../models/auth_session.dart';
 import '../repository/finance_repository.dart';
+import '../cubits/shell/shell_cubit.dart';
+import '../cubits/shell/shell_state.dart';
 import '../cubits/home/home_cubit.dart';
 import '../cubits/home/home_state.dart';
 import '../models/currency_option.dart';
@@ -30,7 +32,13 @@ class HomeScreen extends StatelessWidget {
 
     return BlocProvider(
       create: (_) => HomeCubit(repository: repository)..load(month),
-      child: BlocConsumer<HomeCubit, HomeState>(
+      child: BlocListener<ShellCubit, ShellState>(
+        listenWhen: (prev, next) =>
+            next.selectedIndex == 0 && prev.selectedIndex != next.selectedIndex,
+        listener: (context, state) {
+          context.read<HomeCubit>().refresh(month);
+        },
+        child: BlocConsumer<HomeCubit, HomeState>(
         listenWhen: (p, n) => p.toastNonce != n.toastNonce,
         listener: (context, state) {
           final msg = state.toastMessage;
@@ -94,6 +102,7 @@ class HomeScreen extends StatelessWidget {
                   ),
           );
         },
+      ),
       ),
     );
   }
