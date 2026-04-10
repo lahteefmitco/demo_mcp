@@ -303,11 +303,14 @@ class _MessagesList extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
             ),
             child: isUser
-                ? Text(
+                ? SelectableText(
                     message.content,
                     style: const TextStyle(color: Colors.white),
                   )
-                : MarkdownBody(data: message.content),
+                : MarkdownBody(
+                    data: message.content,
+                    selectable: true,
+                  ),
           ),
         );
       },
