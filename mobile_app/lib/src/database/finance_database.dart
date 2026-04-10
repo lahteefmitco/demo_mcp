@@ -159,4 +159,17 @@ class FinanceDatabase extends _$FinanceDatabase {
 
   @override
   int get schemaVersion => 1;
+
+  /// Removes all synced finance rows from this device (accounts, categories,
+  /// expenses, incomes, transfers, budgets).
+  Future<void> deleteAllLocalData() async {
+    await transaction(() async {
+      await delete(localExpenses).go();
+      await delete(localIncomes).go();
+      await delete(localTransfers).go();
+      await delete(localBudgets).go();
+      await delete(localCategories).go();
+      await delete(localAccounts).go();
+    });
+  }
 }

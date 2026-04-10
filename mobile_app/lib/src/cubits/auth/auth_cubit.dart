@@ -7,13 +7,13 @@ import 'auth_state.dart';
 class AuthCubit extends Cubit<AuthState> {
   AuthCubit({
     required AuthApi authApi,
-    required void Function(AuthSession session) onAuthenticated,
+    required Future<void> Function(AuthSession session) onAuthenticated,
   })  : _authApi = authApi,
         _onAuthenticated = onAuthenticated,
         super(const AuthState.initial());
 
   final AuthApi _authApi;
-  final void Function(AuthSession session) _onAuthenticated;
+  final Future<void> Function(AuthSession session) _onAuthenticated;
 
   void toggleMode() {
     emit(
@@ -43,7 +43,7 @@ class AuthCubit extends Cubit<AuthState> {
           email: trimmedEmail,
           password: password,
         );
-        _onAuthenticated(session);
+        await _onAuthenticated(session);
       } else {
         final message = await _authApi.register(
           name: name.trim(),

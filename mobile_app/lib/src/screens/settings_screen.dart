@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../api/finance_mcp_client.dart';
+import '../database/chat_database.dart';
+import '../database/finance_database_holder.dart';
 import '../cubits/settings/settings_cubit.dart';
 import '../cubits/settings/settings_state.dart';
 import '../cubits/shell/shell_cubit.dart';
@@ -80,6 +82,54 @@ class SettingsScreen extends StatelessWidget {
       ),
     );
     await cubit.refresh();
+  }
+
+  Future<void> _confirmLogout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Log out?'),
+        content: const Text(
+          'Logging out will permanently delete all finance records and chat '
+          'history stored in the local database on this device. '
+          'Your account on the server is not removed; you can sign in again to '
+          'download your data.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+              foregroundColor: Theme.of(dialogContext).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete local data & log out'),
+          ),
+        ],
+      ),
+    );
+
+    if (!context.mounted || confirmed != true) {
+      return;
+    }
+
+    try {
+      await FinanceDatabaseHolder.instance.deleteAllLocalData();
+      await ChatDatabase().deleteAllData();
+    } catch (e) {
+      if (context.mounted) {
+        AppToast.error(context, 'Could not clear local data: $e');
+      }
+      return;
+    }
+
+    if (!context.mounted) {
+      return;
+    }
+    await onLogout();
   }
 
   Future<void> _importAllData(BuildContext context) async {
@@ -393,7 +443,7 @@ class SettingsScreen extends StatelessWidget {
                     icon: const Icon(Icons.refresh),
                   ),
                   IconButton(
-                    onPressed: onLogout,
+                    onPressed: () => _confirmLogout(blocContext),
                     icon: const Icon(Icons.logout),
                     tooltip: 'Log out',
                   ),
@@ -626,9 +676,9 @@ class SettingsScreen extends StatelessWidget {
                 ],
                 const SizedBox(height: 24),
                 FilledButton.icon(
-                  onPressed: onLogout,
-                  icon: const Icon(Icons.logout),
-                  label: const Text('Log out'),
+                    onPressed: () => _confirmLogout(context),
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Log out'),
                 ),
               ],
             ),

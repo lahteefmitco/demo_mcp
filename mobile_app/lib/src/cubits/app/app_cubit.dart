@@ -2,8 +2,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../api/auth_api.dart';
 import '../../auth/auth_storage.dart';
+import '../../database/finance_database_holder.dart';
 import '../../models/auth_session.dart';
 import '../../models/currency_option.dart';
+import '../../repository/finance_repository.dart';
 import '../../settings/app_preferences_storage.dart';
 import '../../sync/background_sync.dart';
 import '../../utils/app_logger.dart';
@@ -75,6 +77,7 @@ class AppCubit extends Cubit<AppState> {
         return;
       }
 
+      await _importFinanceFromServer(session.token);
       BackgroundSync.registerPeriodicSync();
       emit(AppAuthenticated(session: session, currency: storedCurrency));
     } catch (e, st) {
@@ -117,8 +120,21 @@ class AppCubit extends Cubit<AppState> {
         : state is AppUnauthenticated
         ? state.currency
         : defaultCurrency;
+    await _importFinanceFromServer(session.token);
     BackgroundSync.registerPeriodicSync();
     emit(AppAuthenticated(session: session, currency: currency));
+  }
+
+  Future<void> _importFinanceFromServer(String token) async {
+    try {
+      final repo = FinanceRepository(
+        database: FinanceDatabaseHolder.instance,
+        token: token,
+      );
+      await repo.importAllFromServer();
+    } catch (e, st) {
+      AppLogger.e('Finance import after auth failed', error: e, stackTrace: st);
+    }
   }
 
   Future<void> sessionUpdated(AuthSession session) async {

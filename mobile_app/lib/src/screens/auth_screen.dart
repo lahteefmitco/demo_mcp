@@ -12,7 +12,7 @@ import 'forgot_password_screen.dart';
 class AuthScreen extends StatelessWidget {
   const AuthScreen({required this.onAuthenticated, super.key});
 
-  final ValueChanged<AuthSession> onAuthenticated;
+  final Future<void> Function(AuthSession session) onAuthenticated;
 
   @override
   Widget build(BuildContext context) {
