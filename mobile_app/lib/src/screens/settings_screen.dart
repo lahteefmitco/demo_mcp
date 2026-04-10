@@ -392,6 +392,11 @@ class SettingsScreen extends StatelessWidget {
                         blocContext.read<SettingsCubit>().refresh(),
                     icon: const Icon(Icons.refresh),
                   ),
+                  IconButton(
+                    onPressed: onLogout,
+                    icon: const Icon(Icons.logout),
+                    tooltip: 'Log out',
+                  ),
                 ],
               ),
               body: FutureBuilder<SettingsData>(
