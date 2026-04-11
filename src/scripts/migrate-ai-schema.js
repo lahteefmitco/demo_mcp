@@ -14,7 +14,7 @@ async function main() {
         user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         document_key TEXT NOT NULL,
         document_type TEXT NOT NULL CHECK (
-          document_type IN ('expense', 'income', 'category', 'query_memory')
+          document_type IN ('expense', 'income', 'category', 'account', 'budget', 'transfer', 'query_memory')
         ),
         source_id TEXT NOT NULL,
         content TEXT NOT NULL,

@@ -1,8 +1,11 @@
 import { getAiConfig } from "../config.js";
 import {
+  getAccountById,
+  getBudgetById,
   getCategoryById,
   getExpenseById,
-  getIncomeById
+  getIncomeById,
+  listTransfers
 } from "../../services/finance-service.js";
 import { deleteDocument, embedText, upsertDocument } from "./document-store.js";
 
@@ -103,6 +106,76 @@ function buildFinanceDocument(sourceType, record) {
     };
   }
 
+  if (sourceType === "account") {
+    return {
+      content: [
+        `Account: ${record.name}`,
+        `Type: ${record.type}`,
+        `Initial Balance: ${record.initialBalance}`,
+        `Current Balance: ${record.currentBalance}`,
+        `Active: ${record.isActive ? "yes" : "no"}`,
+        `Notes: ${record.notes || "none"}`
+      ].join("\n"),
+      metadata: {
+        sourceType,
+        name: record.name,
+        type: record.type,
+        initialBalance: record.initialBalance,
+        currentBalance: record.currentBalance,
+        isActive: record.isActive
+      }
+    };
+  }
+
+  if (sourceType === "budget") {
+    return {
+      content: [
+        `Budget: ${record.name}`,
+        `Amount: ${record.amount}`,
+        `Period: ${record.period}`,
+        `Start Date: ${record.startDate}`,
+        `End Date: ${record.endDate}`,
+        `Category: ${record.categoryName || "all categories"}`,
+        `Spent: ${record.spent}`,
+        `Remaining: ${record.remaining}`,
+        `Notes: ${record.notes || "none"}`
+      ].join("\n"),
+      metadata: {
+        sourceType,
+        name: record.name,
+        amount: record.amount,
+        period: record.period,
+        startDate: record.startDate,
+        endDate: record.endDate,
+        categoryId: record.categoryId,
+        categoryName: record.categoryName,
+        spent: record.spent,
+        remaining: record.remaining
+      }
+    };
+  }
+
+  if (sourceType === "transfer") {
+    return {
+      content: [
+        `Transfer: ${record.amount}`,
+        `From: ${record.fromAccountName}`,
+        `To: ${record.toAccountName}`,
+        `Date: ${record.createdAt}`,
+        `Notes: ${record.notes || "none"}`
+      ].join("\n"),
+      metadata: {
+        sourceType,
+        amount: record.amount,
+        fromAccountId: record.fromAccountId,
+        fromAccountName: record.fromAccountName,
+        toAccountId: record.toAccountId,
+        toAccountName: record.toAccountName,
+        date: record.createdAt
+      }
+    };
+  }
+
   throw new Error(`Unsupported finance document source type: ${sourceType}`);
 }
 
@@ -117,6 +190,19 @@ async function loadFinanceRecordForEmbedding({ userId, sourceType, sourceId }) {
 
   if (sourceType === "category") {
     return getCategoryById(userId, sourceId);
+  }
+
+  if (sourceType === "account") {
+    return getAccountById(userId, sourceId);
+  }
+
+  if (sourceType === "budget") {
+    return getBudgetById(userId, sourceId);
+  }
+
+  if (sourceType === "transfer") {
+    const transfers = await listTransfers(userId, {});
+    return transfers.find((t) => t.id === Number(sourceId)) ?? null;
   }
 
   throw new Error(`Unsupported source type for embeddings: ${sourceType}`);

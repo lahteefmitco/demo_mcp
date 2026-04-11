@@ -4,6 +4,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { createExpenseManagerServer } from "./mcp/create-server.js";
 import { authenticateRequest, requireAuth, unauthorizedJsonRpcResponse } from "./middleware/auth-middleware.js";
 import { runExpenseChat } from "./services/chat-service.js";
+import adminRouter from "./routes/admin.js";
 import authRouter from "./routes/auth.js";
 import financeRouter from "./routes/finance.js";
 
@@ -91,6 +92,7 @@ app.delete("/mcp", (_req, res) => {
   });
 });
 
+app.use("/api/admin", adminRouter);
 app.use("/api/finance", requireAuth, financeRouter);
 
 app.use((error, _req, res, _next) => {

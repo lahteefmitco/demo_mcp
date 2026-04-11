@@ -26,7 +26,7 @@ export function createFinanceLangChainTools({ user }) {
   const semanticSearchTool = new DynamicStructuredTool({
     name: "semantic_finance_search",
     description:
-      "Search semantically across embedded expenses, incomes, categories, and memory entries. Use this for fuzzy recall, note-based matching, and concept search.",
+      "Search semantically across embedded expenses, incomes, categories, accounts, budgets, transfers, and memory entries. Use this for fuzzy recall, note-based matching, and concept search.",
     schema: jsonSchemaToZod({
       type: "object",
       required: ["query"],
