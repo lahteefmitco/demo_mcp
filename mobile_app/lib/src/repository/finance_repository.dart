@@ -142,6 +142,82 @@ class FinanceRepository {
     return filtered;
   }
 
+  Future<List<CategorySpend>> listExpenseCategorySpendLocalInDateRange({
+    required DateTime fromInclusive,
+    required DateTime toInclusive,
+  }) async {
+    final expenses = await listExpensesLocalInDateRange(
+      fromInclusive: fromInclusive,
+      toInclusive: toInclusive,
+    );
+    final byCategory = <String, CategorySpend>{};
+
+    for (final expense in expenses) {
+      final categoryName = expense.categoryName.trim().isEmpty
+          ? 'Uncategorized'
+          : expense.categoryName.trim();
+      final categoryColor = expense.categoryColor.trim().isEmpty
+          ? '#0E7490'
+          : expense.categoryColor.trim();
+      final existing = byCategory[categoryName];
+      if (existing == null) {
+        byCategory[categoryName] = CategorySpend(
+          category: categoryName,
+          color: categoryColor,
+          total: expense.amount,
+        );
+      } else {
+        byCategory[categoryName] = CategorySpend(
+          category: existing.category,
+          color: existing.color,
+          total: existing.total + expense.amount,
+        );
+      }
+    }
+
+    final result = byCategory.values.toList()
+      ..sort((a, b) => b.total.compareTo(a.total));
+    return result;
+  }
+
+  Future<List<CategorySpend>> listIncomeCategorySpendLocalInDateRange({
+    required DateTime fromInclusive,
+    required DateTime toInclusive,
+  }) async {
+    final incomes = await listIncomesLocalInDateRange(
+      fromInclusive: fromInclusive,
+      toInclusive: toInclusive,
+    );
+    final byCategory = <String, CategorySpend>{};
+
+    for (final income in incomes) {
+      final categoryName = income.categoryName.trim().isEmpty
+          ? 'Uncategorized'
+          : income.categoryName.trim();
+      final categoryColor = income.categoryColor.trim().isEmpty
+          ? '#15803D'
+          : income.categoryColor.trim();
+      final existing = byCategory[categoryName];
+      if (existing == null) {
+        byCategory[categoryName] = CategorySpend(
+          category: categoryName,
+          color: categoryColor,
+          total: income.amount,
+        );
+      } else {
+        byCategory[categoryName] = CategorySpend(
+          category: existing.category,
+          color: existing.color,
+          total: existing.total + income.amount,
+        );
+      }
+    }
+
+    final result = byCategory.values.toList()
+      ..sort((a, b) => b.total.compareTo(a.total));
+    return result;
+  }
+
   String _toDdMmYyyyDateOnly(DateTime d) {
     final x = DateTime(d.year, d.month, d.day);
     return '${x.day.toString().padLeft(2, '0')}-${x.month.toString().padLeft(2, '0')}-${x.year}';

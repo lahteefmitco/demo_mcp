@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 import '../models/auth_session.dart';
 import '../repository/finance_repository.dart';
@@ -198,7 +199,7 @@ class _DailyExpensesChartState extends State<_DailyExpensesChart> {
   }
 }
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({
     required this.session,
     required this.currency,
@@ -207,6 +208,103 @@ class DashboardScreen extends StatelessWidget {
 
   final AuthSession session;
   final CurrencyOption currency;
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  late DateTime _expenseCategoryFromDate;
+  late DateTime _expenseCategoryToDate;
+  late Future<List<CategorySpend>> _expenseCategorySpendFuture;
+  late DateTime _incomeCategoryFromDate;
+  late DateTime _incomeCategoryToDate;
+  late Future<List<CategorySpend>> _incomeCategorySpendFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month, 1);
+    final monthEnd = DateTime(now.year, now.month + 1, 0);
+    _expenseCategoryFromDate = monthStart;
+    _expenseCategoryToDate = monthEnd;
+    _incomeCategoryFromDate = monthStart;
+    _incomeCategoryToDate = monthEnd;
+    _expenseCategorySpendFuture = _loadExpenseCategorySpend();
+    _incomeCategorySpendFuture = _loadIncomeCategorySpend();
+  }
+
+  Future<List<CategorySpend>> _loadExpenseCategorySpend() {
+    return context
+        .read<FinanceRepository>()
+        .listExpenseCategorySpendLocalInDateRange(
+          fromInclusive: _expenseCategoryFromDate,
+          toInclusive: _expenseCategoryToDate,
+        );
+  }
+
+  Future<List<CategorySpend>> _loadIncomeCategorySpend() {
+    return context
+        .read<FinanceRepository>()
+        .listIncomeCategorySpendLocalInDateRange(
+          fromInclusive: _incomeCategoryFromDate,
+          toInclusive: _incomeCategoryToDate,
+        );
+  }
+
+  Future<void> _pickExpenseCategoryDate({required bool isFrom}) async {
+    final initial = isFrom ? _expenseCategoryFromDate : _expenseCategoryToDate;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    final normalized = DateTime(picked.year, picked.month, picked.day);
+    final nextFrom = isFrom ? normalized : _expenseCategoryFromDate;
+    final nextTo = isFrom ? _expenseCategoryToDate : normalized;
+    setState(() {
+      _expenseCategoryFromDate = nextFrom;
+      _expenseCategoryToDate = nextTo;
+      _expenseCategorySpendFuture = nextFrom.isAfter(nextTo)
+          ? Future<List<CategorySpend>>.value(const [])
+          : _loadExpenseCategorySpend();
+    });
+  }
+
+  Future<void> _pickIncomeCategoryDate({required bool isFrom}) async {
+    final initial = isFrom ? _incomeCategoryFromDate : _incomeCategoryToDate;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    final normalized = DateTime(picked.year, picked.month, picked.day);
+    final nextFrom = isFrom ? normalized : _incomeCategoryFromDate;
+    final nextTo = isFrom ? _incomeCategoryToDate : normalized;
+    setState(() {
+      _incomeCategoryFromDate = nextFrom;
+      _incomeCategoryToDate = nextTo;
+      _incomeCategorySpendFuture = nextFrom.isAfter(nextTo)
+          ? Future<List<CategorySpend>>.value(const [])
+          : _loadIncomeCategorySpend();
+    });
+  }
+
+  void _refreshCategoryCharts() {
+    setState(() {
+      _expenseCategorySpendFuture = _loadExpenseCategorySpend();
+      _incomeCategorySpendFuture = _loadIncomeCategorySpend();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -224,232 +322,262 @@ class DashboardScreen extends StatelessWidget {
         child: DefaultTabController(
           length: 3,
           child: BlocBuilder<DashboardCubit, DashboardState>(
-          buildWhen: (p, n) =>
-              p.dashboardFuture != n.dashboardFuture ||
-              p.dailyFuture != n.dailyFuture ||
-              p.weeklyFuture != n.weeklyFuture ||
-              p.monthlyFuture != n.monthlyFuture,
-          builder: (context, state) {
-            return Scaffold(
-              appBar: AppBar(
-                title: const Text('Dashboard'),
-                actions: [
-                  IconButton(
-                    onPressed: () => context.read<DashboardCubit>().refresh(),
-                    icon: const Icon(Icons.refresh),
-                  ),
-                ],
-              ),
-              body: FutureBuilder<FinanceDashboard>(
-                future: state.dashboardFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState != ConnectionState.done) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+            buildWhen: (p, n) =>
+                p.dashboardFuture != n.dashboardFuture ||
+                p.dailyFuture != n.dailyFuture ||
+                p.weeklyFuture != n.weeklyFuture ||
+                p.monthlyFuture != n.monthlyFuture,
+            builder: (context, state) {
+              return Scaffold(
+                appBar: AppBar(
+                  title: const Text('Dashboard'),
+                  actions: [
+                    IconButton(
+                      onPressed: () => context.read<DashboardCubit>().refresh(),
+                      icon: const Icon(Icons.refresh),
+                    ),
+                  ],
+                ),
+                body: FutureBuilder<FinanceDashboard>(
+                  future: state.dashboardFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.cloud_off, size: 52),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Could not load dashboard',
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              snapshot.error.toString(),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 16),
-                            FilledButton(
-                              onPressed: () =>
-                                  context.read<DashboardCubit>().refresh(),
-                              child: const Text('Try Again'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-
-                  final dashboard = snapshot.data!;
-                  final summary = dashboard.summary;
-                  final maxSpend = summary.expenseByCategory.isEmpty
-                      ? 1.0
-                      : summary.expenseByCategory
-                          .map((e) => e.total)
-                          .reduce((a, b) => a > b ? a : b);
-
-                  return RefreshIndicator(
-                    onRefresh: () => context.read<DashboardCubit>().refresh(),
-                    child: ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        _AccountsBalanceCard(
-                          accounts: dashboard.accounts,
-                          currency: currency,
-                          onAccountTap: (account) async {
-                            await pushRouteWithFinanceRepository<void>(
-                              context,
-                              AccountTransactionsScreen(
-                                account: account,
-                                currency: currency,
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.cloud_off, size: 52),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Could not load dashboard',
+                                style: Theme.of(context).textTheme.titleLarge,
                               ),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 24),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withValues(alpha: 0.2),
-                                spreadRadius: 2,
-                                blurRadius: 5,
-                                offset: const Offset(0, 0),
+                              const SizedBox(height: 8),
+                              Text(
+                                snapshot.error.toString(),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+                              FilledButton(
+                                onPressed: () =>
+                                    context.read<DashboardCubit>().refresh(),
+                                child: const Text('Try Again'),
                               ),
                             ],
                           ),
-                          child: Column(
-                            children: [
-                              const TabBar(
-                                labelColor: Color(0xFF0F766E),
-                                unselectedLabelColor: Colors.grey,
-                                indicatorColor: Color(0xFF0F766E),
-                                tabs: [
-                                  Tab(text: 'Daily'),
-                                  Tab(text: 'Weekly'),
-                                  Tab(text: 'Monthly'),
-                                ],
-                              ),
-                              SizedBox(
-                                height: 200,
-                                child: TabBarView(
-                                  children: [
-                                    FutureBuilder<List<DailyExpense>>(
-                                      future: state.dailyFuture,
-                                      builder: (context, snapshot) {
-                                        if (snapshot.connectionState !=
-                                            ConnectionState.done) {
-                                          return const Center(
-                                            child: CircularProgressIndicator(),
-                                          );
-                                        }
-                                        if (snapshot.hasError) {
-                                          return const _EmptyCard(
-                                            message: 'Could not load daily data',
-                                          );
-                                        }
-                                        return _DailyExpensesChart(
-                                          dailyExpenses: snapshot.data!,
-                                          currency: currency,
-                                          onDayTap: (e) =>
-                                              _openDayExpenses(context, e),
-                                        );
-                                      },
-                                    ),
-                                    FutureBuilder<List<WeeklyExpense>>(
-                                      future: state.weeklyFuture,
-                                      builder: (context, snapshot) {
-                                        if (snapshot.connectionState !=
-                                            ConnectionState.done) {
-                                          return const Center(
-                                            child: CircularProgressIndicator(),
-                                          );
-                                        }
-                                        if (snapshot.hasError) {
-                                          return const _EmptyCard(
-                                            message:
-                                                'Could not load weekly data',
-                                          );
-                                        }
-                                        return _WeeklyExpensesChart(
-                                          weeklyExpenses: snapshot.data!,
-                                          currency: currency,
-                                          onWeekTap: (e) =>
-                                              _openWeekExpenses(context, e),
-                                        );
-                                      },
-                                    ),
-                                    FutureBuilder<List<MonthlyExpense>>(
-                                      future: state.monthlyFuture,
-                                      builder: (context, snapshot) {
-                                        if (snapshot.connectionState !=
-                                            ConnectionState.done) {
-                                          return const Center(
-                                            child: CircularProgressIndicator(),
-                                          );
-                                        }
-                                        if (snapshot.hasError) {
-                                          return const _EmptyCard(
-                                            message:
-                                                'Could not load monthly data',
-                                          );
-                                        }
-                                        return _MonthlyExpensesChart(
-                                          monthlyExpenses: snapshot.data!,
-                                          currency: currency,
-                                          onMonthTap: (e) =>
-                                              _openMonthExpenses(context, e),
-                                        );
-                                      },
-                                    ),
+                        ),
+                      );
+                    }
+
+                    final dashboard = snapshot.data!;
+                    final summary = dashboard.summary;
+
+                    return RefreshIndicator(
+                      onRefresh: () async {
+                        context.read<DashboardCubit>().refresh();
+                        _refreshCategoryCharts();
+                      },
+                      child: ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          _AccountsBalanceCard(
+                            accounts: dashboard.accounts,
+                            currency: widget.currency,
+                            onAccountTap: (account) async {
+                              await pushRouteWithFinanceRepository<void>(
+                                context,
+                                AccountTransactionsScreen(
+                                  account: account,
+                                  currency: widget.currency,
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 24),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.withValues(alpha: 0.2),
+                                  spreadRadius: 2,
+                                  blurRadius: 5,
+                                  offset: const Offset(0, 0),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              children: [
+                                const TabBar(
+                                  labelColor: Color(0xFF0F766E),
+                                  unselectedLabelColor: Colors.grey,
+                                  indicatorColor: Color(0xFF0F766E),
+                                  tabs: [
+                                    Tab(text: 'Daily'),
+                                    Tab(text: 'Weekly'),
+                                    Tab(text: 'Monthly'),
                                   ],
                                 ),
+                                SizedBox(
+                                  height: 200,
+                                  child: TabBarView(
+                                    children: [
+                                      FutureBuilder<List<DailyExpense>>(
+                                        future: state.dailyFuture,
+                                        builder: (context, snapshot) {
+                                          if (snapshot.connectionState !=
+                                              ConnectionState.done) {
+                                            return const Center(
+                                              child:
+                                                  CircularProgressIndicator(),
+                                            );
+                                          }
+                                          if (snapshot.hasError) {
+                                            return const _EmptyCard(
+                                              message:
+                                                  'Could not load daily data',
+                                            );
+                                          }
+                                          return _DailyExpensesChart(
+                                            dailyExpenses: snapshot.data!,
+                                            currency: widget.currency,
+                                            onDayTap: (e) =>
+                                                _openDayExpenses(context, e),
+                                          );
+                                        },
+                                      ),
+                                      FutureBuilder<List<WeeklyExpense>>(
+                                        future: state.weeklyFuture,
+                                        builder: (context, snapshot) {
+                                          if (snapshot.connectionState !=
+                                              ConnectionState.done) {
+                                            return const Center(
+                                              child:
+                                                  CircularProgressIndicator(),
+                                            );
+                                          }
+                                          if (snapshot.hasError) {
+                                            return const _EmptyCard(
+                                              message:
+                                                  'Could not load weekly data',
+                                            );
+                                          }
+                                          return _WeeklyExpensesChart(
+                                            weeklyExpenses: snapshot.data!,
+                                            currency: widget.currency,
+                                            onWeekTap: (e) =>
+                                                _openWeekExpenses(context, e),
+                                          );
+                                        },
+                                      ),
+                                      FutureBuilder<List<MonthlyExpense>>(
+                                        future: state.monthlyFuture,
+                                        builder: (context, snapshot) {
+                                          if (snapshot.connectionState !=
+                                              ConnectionState.done) {
+                                            return const Center(
+                                              child:
+                                                  CircularProgressIndicator(),
+                                            );
+                                          }
+                                          if (snapshot.hasError) {
+                                            return const _EmptyCard(
+                                              message:
+                                                  'Could not load monthly data',
+                                            );
+                                          }
+                                          return _MonthlyExpensesChart(
+                                            monthlyExpenses: snapshot.data!,
+                                            currency: widget.currency,
+                                            onMonthTap: (e) =>
+                                                _openMonthExpenses(context, e),
+                                          );
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          _StatsRow(
+                            summary: summary,
+                            currency: widget.currency,
+                          ),
+                          const SizedBox(height: 24),
+                          _CategoryPieCard(
+                            title: 'Expenses by Category',
+                            subtitle: 'Local database range filter',
+                            totalLabel: 'Total expenses',
+                            emptyMessage:
+                                'No expenses found in the selected range.',
+                            currency: widget.currency,
+                            fromDate: _expenseCategoryFromDate,
+                            toDate: _expenseCategoryToDate,
+                            future: _expenseCategorySpendFuture,
+                            onFromTap: () =>
+                                _pickExpenseCategoryDate(isFrom: true),
+                            onToTap: () =>
+                                _pickExpenseCategoryDate(isFrom: false),
+                            onRefresh: _refreshCategoryCharts,
+                            hasInvalidRange: _expenseCategoryFromDate.isAfter(
+                              _expenseCategoryToDate,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          _CategoryPieCard(
+                            title: 'Income by Category',
+                            subtitle: 'Local database range filter',
+                            totalLabel: 'Total income',
+                            emptyMessage:
+                                'No incomes found in the selected range.',
+                            currency: widget.currency,
+                            fromDate: _incomeCategoryFromDate,
+                            toDate: _incomeCategoryToDate,
+                            future: _incomeCategorySpendFuture,
+                            onFromTap: () =>
+                                _pickIncomeCategoryDate(isFrom: true),
+                            onToTap: () =>
+                                _pickIncomeCategoryDate(isFrom: false),
+                            onRefresh: _refreshCategoryCharts,
+                            hasInvalidRange: _incomeCategoryFromDate.isAfter(
+                              _incomeCategoryToDate,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          const SizedBox(height: 24),
+                          _SectionTitle(
+                            title: 'Budget Overview',
+                            subtitle: '${dashboard.budgets.length} budgets',
+                          ),
+                          const SizedBox(height: 12),
+                          if (dashboard.budgets.isEmpty)
+                            const _EmptyCard(message: 'No budgets set.')
+                          else
+                            ...dashboard.budgets.map(
+                              (budget) => _BudgetProgressCard(
+                                budget: budget,
+                                currency: widget.currency,
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        _StatsRow(summary: summary, currency: currency),
-                        const SizedBox(height: 24),
-                        _SectionTitle(
-                          title: 'Spending by Category',
-                          subtitle: summary.month,
-                        ),
-                        const SizedBox(height: 12),
-                        if (summary.expenseByCategory.isEmpty)
-                          const _EmptyCard(message: 'No spending this month.')
-                        else
-                          ...summary.expenseByCategory.map(
-                            (item) => _CategoryBar(
-                              item: item,
-                              currency: currency,
-                              maxValue: maxSpend,
                             ),
-                          ),
-                        const SizedBox(height: 24),
-                        _SectionTitle(
-                          title: 'Budget Overview',
-                          subtitle: '${dashboard.budgets.length} budgets',
-                        ),
-                        const SizedBox(height: 12),
-                        if (dashboard.budgets.isEmpty)
-                          const _EmptyCard(message: 'No budgets set.')
-                        else
-                          ...dashboard.budgets.map(
-                            (budget) => _BudgetProgressCard(
-                              budget: budget,
-                              currency: currency,
-                            ),
-                          ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            );
-          },
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -467,8 +595,8 @@ class DashboardScreen extends StatelessWidget {
     await pushRouteWithFinanceRepository<void>(
       context,
       DayExpensesScreen(
-        session: session,
-        currency: currency,
+        session: widget.session,
+        currency: widget.currency,
         date: date,
         dayName: dayName,
       ),
@@ -505,6 +633,350 @@ class DashboardScreen extends StatelessWidget {
       context,
       date: expense.monthStart,
       dayName: '${expense.monthName} ${expense.year}',
+    );
+  }
+}
+
+class _CategoryPieCard extends StatelessWidget {
+  const _CategoryPieCard({
+    required this.title,
+    required this.subtitle,
+    required this.totalLabel,
+    required this.emptyMessage,
+    required this.currency,
+    required this.fromDate,
+    required this.toDate,
+    required this.future,
+    required this.onFromTap,
+    required this.onToTap,
+    required this.onRefresh,
+    required this.hasInvalidRange,
+  });
+
+  final String title;
+  final String subtitle;
+  final String totalLabel;
+  final String emptyMessage;
+  final CurrencyOption currency;
+  final DateTime fromDate;
+  final DateTime toDate;
+  final Future<List<CategorySpend>> future;
+  final VoidCallback onFromTap;
+  final VoidCallback onToTap;
+  final VoidCallback onRefresh;
+  final bool hasInvalidRange;
+
+  static const _fallbackColors = <Color>[
+    Color(0xFF0F766E),
+    Color(0xFF155E75),
+    Color(0xFF0EA5E9),
+    Color(0xFF2563EB),
+    Color(0xFF7C3AED),
+    Color(0xFFDB2777),
+    Color(0xFFEA580C),
+    Color(0xFFCA8A04),
+  ];
+
+  String _formatDate(BuildContext context, DateTime value) {
+    return MaterialLocalizations.of(context).formatMediumDate(value);
+  }
+
+  Color _parseColor(String hex, int index) {
+    final normalized = hex.replaceFirst('#', '');
+    if (normalized.length != 6) {
+      return _fallbackColors[index % _fallbackColors.length];
+    }
+    return Color(
+      int.tryParse('FF$normalized', radix: 16) ??
+          _fallbackColors[index % _fallbackColors.length].toARGB32(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 6,
+      shadowColor: const Color(0xFF0F172A).withValues(alpha: 0.12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: onRefresh,
+                  tooltip: 'Refresh chart',
+                  icon: const Icon(Icons.refresh),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _DateFilterChip(
+                  label: 'From',
+                  value: _formatDate(context, fromDate),
+                  onTap: onFromTap,
+                ),
+                _DateFilterChip(
+                  label: 'To',
+                  value: _formatDate(context, toDate),
+                  onTap: onToTap,
+                ),
+              ],
+            ),
+            if (hasInvalidRange) ...[
+              const SizedBox(height: 12),
+              Text(
+                'From date must be on or before To date.',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            FutureBuilder<List<CategorySpend>>(
+              future: future,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const SizedBox(
+                    height: 260,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return _EmptyCard(
+                    message: 'Could not load category chart: ${snapshot.error}',
+                  );
+                }
+                final items = snapshot.data ?? const <CategorySpend>[];
+                if (hasInvalidRange) {
+                  return const _EmptyCard(
+                    message: 'Choose a valid date range to view the chart.',
+                  );
+                }
+                if (items.isEmpty) {
+                  return _EmptyCard(message: emptyMessage);
+                }
+
+                final total = items.fold<double>(
+                  0,
+                  (sum, item) => sum + item.total,
+                );
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFF8FAFC), Color(0xFFE2E8F0)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  totalLabel,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  formatMoney(currency, total),
+                                  style: Theme.of(context).textTheme.titleLarge
+                                      ?.copyWith(fontWeight: FontWeight.w800),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            '${items.length} categories',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      height: 220,
+                      child: PieChart(
+                        PieChartData(
+                          sectionsSpace: 3,
+                          centerSpaceRadius: 42,
+                          sections: items.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final item = entry.value;
+                            final color = _parseColor(item.color, index);
+                            final percent = total == 0
+                                ? 0
+                                : (item.total / total) * 100;
+                            return PieChartSectionData(
+                              color: color,
+                              value: item.total,
+                              radius: 62,
+                              title: percent >= 8
+                                  ? '${percent.toStringAsFixed(0)}%'
+                                  : '',
+                              titleStyle: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ...items.map((item) {
+                      final index = items.indexOf(item);
+                      final color = _parseColor(item.color, index);
+                      final percent = total == 0
+                          ? 0
+                          : (item.total / total) * 100;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 12,
+                              height: 12,
+                              margin: const EdgeInsets.only(top: 4),
+                              decoration: BoxDecoration(
+                                color: color,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item.category,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${percent.toStringAsFixed(1)}% of selected range',
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              formatMoney(currency, item.total),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DateFilterChip extends StatelessWidget {
+  const _DateFilterChip({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Ink(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
+          color: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.calendar_today_outlined, size: 18),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -818,71 +1290,6 @@ class _SectionTitle extends StatelessWidget {
         ),
         Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
       ],
-    );
-  }
-}
-
-class _CategoryBar extends StatelessWidget {
-  const _CategoryBar({
-    required this.item,
-    required this.currency,
-    required this.maxValue,
-  });
-
-  final CategorySpend item;
-  final CurrencyOption currency;
-  final double maxValue;
-
-  Color _parseColor(String hex) {
-    final normalized = hex.replaceFirst('#', '');
-    return Color(int.parse('FF$normalized', radix: 16));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final percentage = maxValue > 0 ? (item.total / maxValue) : 0.0;
-    final color = _parseColor(item.color);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(item.category),
-                ],
-              ),
-              Text(
-                formatMoney(currency, item.total),
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: percentage,
-              backgroundColor: color.withValues(alpha: 0.15),
-              valueColor: AlwaysStoppedAnimation(color),
-              minHeight: 8,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
