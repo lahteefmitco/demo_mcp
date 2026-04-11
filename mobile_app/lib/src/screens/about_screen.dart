@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
   static const _description =
-      '''Gulfon Finance helps you track spending, monitor income, manage budgets, and review your financial activity from local device data with an offline-first experience.\n\nThis app is developed by Gulfon Technologies.\n+91-9526317685\nwww.gulfontechnologies.co.in''';
+      '''Gulfon Finance helps you track spending, monitor income, manage budgets, and review your financial activity from local device data with an offline-first experience.\n\nThis app is developed by Gulfon Technologies.\n+91-9526317685''';
 
   @override
   Widget build(BuildContext context) {
@@ -77,6 +78,18 @@ class AboutScreen extends StatelessWidget {
                         style: Theme.of(
                           context,
                         ).textTheme.bodyLarge?.copyWith(height: 1.45),
+                      ),
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: () => launchUrl(Uri.parse('https://gulfon-web.onrender.com')),
+                        child: Text(
+                          'https://gulfon-web.onrender.com',
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                color: Colors.blue,
+                                decoration: TextDecoration.underline,
+                                height: 1.45,
+                              ),
+                        ),
                       ),
                     ],
                   ),
