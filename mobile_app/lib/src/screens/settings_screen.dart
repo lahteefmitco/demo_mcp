@@ -18,6 +18,7 @@ import '../utils/currency_utils.dart';
 import '../utils/finance_repository_scope.dart';
 import '../utils/toast.dart';
 import 'accounts_screen.dart';
+import 'about_screen.dart';
 import 'add_budget_screen.dart';
 import 'add_category_screen.dart';
 import 'category_entries_screen.dart';
@@ -179,6 +180,12 @@ class SettingsScreen extends StatelessWidget {
       context,
       PeriodIncomesScreen(currency: currency),
     );
+  }
+
+  Future<void> _openAbout(BuildContext context) async {
+    await Navigator.of(
+      context,
+    ).push<void>(MaterialPageRoute<void>(builder: (_) => const AboutScreen()));
   }
 
   Future<void> _selectCurrency(BuildContext context) async {
@@ -602,6 +609,17 @@ class SettingsScreen extends StatelessWidget {
                                     ),
                                     onTap: () {
                                       _openPeriodIncomes(context);
+                                    },
+                                  ),
+                                  ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: const Icon(Icons.info_outline),
+                                    title: const Text('About'),
+                                    subtitle: const Text(
+                                      'View app version and a short app description.',
+                                    ),
+                                    onTap: () {
+                                      _openAbout(context);
                                     },
                                   ),
                                   if (kDebugMode)
