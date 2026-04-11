@@ -14,7 +14,9 @@ abstract final class AppToast {
       style: ToastificationStyle.flat,
       title: Text(message),
       autoCloseDuration: const Duration(seconds: 3),
-      primaryColor: ExpenseAppTheme.seedColor,
+      primaryColor: Colors.white,
+      foregroundColor: Colors.white,
+      backgroundColor: ExpenseAppTheme.seedColor
     );
   }
 

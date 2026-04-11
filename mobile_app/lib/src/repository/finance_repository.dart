@@ -13,11 +13,9 @@ import 'finance_mappers.dart';
 
 /// Local-first finance data with REST sync.
 class FinanceRepository {
-  FinanceRepository({
-    required FinanceDatabase database,
-    required String token,
-  }) : _db = database,
-       _token = token;
+  FinanceRepository({required FinanceDatabase database, required String token})
+    : _db = database,
+      _token = token;
 
   final FinanceDatabase _db;
   final String _token;
@@ -71,9 +69,9 @@ class FinanceRepository {
     if (categoryUuid != null && categoryUuid.isNotEmpty) {
       rows = rows.where((e) => e.categoryUuid == categoryUuid).toList();
     } else if (categoryServerId != null) {
-      final cat = await (_db.select(_db.localCategories)
-            ..where((t) => t.serverId.equals(categoryServerId)))
-          .getSingleOrNull();
+      final cat = await (_db.select(
+        _db.localCategories,
+      )..where((t) => t.serverId.equals(categoryServerId))).getSingleOrNull();
       if (cat != null) {
         rows = rows.where((e) => e.categoryUuid == cat.uuid).toList();
       }
@@ -81,17 +79,15 @@ class FinanceRepository {
     if (fromIsoDate != null && toIsoDate != null) {
       final from = _isoToDdMmYyyy(fromIsoDate);
       final to = _isoToDdMmYyyy(toIsoDate);
-      rows = rows
-          .where((e) {
-            final d = _parseDdMmYyyy(e.spentOn);
-            final a = _parseDdMmYyyy(from);
-            final b = _parseDdMmYyyy(to);
-            if (d == null || a == null || b == null) {
-              return false;
-            }
-            return !d.isBefore(a) && !d.isAfter(b);
-          })
-          .toList();
+      rows = rows.where((e) {
+        final d = _parseDdMmYyyy(e.spentOn);
+        final a = _parseDdMmYyyy(from);
+        final b = _parseDdMmYyyy(to);
+        if (d == null || a == null || b == null) {
+          return false;
+        }
+        return !d.isBefore(a) && !d.isAfter(b);
+      }).toList();
     }
     rows.sort((a, b) => _cmpDateDesc(a.spentOn, b.spentOn));
     return rows.map(_expenseRowToModel).toList();
@@ -103,7 +99,11 @@ class FinanceRepository {
     required DateTime toInclusive,
     int? maxRows,
   }) async {
-    final from = DateTime(fromInclusive.year, fromInclusive.month, fromInclusive.day);
+    final from = DateTime(
+      fromInclusive.year,
+      fromInclusive.month,
+      fromInclusive.day,
+    );
     final to = DateTime(toInclusive.year, toInclusive.month, toInclusive.day);
     final fromDd = _toDdMmYyyyDateOnly(from);
     final toDd = _toDdMmYyyyDateOnly(to);
@@ -113,6 +113,33 @@ class FinanceRepository {
       limit: maxRows,
     );
     return rows.map(_expenseRowToModel).toList();
+  }
+
+  /// Local incomes only; newest-first by [receivedOn]. [maxRows] null means no limit.
+  Future<List<FinanceEntry>> listIncomesLocalInDateRange({
+    required DateTime fromInclusive,
+    required DateTime toInclusive,
+    int? maxRows,
+  }) async {
+    final from = DateTime(
+      fromInclusive.year,
+      fromInclusive.month,
+      fromInclusive.day,
+    );
+    final to = DateTime(toInclusive.year, toInclusive.month, toInclusive.day);
+    final rows = await listIncomesLocal();
+    final filtered = rows.where((income) {
+      final date = _parseDdMmYyyy(income.date);
+      if (date == null) {
+        return false;
+      }
+      return !date.isBefore(from) && !date.isAfter(to);
+    }).toList();
+    filtered.sort((a, b) => _cmpDateDesc(a.date, b.date));
+    if (maxRows != null && maxRows > 0 && filtered.length > maxRows) {
+      return filtered.take(maxRows).toList();
+    }
+    return filtered;
   }
 
   String _toDdMmYyyyDateOnly(DateTime d) {
@@ -129,7 +156,11 @@ class FinanceRepository {
     String searchQuery = '',
     int? maxRows,
   }) async {
-    final from = DateTime(fromInclusive.year, fromInclusive.month, fromInclusive.day);
+    final from = DateTime(
+      fromInclusive.year,
+      fromInclusive.month,
+      fromInclusive.day,
+    );
     final to = DateTime(toInclusive.year, toInclusive.month, toInclusive.day);
     final fromDd = _toDdMmYyyyDateOnly(from);
     final toDd = _toDdMmYyyyDateOnly(to);
@@ -178,9 +209,9 @@ class FinanceRepository {
     if (categoryUuid != null && categoryUuid.isNotEmpty) {
       rows = rows.where((e) => e.categoryUuid == categoryUuid).toList();
     } else if (categoryServerId != null) {
-      final cat = await (_db.select(_db.localCategories)
-            ..where((t) => t.serverId.equals(categoryServerId)))
-          .getSingleOrNull();
+      final cat = await (_db.select(
+        _db.localCategories,
+      )..where((t) => t.serverId.equals(categoryServerId))).getSingleOrNull();
       if (cat != null) {
         rows = rows.where((e) => e.categoryUuid == cat.uuid).toList();
       }
@@ -335,7 +366,11 @@ class FinanceRepository {
     final now = DateTime.now();
     final result = <DailyExpense>[];
     for (var i = days - 1; i >= 0; i--) {
-      final d = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
+      final d = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(Duration(days: i));
       final dayStr =
           '${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}';
       final label =
@@ -362,7 +397,10 @@ class FinanceRepository {
     return result;
   }
 
-  List<WeeklyExpense> _aggregateWeekly(List<LocalExpenseRow> expenses, int weeks) {
+  List<WeeklyExpense> _aggregateWeekly(
+    List<LocalExpenseRow> expenses,
+    int weeks,
+  ) {
     final now = DateTime.now();
     final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
     final result = <WeeklyExpense>[];
@@ -377,9 +415,7 @@ class FinanceRepository {
       var count = 0;
       for (final e in expenses) {
         final p = _parseDdMmYyyy(e.spentOn);
-        if (p != null &&
-            !p.isBefore(weekStart) &&
-            !p.isAfter(weekEnd)) {
+        if (p != null && !p.isBefore(weekStart) && !p.isAfter(weekEnd)) {
           total += e.amount;
           count++;
         }
@@ -401,7 +437,10 @@ class FinanceRepository {
     return result;
   }
 
-  List<MonthlyExpense> _aggregateMonthly(List<LocalExpenseRow> expenses, int months) {
+  List<MonthlyExpense> _aggregateMonthly(
+    List<LocalExpenseRow> expenses,
+    int months,
+  ) {
     final now = DateTime.now();
     final result = <MonthlyExpense>[];
     for (var m = months - 1; m >= 0; m--) {
@@ -428,8 +467,7 @@ class FinanceRepository {
       for (final e in expenses) {
         final p = _parseDdMmYyyy(e.spentOn);
         if (p != null) {
-          final mk =
-              '${p.year}-${p.month.toString().padLeft(2, '0')}';
+          final mk = '${p.year}-${p.month.toString().padLeft(2, '0')}';
           if (mk == monthKey) {
             total += e.amount;
             count++;
@@ -659,9 +697,9 @@ class FinanceRepository {
   Future<void> pushUnsynced() async {
     final api = _api;
 
-    final unsyncedAccounts = await (_db.select(_db.localAccounts)
-          ..where((t) => t.isSynced.equals(false)))
-        .get();
+    final unsyncedAccounts = await (_db.select(
+      _db.localAccounts,
+    )..where((t) => t.isSynced.equals(false))).get();
     for (final row in unsyncedAccounts) {
       try {
         if (row.serverId != null) {
@@ -674,7 +712,8 @@ class FinanceRepository {
             'notes': row.notes,
             'isActive': row.isActive,
           });
-          await (_db.update(_db.localAccounts)..where((t) => t.uuid.equals(row.uuid)))
+          await (_db.update(_db.localAccounts)
+                ..where((t) => t.uuid.equals(row.uuid)))
               .write(const LocalAccountsCompanion(isSynced: Value(true)));
           continue;
         }
@@ -689,13 +728,15 @@ class FinanceRepository {
         });
         final sid = res['id'] as int?;
         if (sid != null) {
-          await (_db.update(_db.localAccounts)..where((t) => t.uuid.equals(row.uuid)))
-              .write(
+          await (_db.update(
+            _db.localAccounts,
+          )..where((t) => t.uuid.equals(row.uuid))).write(
             LocalAccountsCompanion(
               serverId: Value(sid),
               isSynced: const Value(true),
               currentBalance: Value(
-                (res['currentBalance'] as num?)?.toDouble() ?? row.currentBalance,
+                (res['currentBalance'] as num?)?.toDouble() ??
+                    row.currentBalance,
               ),
             ),
           );
@@ -703,9 +744,9 @@ class FinanceRepository {
       } catch (_) {}
     }
 
-    final unsyncedCategories = await (_db.select(_db.localCategories)
-          ..where((t) => t.isSynced.equals(false)))
-        .get();
+    final unsyncedCategories = await (_db.select(
+      _db.localCategories,
+    )..where((t) => t.isSynced.equals(false))).get();
     for (final row in unsyncedCategories) {
       try {
         if (row.serverId != null) {
@@ -715,7 +756,8 @@ class FinanceRepository {
             'color': row.color,
             'icon': row.icon,
           });
-          await (_db.update(_db.localCategories)..where((t) => t.uuid.equals(row.uuid)))
+          await (_db.update(_db.localCategories)
+                ..where((t) => t.uuid.equals(row.uuid)))
               .write(const LocalCategoriesCompanion(isSynced: Value(true)));
           continue;
         }
@@ -728,8 +770,9 @@ class FinanceRepository {
         });
         final sid = res['id'] as int?;
         if (sid != null) {
-          await (_db.update(_db.localCategories)..where((t) => t.uuid.equals(row.uuid)))
-              .write(
+          await (_db.update(
+            _db.localCategories,
+          )..where((t) => t.uuid.equals(row.uuid))).write(
             LocalCategoriesCompanion(
               serverId: Value(sid),
               isSynced: const Value(true),
@@ -739,9 +782,9 @@ class FinanceRepository {
       } catch (_) {}
     }
 
-    final unsyncedExpenses = await (_db.select(_db.localExpenses)
-          ..where((t) => t.isSynced.equals(false)))
-        .get();
+    final unsyncedExpenses = await (_db.select(
+      _db.localExpenses,
+    )..where((t) => t.isSynced.equals(false))).get();
     for (final row in unsyncedExpenses) {
       final cId = await catSid(row.categoryUuid);
       final aId = await accSid(row.accountUuid);
@@ -758,7 +801,8 @@ class FinanceRepository {
             'spentOn': row.spentOn,
             'notes': row.notes,
           });
-          await (_db.update(_db.localExpenses)..where((t) => t.uuid.equals(row.uuid)))
+          await (_db.update(_db.localExpenses)
+                ..where((t) => t.uuid.equals(row.uuid)))
               .write(const LocalExpensesCompanion(isSynced: Value(true)));
           continue;
         }
@@ -773,8 +817,9 @@ class FinanceRepository {
         });
         final sid = res['id'] as int?;
         if (sid != null) {
-          await (_db.update(_db.localExpenses)..where((t) => t.uuid.equals(row.uuid)))
-              .write(
+          await (_db.update(
+            _db.localExpenses,
+          )..where((t) => t.uuid.equals(row.uuid))).write(
             LocalExpensesCompanion(
               serverId: Value(sid),
               isSynced: const Value(true),
@@ -784,9 +829,9 @@ class FinanceRepository {
       } catch (_) {}
     }
 
-    final unsyncedIncomes = await (_db.select(_db.localIncomes)
-          ..where((t) => t.isSynced.equals(false)))
-        .get();
+    final unsyncedIncomes = await (_db.select(
+      _db.localIncomes,
+    )..where((t) => t.isSynced.equals(false))).get();
     for (final row in unsyncedIncomes) {
       final cId = await catSid(row.categoryUuid);
       final aId = await accSid(row.accountUuid);
@@ -803,7 +848,8 @@ class FinanceRepository {
             'receivedOn': row.receivedOn,
             'notes': row.notes,
           });
-          await (_db.update(_db.localIncomes)..where((t) => t.uuid.equals(row.uuid)))
+          await (_db.update(_db.localIncomes)
+                ..where((t) => t.uuid.equals(row.uuid)))
               .write(const LocalIncomesCompanion(isSynced: Value(true)));
           continue;
         }
@@ -818,8 +864,9 @@ class FinanceRepository {
         });
         final sid = res['id'] as int?;
         if (sid != null) {
-          await (_db.update(_db.localIncomes)..where((t) => t.uuid.equals(row.uuid)))
-              .write(
+          await (_db.update(
+            _db.localIncomes,
+          )..where((t) => t.uuid.equals(row.uuid))).write(
             LocalIncomesCompanion(
               serverId: Value(sid),
               isSynced: const Value(true),
@@ -829,9 +876,9 @@ class FinanceRepository {
       } catch (_) {}
     }
 
-    final unsyncedTransfers = await (_db.select(_db.localTransfers)
-          ..where((t) => t.isSynced.equals(false)))
-        .get();
+    final unsyncedTransfers = await (_db.select(
+      _db.localTransfers,
+    )..where((t) => t.isSynced.equals(false))).get();
     for (final row in unsyncedTransfers) {
       if (row.serverId != null) {
         continue;
@@ -851,8 +898,9 @@ class FinanceRepository {
         });
         final sid = res['id'] as int?;
         if (sid != null) {
-          await (_db.update(_db.localTransfers)..where((t) => t.uuid.equals(row.uuid)))
-              .write(
+          await (_db.update(
+            _db.localTransfers,
+          )..where((t) => t.uuid.equals(row.uuid))).write(
             LocalTransfersCompanion(
               serverId: Value(sid),
               isSynced: const Value(true),
@@ -862,9 +910,9 @@ class FinanceRepository {
       } catch (_) {}
     }
 
-    final unsyncedBudgets = await (_db.select(_db.localBudgets)
-          ..where((t) => t.isSynced.equals(false)))
-        .get();
+    final unsyncedBudgets = await (_db.select(
+      _db.localBudgets,
+    )..where((t) => t.isSynced.equals(false))).get();
     for (final row in unsyncedBudgets) {
       int? catId;
       if (row.categoryUuid != null && row.categoryUuid!.isNotEmpty) {
@@ -886,7 +934,8 @@ class FinanceRepository {
             body['categoryId'] = catId;
           }
           await api.putBudget(row.serverId!, body);
-          await (_db.update(_db.localBudgets)..where((t) => t.uuid.equals(row.uuid)))
+          await (_db.update(_db.localBudgets)
+                ..where((t) => t.uuid.equals(row.uuid)))
               .write(const LocalBudgetsCompanion(isSynced: Value(true)));
           continue;
         }
@@ -904,8 +953,9 @@ class FinanceRepository {
         final res = await api.postBudget(body);
         final sid = res['id'] as int?;
         if (sid != null) {
-          await (_db.update(_db.localBudgets)..where((t) => t.uuid.equals(row.uuid)))
-              .write(
+          await (_db.update(
+            _db.localBudgets,
+          )..where((t) => t.uuid.equals(row.uuid))).write(
             LocalBudgetsCompanion(
               serverId: Value(sid),
               isSynced: const Value(true),
@@ -926,14 +976,16 @@ class FinanceRepository {
     required String spentOn,
     String notes = '',
   }) async {
-    final cat = await (_db.select(_db.localCategories)
-          ..where((t) => t.uuid.equals(categoryUuid)))
-        .getSingleOrNull();
-    final acc = await (_db.select(_db.localAccounts)
-          ..where((t) => t.uuid.equals(accountUuid)))
-        .getSingleOrNull();
+    final cat = await (_db.select(
+      _db.localCategories,
+    )..where((t) => t.uuid.equals(categoryUuid))).getSingleOrNull();
+    final acc = await (_db.select(
+      _db.localAccounts,
+    )..where((t) => t.uuid.equals(accountUuid))).getSingleOrNull();
     final id = _uuid.v4();
-    await _db.into(_db.localExpenses).insert(
+    await _db
+        .into(_db.localExpenses)
+        .insert(
           LocalExpensesCompanion.insert(
             uuid: id,
             title: title,
@@ -962,30 +1014,32 @@ class FinanceRepository {
     required String spentOn,
     String notes = '',
   }) async {
-    final cat = await (_db.select(_db.localCategories)
-          ..where((t) => t.uuid.equals(categoryUuid)))
-        .getSingleOrNull();
-    final acc = await (_db.select(_db.localAccounts)
-          ..where((t) => t.uuid.equals(accountUuid)))
-        .getSingleOrNull();
-    await (_db.update(_db.localExpenses)..where((t) => t.uuid.equals(uuid))).write(
-          LocalExpensesCompanion(
-            title: Value(title),
-            amount: Value(amount),
-            categoryUuid: Value(categoryUuid),
-            accountUuid: Value(accountUuid),
-            categoryName: Value(cat?.name ?? ''),
-            categoryColor: Value(cat?.color ?? '#0E7490'),
-            accountName: Value(acc?.name ?? ''),
-            accountColor: Value(acc?.color ?? '#10B981'),
-            spentOn: Value(spentOn),
-            notes: Value(notes),
-            isSynced: const Value(false),
-          ),
-        );
-    final row = await (_db.select(_db.localExpenses)
-          ..where((t) => t.uuid.equals(uuid)))
-        .getSingleOrNull();
+    final cat = await (_db.select(
+      _db.localCategories,
+    )..where((t) => t.uuid.equals(categoryUuid))).getSingleOrNull();
+    final acc = await (_db.select(
+      _db.localAccounts,
+    )..where((t) => t.uuid.equals(accountUuid))).getSingleOrNull();
+    await (_db.update(
+      _db.localExpenses,
+    )..where((t) => t.uuid.equals(uuid))).write(
+      LocalExpensesCompanion(
+        title: Value(title),
+        amount: Value(amount),
+        categoryUuid: Value(categoryUuid),
+        accountUuid: Value(accountUuid),
+        categoryName: Value(cat?.name ?? ''),
+        categoryColor: Value(cat?.color ?? '#0E7490'),
+        accountName: Value(acc?.name ?? ''),
+        accountColor: Value(acc?.color ?? '#10B981'),
+        spentOn: Value(spentOn),
+        notes: Value(notes),
+        isSynced: const Value(false),
+      ),
+    );
+    final row = await (_db.select(
+      _db.localExpenses,
+    )..where((t) => t.uuid.equals(uuid))).getSingleOrNull();
     if (row?.serverId != null) {
       try {
         final cId = await catSid(categoryUuid);
@@ -999,7 +1053,8 @@ class FinanceRepository {
             'spentOn': spentOn,
             'notes': notes,
           });
-          await (_db.update(_db.localExpenses)..where((t) => t.uuid.equals(uuid)))
+          await (_db.update(_db.localExpenses)
+                ..where((t) => t.uuid.equals(uuid)))
               .write(const LocalExpensesCompanion(isSynced: Value(true)));
         }
       } catch (_) {}
@@ -1009,21 +1064,26 @@ class FinanceRepository {
   }
 
   Future<int?> catSid(String u) async {
-    final r = await (_db.select(_db.localCategories)..where((t) => t.uuid.equals(u)))
-        .getSingleOrNull();
+    final r = await (_db.select(
+      _db.localCategories,
+    )..where((t) => t.uuid.equals(u))).getSingleOrNull();
     return r?.serverId;
   }
 
   Future<int?> accSid(String u) async {
-    final r = await (_db.select(_db.localAccounts)..where((t) => t.uuid.equals(u)))
-        .getSingleOrNull();
+    final r = await (_db.select(
+      _db.localAccounts,
+    )..where((t) => t.uuid.equals(u))).getSingleOrNull();
     return r?.serverId;
   }
 
   Future<void> deleteExpenseByUuid(String uuid) async {
-    final row = await (_db.select(_db.localExpenses)..where((t) => t.uuid.equals(uuid)))
-        .getSingleOrNull();
-    await (_db.delete(_db.localExpenses)..where((t) => t.uuid.equals(uuid))).go();
+    final row = await (_db.select(
+      _db.localExpenses,
+    )..where((t) => t.uuid.equals(uuid))).getSingleOrNull();
+    await (_db.delete(
+      _db.localExpenses,
+    )..where((t) => t.uuid.equals(uuid))).go();
     if (row?.serverId != null) {
       try {
         await _api.deleteExpense(row!.serverId!);
@@ -1041,14 +1101,16 @@ class FinanceRepository {
     required String receivedOn,
     String notes = '',
   }) async {
-    final cat = await (_db.select(_db.localCategories)
-          ..where((t) => t.uuid.equals(categoryUuid)))
-        .getSingleOrNull();
-    final acc = await (_db.select(_db.localAccounts)
-          ..where((t) => t.uuid.equals(accountUuid)))
-        .getSingleOrNull();
+    final cat = await (_db.select(
+      _db.localCategories,
+    )..where((t) => t.uuid.equals(categoryUuid))).getSingleOrNull();
+    final acc = await (_db.select(
+      _db.localAccounts,
+    )..where((t) => t.uuid.equals(accountUuid))).getSingleOrNull();
     final id = _uuid.v4();
-    await _db.into(_db.localIncomes).insert(
+    await _db
+        .into(_db.localIncomes)
+        .insert(
           LocalIncomesCompanion.insert(
             uuid: id,
             title: title,
@@ -1077,29 +1139,32 @@ class FinanceRepository {
     required String receivedOn,
     String notes = '',
   }) async {
-    final cat = await (_db.select(_db.localCategories)
-          ..where((t) => t.uuid.equals(categoryUuid)))
-        .getSingleOrNull();
-    final acc = await (_db.select(_db.localAccounts)
-          ..where((t) => t.uuid.equals(accountUuid)))
-        .getSingleOrNull();
-    await (_db.update(_db.localIncomes)..where((t) => t.uuid.equals(uuid))).write(
-          LocalIncomesCompanion(
-            title: Value(title),
-            amount: Value(amount),
-            categoryUuid: Value(categoryUuid),
-            accountUuid: Value(accountUuid),
-            categoryName: Value(cat?.name ?? ''),
-            categoryColor: Value(cat?.color ?? '#0E7490'),
-            accountName: Value(acc?.name ?? ''),
-            accountColor: Value(acc?.color ?? '#10B981'),
-            receivedOn: Value(receivedOn),
-            notes: Value(notes),
-            isSynced: const Value(false),
-          ),
-        );
-    final row = await (_db.select(_db.localIncomes)..where((t) => t.uuid.equals(uuid)))
-        .getSingleOrNull();
+    final cat = await (_db.select(
+      _db.localCategories,
+    )..where((t) => t.uuid.equals(categoryUuid))).getSingleOrNull();
+    final acc = await (_db.select(
+      _db.localAccounts,
+    )..where((t) => t.uuid.equals(accountUuid))).getSingleOrNull();
+    await (_db.update(
+      _db.localIncomes,
+    )..where((t) => t.uuid.equals(uuid))).write(
+      LocalIncomesCompanion(
+        title: Value(title),
+        amount: Value(amount),
+        categoryUuid: Value(categoryUuid),
+        accountUuid: Value(accountUuid),
+        categoryName: Value(cat?.name ?? ''),
+        categoryColor: Value(cat?.color ?? '#0E7490'),
+        accountName: Value(acc?.name ?? ''),
+        accountColor: Value(acc?.color ?? '#10B981'),
+        receivedOn: Value(receivedOn),
+        notes: Value(notes),
+        isSynced: const Value(false),
+      ),
+    );
+    final row = await (_db.select(
+      _db.localIncomes,
+    )..where((t) => t.uuid.equals(uuid))).getSingleOrNull();
     if (row?.serverId != null) {
       try {
         final cId = await catSid(categoryUuid);
@@ -1113,7 +1178,8 @@ class FinanceRepository {
             'receivedOn': receivedOn,
             'notes': notes,
           });
-          await (_db.update(_db.localIncomes)..where((t) => t.uuid.equals(uuid)))
+          await (_db.update(_db.localIncomes)
+                ..where((t) => t.uuid.equals(uuid)))
               .write(const LocalIncomesCompanion(isSynced: Value(true)));
         }
       } catch (_) {}
@@ -1123,9 +1189,12 @@ class FinanceRepository {
   }
 
   Future<void> deleteIncomeByUuid(String uuid) async {
-    final row = await (_db.select(_db.localIncomes)..where((t) => t.uuid.equals(uuid)))
-        .getSingleOrNull();
-    await (_db.delete(_db.localIncomes)..where((t) => t.uuid.equals(uuid))).go();
+    final row = await (_db.select(
+      _db.localIncomes,
+    )..where((t) => t.uuid.equals(uuid))).getSingleOrNull();
+    await (_db.delete(
+      _db.localIncomes,
+    )..where((t) => t.uuid.equals(uuid))).go();
     if (row?.serverId != null) {
       try {
         await _api.deleteIncome(row!.serverId!);
@@ -1142,7 +1211,9 @@ class FinanceRepository {
     required String icon,
   }) async {
     final id = _uuid.v4();
-    await _db.into(_db.localCategories).insert(
+    await _db
+        .into(_db.localCategories)
+        .insert(
           LocalCategoriesCompanion.insert(
             uuid: id,
             name: name,
@@ -1162,18 +1233,20 @@ class FinanceRepository {
     required String color,
     required String icon,
   }) async {
-    await (_db.update(_db.localCategories)..where((t) => t.uuid.equals(uuid))).write(
-          LocalCategoriesCompanion(
-            name: Value(name),
-            kind: Value(kind),
-            color: Value(color),
-            icon: Value(icon),
-            isSynced: const Value(false),
-          ),
-        );
-    final row = await (_db.select(_db.localCategories)
-          ..where((t) => t.uuid.equals(uuid)))
-        .getSingleOrNull();
+    await (_db.update(
+      _db.localCategories,
+    )..where((t) => t.uuid.equals(uuid))).write(
+      LocalCategoriesCompanion(
+        name: Value(name),
+        kind: Value(kind),
+        color: Value(color),
+        icon: Value(icon),
+        isSynced: const Value(false),
+      ),
+    );
+    final row = await (_db.select(
+      _db.localCategories,
+    )..where((t) => t.uuid.equals(uuid))).getSingleOrNull();
     if (row?.serverId != null) {
       try {
         await _api.putCategory(row!.serverId!, {
@@ -1182,7 +1255,8 @@ class FinanceRepository {
           'color': color,
           'icon': icon,
         });
-        await (_db.update(_db.localCategories)..where((t) => t.uuid.equals(uuid)))
+        await (_db.update(_db.localCategories)
+              ..where((t) => t.uuid.equals(uuid)))
             .write(const LocalCategoriesCompanion(isSynced: Value(true)));
       } catch (_) {}
     }
@@ -1190,10 +1264,12 @@ class FinanceRepository {
   }
 
   Future<void> deleteCategoryByUuid(String uuid) async {
-    final row = await (_db.select(_db.localCategories)
-          ..where((t) => t.uuid.equals(uuid)))
-        .getSingleOrNull();
-    await (_db.delete(_db.localCategories)..where((t) => t.uuid.equals(uuid))).go();
+    final row = await (_db.select(
+      _db.localCategories,
+    )..where((t) => t.uuid.equals(uuid))).getSingleOrNull();
+    await (_db.delete(
+      _db.localCategories,
+    )..where((t) => t.uuid.equals(uuid))).go();
     if (row?.serverId != null) {
       try {
         await _api.deleteCategory(row!.serverId!);
@@ -1211,7 +1287,9 @@ class FinanceRepository {
     String notes = '',
   }) async {
     final id = _uuid.v4();
-    await _db.into(_db.localAccounts).insert(
+    await _db
+        .into(_db.localAccounts)
+        .insert(
           LocalAccountsCompanion.insert(
             uuid: id,
             name: name,
@@ -1236,19 +1314,22 @@ class FinanceRepository {
     String? notes,
     bool? isActive,
   }) async {
-    await (_db.update(_db.localAccounts)..where((t) => t.uuid.equals(uuid))).write(
-          LocalAccountsCompanion(
-            name: name != null ? Value(name) : const Value.absent(),
-            type: type != null ? Value(type) : const Value.absent(),
-            color: color != null ? Value(color) : const Value.absent(),
-            icon: icon != null ? Value(icon) : const Value.absent(),
-            notes: notes != null ? Value(notes) : const Value.absent(),
-            isActive: isActive != null ? Value(isActive) : const Value.absent(),
-            isSynced: const Value(false),
-          ),
-        );
-    final row = await (_db.select(_db.localAccounts)..where((t) => t.uuid.equals(uuid)))
-        .getSingleOrNull();
+    await (_db.update(
+      _db.localAccounts,
+    )..where((t) => t.uuid.equals(uuid))).write(
+      LocalAccountsCompanion(
+        name: name != null ? Value(name) : const Value.absent(),
+        type: type != null ? Value(type) : const Value.absent(),
+        color: color != null ? Value(color) : const Value.absent(),
+        icon: icon != null ? Value(icon) : const Value.absent(),
+        notes: notes != null ? Value(notes) : const Value.absent(),
+        isActive: isActive != null ? Value(isActive) : const Value.absent(),
+        isSynced: const Value(false),
+      ),
+    );
+    final row = await (_db.select(
+      _db.localAccounts,
+    )..where((t) => t.uuid.equals(uuid))).getSingleOrNull();
     if (row?.serverId != null) {
       try {
         final body = <String, dynamic>{};
@@ -1272,7 +1353,8 @@ class FinanceRepository {
         }
         if (body.isNotEmpty) {
           await _api.putAccount(row!.serverId!, body);
-          await (_db.update(_db.localAccounts)..where((t) => t.uuid.equals(uuid)))
+          await (_db.update(_db.localAccounts)
+                ..where((t) => t.uuid.equals(uuid)))
               .write(const LocalAccountsCompanion(isSynced: Value(true)));
         }
       } catch (_) {}
@@ -1281,14 +1363,17 @@ class FinanceRepository {
   }
 
   Future<void> deleteAccountByUuid(String uuid) async {
-    final row = await (_db.select(_db.localAccounts)..where((t) => t.uuid.equals(uuid)))
-        .getSingleOrNull();
+    final row = await (_db.select(
+      _db.localAccounts,
+    )..where((t) => t.uuid.equals(uuid))).getSingleOrNull();
     if (row?.serverId != null) {
       try {
         await _api.deleteAccount(row!.serverId!);
       } catch (_) {}
     }
-    await (_db.delete(_db.localAccounts)..where((t) => t.uuid.equals(uuid))).go();
+    await (_db.delete(
+      _db.localAccounts,
+    )..where((t) => t.uuid.equals(uuid))).go();
     _scheduleSyncAfterMutation();
   }
 
@@ -1304,13 +1389,15 @@ class FinanceRepository {
     String? cname;
     String? ccolor;
     if (categoryUuid != null && categoryUuid.isNotEmpty) {
-      final c = await (_db.select(_db.localCategories)
-            ..where((t) => t.uuid.equals(categoryUuid)))
-          .getSingleOrNull();
+      final c = await (_db.select(
+        _db.localCategories,
+      )..where((t) => t.uuid.equals(categoryUuid))).getSingleOrNull();
       cname = c?.name;
       ccolor = c?.color;
     }
-    await _db.into(_db.localBudgets).insert(
+    await _db
+        .into(_db.localBudgets)
+        .insert(
           LocalBudgetsCompanion.insert(
             uuid: id,
             name: name,
@@ -1344,29 +1431,32 @@ class FinanceRepository {
     String? cname;
     String? ccolor;
     if (categoryUuid != null && categoryUuid.isNotEmpty) {
-      final c = await (_db.select(_db.localCategories)
-            ..where((t) => t.uuid.equals(categoryUuid)))
-          .getSingleOrNull();
+      final c = await (_db.select(
+        _db.localCategories,
+      )..where((t) => t.uuid.equals(categoryUuid))).getSingleOrNull();
       cname = c?.name;
       ccolor = c?.color;
     }
-    await (_db.update(_db.localBudgets)..where((t) => t.uuid.equals(uuid))).write(
-          LocalBudgetsCompanion(
-            name: Value(name),
-            amount: Value(amount),
-            period: Value(period),
-            startDate: Value(startDate),
-            notes: Value(notes),
-            categoryUuid: categoryUuid != null
-                ? Value(categoryUuid)
-                : const Value.absent(),
-            categoryName: Value(cname),
-            categoryColor: Value(ccolor),
-            isSynced: const Value(false),
-          ),
-        );
-    final row = await (_db.select(_db.localBudgets)..where((t) => t.uuid.equals(uuid)))
-        .getSingleOrNull();
+    await (_db.update(
+      _db.localBudgets,
+    )..where((t) => t.uuid.equals(uuid))).write(
+      LocalBudgetsCompanion(
+        name: Value(name),
+        amount: Value(amount),
+        period: Value(period),
+        startDate: Value(startDate),
+        notes: Value(notes),
+        categoryUuid: categoryUuid != null
+            ? Value(categoryUuid)
+            : const Value.absent(),
+        categoryName: Value(cname),
+        categoryColor: Value(ccolor),
+        isSynced: const Value(false),
+      ),
+    );
+    final row = await (_db.select(
+      _db.localBudgets,
+    )..where((t) => t.uuid.equals(uuid))).getSingleOrNull();
     if (row?.serverId != null) {
       try {
         final body = <String, dynamic>{
@@ -1389,9 +1479,12 @@ class FinanceRepository {
   }
 
   Future<void> deleteBudgetByUuid(String uuid) async {
-    final row = await (_db.select(_db.localBudgets)..where((t) => t.uuid.equals(uuid)))
-        .getSingleOrNull();
-    await (_db.delete(_db.localBudgets)..where((t) => t.uuid.equals(uuid))).go();
+    final row = await (_db.select(
+      _db.localBudgets,
+    )..where((t) => t.uuid.equals(uuid))).getSingleOrNull();
+    await (_db.delete(
+      _db.localBudgets,
+    )..where((t) => t.uuid.equals(uuid))).go();
     if (row?.serverId != null) {
       try {
         await _api.deleteBudget(row!.serverId!);
@@ -1406,14 +1499,16 @@ class FinanceRepository {
     required double amount,
     String notes = '',
   }) async {
-    final from = await (_db.select(_db.localAccounts)
-          ..where((t) => t.uuid.equals(fromAccountUuid)))
-        .getSingleOrNull();
-    final to = await (_db.select(_db.localAccounts)
-          ..where((t) => t.uuid.equals(toAccountUuid)))
-        .getSingleOrNull();
+    final from = await (_db.select(
+      _db.localAccounts,
+    )..where((t) => t.uuid.equals(fromAccountUuid))).getSingleOrNull();
+    final to = await (_db.select(
+      _db.localAccounts,
+    )..where((t) => t.uuid.equals(toAccountUuid))).getSingleOrNull();
     final id = _uuid.v4();
-    await _db.into(_db.localTransfers).insert(
+    await _db
+        .into(_db.localTransfers)
+        .insert(
           LocalTransfersCompanion.insert(
             uuid: id,
             fromAccountUuid: fromAccountUuid,

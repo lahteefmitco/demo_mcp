@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mobile_app/src/theme/app_theme.dart';
 
 import '../api/finance_mcp_client.dart';
 import '../database/chat_database.dart';
@@ -23,6 +24,7 @@ import 'category_entries_screen.dart';
 import 'chat_db_viewer_screen.dart';
 import 'local_database_viewer_screen.dart';
 import 'period_expenses_screen.dart';
+import 'period_incomes_screen.dart';
 import 'transfer_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -65,10 +67,7 @@ class SettingsScreen extends StatelessWidget {
     final cubit = context.read<SettingsCubit>();
     await pushRouteWithFinanceRepository<void>(
       context,
-      AccountsScreen(
-        session: session,
-        currency: currency,
-      ),
+      AccountsScreen(session: session, currency: currency),
     );
     await cubit.refresh();
   }
@@ -77,10 +76,7 @@ class SettingsScreen extends StatelessWidget {
     final cubit = context.read<SettingsCubit>();
     await pushRouteWithFinanceRepository<void>(
       context,
-      TransferScreen(
-        session: session,
-        currency: currency,
-      ),
+      TransferScreen(session: session, currency: currency),
     );
     await cubit.refresh();
   }
@@ -178,6 +174,13 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
+  Future<void> _openPeriodIncomes(BuildContext context) async {
+    await pushRouteWithFinanceRepository<void>(
+      context,
+      PeriodIncomesScreen(currency: currency),
+    );
+  }
+
   Future<void> _selectCurrency(BuildContext context) async {
     final selected = await showModalBottomSheet<CurrencyOption>(
       context: context,
@@ -207,7 +210,9 @@ class SettingsScreen extends StatelessWidget {
       ),
     );
 
-    if (!context.mounted || selected == null || selected.code == currency.code) {
+    if (!context.mounted ||
+        selected == null ||
+        selected.code == currency.code) {
       return;
     }
 
@@ -330,10 +335,7 @@ class SettingsScreen extends StatelessWidget {
     await cubit.deleteBudgetByUuid(budget.uuid);
   }
 
-  Future<void> _openActionSheet(
-    BuildContext context,
-    SettingsData data,
-  ) async {
+  Future<void> _openActionSheet(BuildContext context, SettingsData data) async {
     final cubit = context.read<SettingsCubit>();
     final navigator = Navigator.of(context);
     final action = await showModalBottomSheet<String>(
@@ -431,295 +433,344 @@ class SettingsScreen extends StatelessWidget {
         child: Builder(
           builder: (blocContext) {
             return BlocListener<SettingsCubit, SettingsState>(
-            listenWhen: (p, n) => p.toastNonce != n.toastNonce,
-            listener: (context, state) {
-              final msg = state.toastMessage;
-              if (msg == null || msg.isEmpty) return;
-              if (state.toastIsError) {
-                AppToast.error(context, msg);
-              } else {
-                AppToast.success(context, msg);
-              }
-            },
-            child: Scaffold(
-              appBar: AppBar(
-                title: const Text('Settings'),
-                actions: [
-                  IconButton(
-                    onPressed: () =>
-                        blocContext.read<SettingsCubit>().refresh(),
-                    icon: const Icon(Icons.refresh),
-                  ),
-                  IconButton(
-                    onPressed: () => _confirmLogout(blocContext),
-                    icon: const Icon(Icons.logout),
-                    tooltip: 'Log out',
-                  ),
-                ],
-              ),
-              body: FutureBuilder<SettingsData>(
-                future: blocContext.watch<SettingsCubit>().state.future,
-                builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.settings_backup_restore, size: 52),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Could not load settings',
-                      style: Theme.of(context).textTheme.titleLarge,
+              listenWhen: (p, n) => p.toastNonce != n.toastNonce,
+              listener: (context, state) {
+                final msg = state.toastMessage;
+                if (msg == null || msg.isEmpty) return;
+                if (state.toastIsError) {
+                  AppToast.error(context, msg);
+                } else {
+                  AppToast.success(context, msg);
+                }
+              },
+              child: Scaffold(
+                appBar: AppBar(
+                  title: const Text('Settings'),
+                  actions: [
+                    IconButton(
+                      onPressed: () =>
+                          blocContext.read<SettingsCubit>().refresh(),
+                      icon: const Icon(Icons.refresh),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      snapshot.error.toString(),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      onPressed: () => context.read<SettingsCubit>().refresh(),
-                      child: const Text('Try Again'),
+                    IconButton(
+                      onPressed: () => _confirmLogout(blocContext),
+                      icon: const Icon(
+                        Icons.logout,
+                        color: ExpenseAppTheme.seedColor,
+                      ),
+                      tooltip: 'Log out',
                     ),
                   ],
                 ),
+                body: FutureBuilder<SettingsData>(
+                  future: blocContext.watch<SettingsCubit>().state.future,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.settings_backup_restore,
+                                size: 52,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Could not load settings',
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                snapshot.error.toString(),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+                              FilledButton(
+                                onPressed: () =>
+                                    context.read<SettingsCubit>().refresh(),
+                                child: const Text('Try Again'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    final data = snapshot.data!;
+                    final dashboard = data.dashboard;
+                    final topExpenseCategories = dashboard
+                        .summary
+                        .expenseByCategory
+                        .take(5)
+                        .map(
+                          (item) => (
+                            spend: item,
+                            category: dashboard.categories.firstWhere(
+                              (category) => category.name == item.category,
+                              orElse: () => FinanceCategory(
+                                id: -1,
+                                uuid: '',
+                                name: item.category,
+                                kind: 'expense',
+                                color: item.color,
+                                icon: 'tag',
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList();
+
+                    return RefreshIndicator(
+                      onRefresh: () => context.read<SettingsCubit>().refresh(),
+                      child: ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    session.user.name,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleLarge,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    session.user.email,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  FilledButton.tonalIcon(
+                                    onPressed: onOpenProfile,
+                                    icon: const Icon(Icons.person_outline),
+                                    label: const Text('Open profile'),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  OutlinedButton.icon(
+                                    onPressed: () => _selectCurrency(context),
+                                    icon: const Icon(Icons.currency_exchange),
+                                    label: Text(
+                                      'Currency: ${currency.code} (${currency.symbol})',
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: const Icon(
+                                      Icons.cloud_download_outlined,
+                                    ),
+                                    title: const Text('Import all data'),
+                                    subtitle: const Text(
+                                      'Loads accounts, categories, transactions, and budgets from the server into this device.',
+                                    ),
+                                    onTap: () {
+                                      _importAllData(context);
+                                    },
+                                  ),
+                                  ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: const Icon(
+                                      Icons.date_range_outlined,
+                                    ),
+                                    title: const Text(
+                                      'View Expenses by Period',
+                                    ),
+                                    subtitle: const Text(
+                                      'Browse local expense rows by date range (works offline).',
+                                    ),
+                                    onTap: () {
+                                      _openPeriodExpenses(context);
+                                    },
+                                  ),
+                                  ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: const Icon(Icons.savings_outlined),
+                                    title: const Text('View Incomes by Period'),
+                                    subtitle: const Text(
+                                      'Browse local income rows by date range (works offline).',
+                                    ),
+                                    onTap: () {
+                                      _openPeriodIncomes(context);
+                                    },
+                                  ),
+                                  if (kDebugMode)
+                                    ListTile(
+                                      contentPadding: EdgeInsets.zero,
+                                      leading: const Icon(Icons.table_rows),
+                                      title: const Text('View local database'),
+                                      subtitle: const Text(
+                                        'Inspect SQLite tables stored on device (debug).',
+                                      ),
+                                      onTap: () {
+                                        _openLocalDatabaseViewer(context);
+                                      },
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (kDebugMode) ...[
+                            const SizedBox(height: 16),
+                            _SectionTitle(
+                              title: 'Automation',
+                              subtitle: '${data.tools.length} MCP tools',
+                            ),
+                            const SizedBox(height: 8),
+                            _InfoCard(
+                              icon: Icons.hub_outlined,
+                              text:
+                                  '${data.tools.length} MCP tools available for finance automation',
+                            ),
+                          ],
+                          const SizedBox(height: 16),
+                          _SectionTitle(
+                            title: 'Top Expense Categories',
+                            subtitle: '${topExpenseCategories.length} items',
+                          ),
+                          const SizedBox(height: 8),
+                          if (topExpenseCategories.isEmpty)
+                            const _EmptyCard(
+                              message: 'No category spending yet.',
+                            )
+                          else
+                            ...topExpenseCategories.map(
+                              (item) => _CategoryTotalTile(
+                                category: item.category,
+                                currency: currency,
+                                spend: item.spend,
+                                onTap: item.category.id == -1
+                                    ? null
+                                    : () => _openCategoryEntries(
+                                        context,
+                                        item.category,
+                                      ),
+                              ),
+                            ),
+                          const SizedBox(height: 16),
+                          _SectionTitle(
+                            title: 'Budgets',
+                            subtitle: '${dashboard.budgets.length} total',
+                          ),
+                          const SizedBox(height: 8),
+                          if (dashboard.budgets.isEmpty)
+                            const _EmptyCard(message: 'No budgets set yet.')
+                          else
+                            ...dashboard.budgets.map(
+                              (budget) => _BudgetTile(
+                                budget: budget,
+                                currency: currency,
+                                onEdit: () =>
+                                    _editBudget(context, budget, data),
+                                onDelete: () => _deleteBudget(context, budget),
+                              ),
+                            ),
+                          const SizedBox(height: 16),
+                          _SectionTitle(
+                            title: 'Accounts',
+                            subtitle: '${dashboard.accounts.length} total',
+                          ),
+                          const SizedBox(height: 8),
+                          Card(
+                            child: Column(
+                              children: [
+                                ListTile(
+                                  leading: const Icon(
+                                    Icons.account_balance_wallet_outlined,
+                                  ),
+                                  title: const Text('Manage Accounts'),
+                                  subtitle: const Text(
+                                    'Add, edit, or delete accounts',
+                                  ),
+                                  trailing: const Icon(Icons.chevron_right),
+                                  onTap: () => _openAccounts(context),
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  leading: const Icon(Icons.swap_horiz),
+                                  title: const Text('Transfers'),
+                                  subtitle: const Text(
+                                    'Move money between accounts',
+                                  ),
+                                  trailing: const Icon(Icons.chevron_right),
+                                  onTap: () => _openTransfers(context),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          _SectionTitle(
+                            title: 'Categories',
+                            subtitle: '${dashboard.categories.length} total',
+                          ),
+                          const SizedBox(height: 8),
+                          if (dashboard.categories.isEmpty)
+                            const _EmptyCard(message: 'No categories found.')
+                          else
+                            ...dashboard.categories.map(
+                              (category) => _CategoryTile(
+                                category: category,
+                                onEdit: () => _editCategory(context, category),
+                                onDelete: () =>
+                                    _deleteCategory(context, category),
+                              ),
+                            ),
+                          if (kDebugMode) ...[
+                            const SizedBox(height: 16),
+                            _SectionTitle(
+                              title: 'Developer',
+                              subtitle: 'Debug tools',
+                            ),
+                            const SizedBox(height: 8),
+                            Card(
+                              child: ListTile(
+                                leading: const Icon(Icons.storage_outlined),
+                                title: const Text('Chat History DB'),
+                                subtitle: const Text(
+                                  'View stored chat sessions',
+                                ),
+                                trailing: const Icon(Icons.chevron_right),
+                                onTap: () => _openChatDbViewer(context),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                          FilledButton.icon(
+                            onPressed: () => _confirmLogout(context),
+                            icon: const Icon(Icons.logout),
+                            label: const Text('Log out'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                floatingActionButton: FutureBuilder<SettingsData>(
+                  future: blocContext.watch<SettingsCubit>().state.future,
+                  builder: (context, snapshot) {
+                    return FloatingActionButton.extended(
+                      heroTag: 'settings_fab',
+                      onPressed: snapshot.hasData
+                          ? () => _openActionSheet(context, snapshot.data!)
+                          : null,
+                      icon: const Icon(Icons.tune),
+                      label: const Text('Manage'),
+                    );
+                  },
+                ),
               ),
             );
-          }
-
-          final data = snapshot.data!;
-          final dashboard = data.dashboard;
-          final topExpenseCategories = dashboard.summary.expenseByCategory
-              .take(5)
-              .map(
-                (item) => (
-                  spend: item,
-                  category: dashboard.categories.firstWhere(
-                    (category) => category.name == item.category,
-                    orElse: () => FinanceCategory(
-                      id: -1,
-                      uuid: '',
-                      name: item.category,
-                      kind: 'expense',
-                      color: item.color,
-                      icon: 'tag',
-                    ),
-                  ),
-                ),
-              )
-              .toList();
-
-          return RefreshIndicator(
-            onRefresh: () => context.read<SettingsCubit>().refresh(),
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          session.user.name,
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          session.user.email,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        const SizedBox(height: 16),
-                        FilledButton.tonalIcon(
-                          onPressed: onOpenProfile,
-                          icon: const Icon(Icons.person_outline),
-                          label: const Text('Open profile'),
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          onPressed: () => _selectCurrency(context),
-                          icon: const Icon(Icons.currency_exchange),
-                          label: Text(
-                            'Currency: ${currency.code} (${currency.symbol})',
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.cloud_download_outlined),
-                          title: const Text('Import all data'),
-                          subtitle: const Text(
-                            'Loads accounts, categories, transactions, and budgets from the server into this device.',
-                          ),
-                          onTap: () {
-                            _importAllData(context);
-                          },
-                        ),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.date_range_outlined),
-                          title: const Text('View Expenses by Period'),
-                          subtitle: const Text(
-                            'Browse local expense rows by date range (works offline).',
-                          ),
-                          onTap: () {
-                            _openPeriodExpenses(context);
-                          },
-                        ),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.table_rows),
-                          title: const Text('View local database'),
-                          subtitle: const Text(
-                            'Inspect SQLite tables stored on device (debug).',
-                          ),
-                          onTap: () {
-                            _openLocalDatabaseViewer(context);
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _SectionTitle(
-                  title: 'Automation',
-                  subtitle: '${data.tools.length} MCP tools',
-                ),
-                const SizedBox(height: 8),
-                _InfoCard(
-                  icon: Icons.hub_outlined,
-                  text:
-                      '${data.tools.length} MCP tools available for finance automation',
-                ),
-                const SizedBox(height: 16),
-                _SectionTitle(
-                  title: 'Top Expense Categories',
-                  subtitle: '${topExpenseCategories.length} items',
-                ),
-                const SizedBox(height: 8),
-                if (topExpenseCategories.isEmpty)
-                  const _EmptyCard(message: 'No category spending yet.')
-                else
-                  ...topExpenseCategories.map(
-                    (item) => _CategoryTotalTile(
-                      category: item.category,
-                      currency: currency,
-                      spend: item.spend,
-                      onTap: item.category.id == -1
-                          ? null
-                          : () => _openCategoryEntries(context, item.category),
-                    ),
-                  ),
-                const SizedBox(height: 16),
-                _SectionTitle(
-                  title: 'Budgets',
-                  subtitle: '${dashboard.budgets.length} total',
-                ),
-                const SizedBox(height: 8),
-                if (dashboard.budgets.isEmpty)
-                  const _EmptyCard(message: 'No budgets set yet.')
-                else
-                  ...dashboard.budgets.map(
-                    (budget) => _BudgetTile(
-                      budget: budget,
-                      currency: currency,
-                      onEdit: () => _editBudget(context, budget, data),
-                      onDelete: () => _deleteBudget(context, budget),
-                    ),
-                  ),
-                const SizedBox(height: 16),
-                _SectionTitle(
-                  title: 'Accounts',
-                  subtitle: '${dashboard.accounts.length} total',
-                ),
-                const SizedBox(height: 8),
-                Card(
-                  child: Column(
-                    children: [
-                      ListTile(
-                        leading: const Icon(
-                          Icons.account_balance_wallet_outlined,
-                        ),
-                        title: const Text('Manage Accounts'),
-                        subtitle: const Text('Add, edit, or delete accounts'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => _openAccounts(context),
-                      ),
-                      const Divider(height: 1),
-                      ListTile(
-                        leading: const Icon(Icons.swap_horiz),
-                        title: const Text('Transfers'),
-                        subtitle: const Text('Move money between accounts'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => _openTransfers(context),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _SectionTitle(
-                  title: 'Categories',
-                  subtitle: '${dashboard.categories.length} total',
-                ),
-                const SizedBox(height: 8),
-                if (dashboard.categories.isEmpty)
-                  const _EmptyCard(message: 'No categories found.')
-                else
-                  ...dashboard.categories.map(
-                    (category) => _CategoryTile(
-                      category: category,
-                      onEdit: () => _editCategory(context, category),
-                      onDelete: () => _deleteCategory(context, category),
-                    ),
-                  ),
-                if (kDebugMode) ...[
-                  const SizedBox(height: 16),
-                  _SectionTitle(title: 'Developer', subtitle: 'Debug tools'),
-                  const SizedBox(height: 8),
-                  Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.storage_outlined),
-                      title: const Text('Chat History DB'),
-                      subtitle: const Text('View stored chat sessions'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => _openChatDbViewer(context),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 24),
-                FilledButton.icon(
-                    onPressed: () => _confirmLogout(context),
-                    icon: const Icon(Icons.logout),
-                    label: const Text('Log out'),
-                ),
-              ],
-            ),
-          );
-                },
-              ),
-              floatingActionButton: FutureBuilder<SettingsData>(
-                future: blocContext.watch<SettingsCubit>().state.future,
-                builder: (context, snapshot) {
-                  return FloatingActionButton.extended(
-                    heroTag: 'settings_fab',
-                    onPressed: snapshot.hasData
-                        ? () => _openActionSheet(context, snapshot.data!)
-                        : null,
-                    icon: const Icon(Icons.tune),
-                    label: const Text('Manage'),
-                  );
-                },
-              ),
-            ),
-          );
-        },
+          },
         ),
       ),
     );
