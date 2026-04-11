@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+ 
 /// Shared visuals for Finance Mobile (splash, onboarding, [MaterialApp]).
 abstract final class ExpenseAppTheme {
   static const Color seedColor = Color(0xFF0E7490);
