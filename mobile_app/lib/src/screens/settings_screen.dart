@@ -10,6 +10,7 @@ import '../cubits/settings/settings_cubit.dart';
 import '../cubits/settings/settings_state.dart';
 import '../cubits/shell/shell_cubit.dart';
 import '../cubits/shell/shell_state.dart';
+import '../models/app_lock_config.dart';
 import '../models/auth_session.dart';
 import '../repository/finance_repository.dart';
 import '../models/currency_option.dart';
@@ -34,6 +35,12 @@ class SettingsScreen extends StatelessWidget {
     required this.currency,
     required this.onCurrencyChanged,
     required this.onLogout,
+    required this.appLockConfig,
+    required this.biometricsSupported,
+    required this.onSetPin,
+    required this.onChangePin,
+    required this.onRemovePin,
+    required this.onBiometricsChanged,
     required this.onOpenProfile,
     super.key,
   });
@@ -42,6 +49,12 @@ class SettingsScreen extends StatelessWidget {
   final CurrencyOption currency;
   final Future<void> Function(CurrencyOption currency) onCurrencyChanged;
   final Future<void> Function() onLogout;
+  final AppLockConfig appLockConfig;
+  final bool biometricsSupported;
+  final Future<bool> Function(String pin) onSetPin;
+  final Future<bool> Function(String currentPin, String newPin) onChangePin;
+  final Future<bool> Function(String pin) onRemovePin;
+  final Future<bool> Function(bool enabled) onBiometricsChanged;
   final Future<void> Function() onOpenProfile;
 
   Future<void> _openCategoryEntries(
@@ -186,6 +199,95 @@ class SettingsScreen extends StatelessWidget {
     await Navigator.of(
       context,
     ).push<void>(MaterialPageRoute<void>(builder: (_) => const AboutScreen()));
+  }
+
+  Future<void> _setPinFlow(BuildContext context) async {
+    final result = await showDialog<_PinSetupResult>(
+      context: context,
+      builder: (context) => const _PinSetupDialog(),
+    );
+
+    if (!context.mounted || result == null) {
+      return;
+    }
+
+    final success = await onSetPin(result.pin);
+    if (!context.mounted) {
+      return;
+    }
+
+    if (success) {
+      _showMessage(context, 'App lock enabled');
+    } else {
+      AppToast.error(context, 'Could not enable app lock.');
+    }
+  }
+
+  Future<void> _changePinFlow(BuildContext context) async {
+    final result = await showDialog<_PinChangeResult>(
+      context: context,
+      builder: (context) => const _PinChangeDialog(),
+    );
+
+    if (!context.mounted || result == null) {
+      return;
+    }
+
+    final success = await onChangePin(result.currentPin, result.newPin);
+    if (!context.mounted) {
+      return;
+    }
+
+    if (success) {
+      _showMessage(context, 'PIN updated');
+    } else {
+      AppToast.error(context, 'Current PIN is incorrect.');
+    }
+  }
+
+  Future<void> _removePinFlow(BuildContext context) async {
+    final pin = await showDialog<String>(
+      context: context,
+      builder: (context) => const _PinEntryDialog(
+        title: 'Remove app lock',
+        description: 'Enter your current PIN to turn off app lock.',
+        actionLabel: 'Remove',
+      ),
+    );
+
+    if (!context.mounted || pin == null) {
+      return;
+    }
+
+    final success = await onRemovePin(pin);
+    if (!context.mounted) {
+      return;
+    }
+
+    if (success) {
+      _showMessage(context, 'App lock disabled');
+    } else {
+      AppToast.error(context, 'Current PIN is incorrect.');
+    }
+  }
+
+  Future<void> _toggleBiometrics(BuildContext context, bool value) async {
+    final success = await onBiometricsChanged(value);
+    if (!context.mounted) {
+      return;
+    }
+
+    if (success) {
+      _showMessage(
+        context,
+        value ? 'Biometric unlock enabled' : 'Biometric unlock disabled',
+      );
+    } else {
+      AppToast.error(
+        context,
+        'Biometric unlock is not available on this device.',
+      );
+    }
   }
 
   Future<void> _selectCurrency(BuildContext context) async {
@@ -572,6 +674,16 @@ class SettingsScreen extends StatelessWidget {
                                     ),
                                   ),
                                   const SizedBox(height: 16),
+                                  _AppLockCard(
+                                    config: appLockConfig,
+                                    biometricsSupported: biometricsSupported,
+                                    onSetPin: () => _setPinFlow(context),
+                                    onChangePin: () => _changePinFlow(context),
+                                    onRemovePin: () => _removePinFlow(context),
+                                    onBiometricsChanged: (value) =>
+                                        _toggleBiometrics(context, value),
+                                  ),
+                                  const SizedBox(height: 16),
                                   ListTile(
                                     contentPadding: EdgeInsets.zero,
                                     leading: const Icon(
@@ -847,6 +959,372 @@ class _InfoCard extends StatelessWidget {
     );
   }
 }
+
+class _AppLockCard extends StatelessWidget {
+  const _AppLockCard({
+    required this.config,
+    required this.biometricsSupported,
+    required this.onSetPin,
+    required this.onChangePin,
+    required this.onRemovePin,
+    required this.onBiometricsChanged,
+  });
+
+  final AppLockConfig config;
+  final bool biometricsSupported;
+  final Future<void> Function() onSetPin;
+  final Future<void> Function() onChangePin;
+  final Future<void> Function() onRemovePin;
+  final ValueChanged<bool> onBiometricsChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitle = !config.isEnabled
+        ? 'Protect the app with a 4-digit PIN.'
+        : config.biometricsEnabled
+        ? 'PIN lock is on. Biometrics can also unlock the app.'
+        : 'PIN lock is on. Biometrics are currently off.';
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'App Lock',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(height: 12),
+            if (!config.isEnabled)
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: onSetPin,
+                  icon: const Icon(Icons.lock_outline),
+                  label: const Text('Set PIN'),
+                ),
+              )
+            else ...[
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: onChangePin,
+                  icon: const Icon(Icons.password_outlined),
+                  label: const Text('Change PIN'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: onRemovePin,
+                  icon: const Icon(Icons.lock_open_outlined),
+                  label: const Text('Turn Off App Lock'),
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: config.isEnabled && config.biometricsEnabled,
+              onChanged: config.isEnabled && biometricsSupported
+                  ? onBiometricsChanged
+                  : null,
+              secondary: const Icon(Icons.fingerprint),
+              title: const Text('Unlock with biometrics'),
+              subtitle: Text(
+                !config.isEnabled
+                    ? 'Set a PIN first to enable biometric unlock.'
+                    : biometricsSupported
+                    ? 'Use fingerprint or face unlock when supported.'
+                    : 'This device does not report biometric support.',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PinEntryDialog extends StatefulWidget {
+  const _PinEntryDialog({
+    required this.title,
+    required this.description,
+    required this.actionLabel,
+  });
+
+  final String title;
+  final String description;
+  final String actionLabel;
+
+  @override
+  State<_PinEntryDialog> createState() => _PinEntryDialogState();
+}
+
+class _PinEntryDialogState extends State<_PinEntryDialog> {
+  final TextEditingController _controller = TextEditingController();
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final pin = _controller.text.trim();
+    if (!_isValidPin(pin)) {
+      setState(() {
+        _errorText = 'Enter exactly 4 digits.';
+      });
+      return;
+    }
+    Navigator.of(context).pop(pin);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(widget.description),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            obscureText: true,
+            maxLength: 4,
+            decoration: InputDecoration(
+              labelText: 'PIN',
+              border: const OutlineInputBorder(),
+              counterText: '',
+              errorText: _errorText,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _submit, child: Text(widget.actionLabel)),
+      ],
+    );
+  }
+}
+
+class _PinSetupDialog extends StatefulWidget {
+  const _PinSetupDialog();
+
+  @override
+  State<_PinSetupDialog> createState() => _PinSetupDialogState();
+}
+
+class _PinSetupDialogState extends State<_PinSetupDialog> {
+  final TextEditingController _pinController = TextEditingController();
+  final TextEditingController _confirmController = TextEditingController();
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _pinController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final pin = _pinController.text.trim();
+    final confirm = _confirmController.text.trim();
+    if (!_isValidPin(pin)) {
+      setState(() {
+        _errorText = 'PIN must be exactly 4 digits.';
+      });
+      return;
+    }
+    if (pin != confirm) {
+      setState(() {
+        _errorText = 'PIN confirmation does not match.';
+      });
+      return;
+    }
+
+    Navigator.of(context).pop(_PinSetupResult(pin: pin));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Set app lock PIN'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Create a 4-digit PIN to lock the app.'),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _pinController,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            obscureText: true,
+            maxLength: 4,
+            decoration: const InputDecoration(
+              labelText: 'New PIN',
+              border: OutlineInputBorder(),
+              counterText: '',
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _confirmController,
+            keyboardType: TextInputType.number,
+            obscureText: true,
+            maxLength: 4,
+            decoration: InputDecoration(
+              labelText: 'Confirm PIN',
+              border: const OutlineInputBorder(),
+              counterText: '',
+              errorText: _errorText,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Save')),
+      ],
+    );
+  }
+}
+
+class _PinChangeDialog extends StatefulWidget {
+  const _PinChangeDialog();
+
+  @override
+  State<_PinChangeDialog> createState() => _PinChangeDialogState();
+}
+
+class _PinChangeDialogState extends State<_PinChangeDialog> {
+  final TextEditingController _currentController = TextEditingController();
+  final TextEditingController _nextController = TextEditingController();
+  final TextEditingController _confirmController = TextEditingController();
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _currentController.dispose();
+    _nextController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final currentPin = _currentController.text.trim();
+    final newPin = _nextController.text.trim();
+    final confirmPin = _confirmController.text.trim();
+
+    if (!_isValidPin(currentPin) || !_isValidPin(newPin)) {
+      setState(() {
+        _errorText = 'Each PIN must be exactly 4 digits.';
+      });
+      return;
+    }
+    if (newPin != confirmPin) {
+      setState(() {
+        _errorText = 'New PIN confirmation does not match.';
+      });
+      return;
+    }
+
+    Navigator.of(
+      context,
+    ).pop(_PinChangeResult(currentPin: currentPin, newPin: newPin));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Change PIN'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Enter your current PIN and choose a new 4-digit PIN.'),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _currentController,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            obscureText: true,
+            maxLength: 4,
+            decoration: const InputDecoration(
+              labelText: 'Current PIN',
+              border: OutlineInputBorder(),
+              counterText: '',
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _nextController,
+            keyboardType: TextInputType.number,
+            obscureText: true,
+            maxLength: 4,
+            decoration: const InputDecoration(
+              labelText: 'New PIN',
+              border: OutlineInputBorder(),
+              counterText: '',
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _confirmController,
+            keyboardType: TextInputType.number,
+            obscureText: true,
+            maxLength: 4,
+            decoration: InputDecoration(
+              labelText: 'Confirm new PIN',
+              border: const OutlineInputBorder(),
+              counterText: '',
+              errorText: _errorText,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Update')),
+      ],
+    );
+  }
+}
+
+class _PinSetupResult {
+  const _PinSetupResult({required this.pin});
+
+  final String pin;
+}
+
+class _PinChangeResult {
+  const _PinChangeResult({required this.currentPin, required this.newPin});
+
+  final String currentPin;
+  final String newPin;
+}
+
+bool _isValidPin(String pin) => RegExp(r'^\d{4}$').hasMatch(pin);
 
 class _BudgetTile extends StatelessWidget {
   const _BudgetTile({

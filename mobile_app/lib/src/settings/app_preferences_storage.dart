@@ -1,9 +1,14 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/app_lock_config.dart';
+
 class AppPreferencesStorage {
   static const _currencyCodeKey = 'selected_currency_code';
   static const _chatAgentKey = 'selected_chat_agent';
   static const _onboardingCompletedKey = 'onboarding_completed';
+  static const _appLockPinHashKey = 'app_lock_pin_hash';
+  static const _appLockPinSaltKey = 'app_lock_pin_salt';
+  static const _appLockBiometricEnabledKey = 'app_lock_biometric_enabled';
 
   Future<String?> readCurrencyCode() async {
     final preferences = await SharedPreferences.getInstance();
@@ -44,5 +49,33 @@ class AppPreferencesStorage {
   Future<void> writeOnboardingCompleted(bool value) async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setBool(_onboardingCompletedKey, value);
+  }
+
+  Future<AppLockConfig> readAppLockConfig() async {
+    final preferences = await SharedPreferences.getInstance();
+    return AppLockConfig(
+      pinHash: preferences.getString(_appLockPinHashKey),
+      pinSalt: preferences.getString(_appLockPinSaltKey),
+      biometricsEnabled:
+          preferences.getBool(_appLockBiometricEnabledKey) ?? false,
+    );
+  }
+
+  Future<void> writeAppLockConfig({
+    required String pinHash,
+    required String pinSalt,
+    required bool biometricsEnabled,
+  }) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(_appLockPinHashKey, pinHash);
+    await preferences.setString(_appLockPinSaltKey, pinSalt);
+    await preferences.setBool(_appLockBiometricEnabledKey, biometricsEnabled);
+  }
+
+  Future<void> clearAppLockConfig() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.remove(_appLockPinHashKey);
+    await preferences.remove(_appLockPinSaltKey);
+    await preferences.remove(_appLockBiometricEnabledKey);
   }
 }

@@ -4,6 +4,7 @@ import '../api/auth_api.dart';
 import '../auth/auth_storage.dart';
 import '../database/finance_database_holder.dart';
 import '../repository/finance_repository.dart';
+import '../services/app_lock_service.dart';
 import '../settings/app_preferences_storage.dart';
 
 final GetIt sl = GetIt.instance;
@@ -17,6 +18,9 @@ Future<void> setupServiceLocator() async {
   sl
     ..registerLazySingleton<AuthStorage>(AuthStorage.new)
     ..registerLazySingleton<AppPreferencesStorage>(AppPreferencesStorage.new)
+    ..registerLazySingleton<AppLockService>(
+      () => AppLockService(preferencesStorage: sl()),
+    )
     ..registerLazySingleton<AuthApi>(AuthApi.new);
 
   // Repository depends on token, so it's registered as a factory.
@@ -27,4 +31,3 @@ Future<void> setupServiceLocator() async {
     ),
   );
 }
-
