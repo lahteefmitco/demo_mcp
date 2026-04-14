@@ -1,0 +1,6 @@
+{
+    "terminal.integrated.env.osx": {
+        "PATH": "/Users/mictco/development/flutter/bin:${env:PATH}"
+    },
+    "cmake.ignoreCMakeListsMissing": true
+}

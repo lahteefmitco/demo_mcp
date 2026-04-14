@@ -1,298 +1,251 @@
-# Personal Expense Manager with MCP
+# Personal Finance Manager with MCP
 
 This project includes:
 
-- An Express.js REST API for managing personal expenses
-- PostgreSQL persistence with Sequelize
-- A sample MCP server that exposes expense tools over stdio
-- Claude Desktop connection instructions
+- An Express.js API for categories, expenses, incomes, and budgets
+- PostgreSQL with Sequelize raw SQL queries
+- MCP servers over `stdio` and remote HTTP
+- A Flutter mobile client
+- A LangChain-powered AI assistant with MCP tools, RAG, pgvector memory, and multi-LLM routing
 
 ## Features
 
-- Create, list, update, and delete expenses
-- Filter expenses by category or date range
-- Monthly summary grouped by category
-- Reuse the same PostgreSQL database from both the API and the MCP server
-- Use Sequelize as the ORM while executing raw SQL queries
+- Manage expense and income categories
+- Track expenses and incomes
+- Create budgets for `daily`, `weekly`, `monthly`, and `yearly` periods
+- View finance dashboard totals for a month
+- Access the same finance data from REST, MCP, and chat
+- Run semantic search over expenses, incomes, categories, and prior AI conversations
+- Detect overspending, anomalies, and month-over-month trends
+- Switch chat and embedding providers between Gemini, Mistral, and OpenRouter
 
 ## Project Structure
 
 ```text
 src/
   app.js
+  ai/
+    agent/
+    insights/
+    llm/providers/
+    memory/
+    vector/
   db.js
   schema.sql
-  routes/expenses.js
-  services/expense-service.js
+  routes/finance.js
+  services/finance-service.js
+  services/chat-service.js
   scripts/init-db.js
+  mcp/create-server.js
   mcp/server.js
+
+mobile_app/
+  lib/
 ```
 
-## 1. Install Dependencies
+## Environment
 
-```bash
-npm install
-```
-
-## 2. Start PostgreSQL
-
-The quickest option is Docker Compose:
-
-```bash
-docker compose up -d
-```
-
-You can also create the database manually with `psql` if PostgreSQL is already installed locally.
-
-## 3. Create PostgreSQL Database
-
-Example using `psql`:
-
-```bash
-createdb expense_manager
-```
-
-Copy the env file and update it if needed:
+Copy the example file:
 
 ```bash
 cp .env.example .env
 ```
 
-Example `.env`:
+Example values:
 
 ```env
 PORT=3000
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/expense_manager
+DATABASE_URL=postgresql://postgres:your_password@localhost:5432/expense_manager
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_EMBEDDING_MODEL=text-embedding-004
+AI_PROVIDER=gemini
+EMBEDDING_PROVIDER=gemini
+EMBEDDING_DIMENSIONS=768
 ```
 
-Initialize the database schema:
+## Initialize the Database
 
 ```bash
+npm install
 npm run db:init
+npm run db:migrate-ai
+npm run ai:reindex
 ```
 
-## 4. Run the Express API
+Important:
+
+- `db:init` recreates the finance schema
+- it is intended for a fresh demo environment
+- rerunning it will reset old local data
+
+## Run the API
 
 ```bash
 npm run dev
 ```
 
-Available endpoints:
+Useful endpoints:
 
 - `GET /health`
-- `GET /api/expenses`
-- `GET /api/expenses?category=Food&from=2026-04-01&to=2026-04-30`
-- `GET /api/expenses/summary?month=2026-04`
-- `GET /api/expenses/:id`
-- `POST /api/expenses`
-- `PUT /api/expenses/:id`
-- `DELETE /api/expenses/:id`
+- `GET /api/finance/dashboard?month=2026-04`
+- `GET /api/finance/summary?month=2026-04`
+- `GET /api/finance/categories`
+- `POST /api/finance/categories`
+- `GET /api/finance/expenses`
+- `POST /api/finance/expenses`
+- `GET /api/finance/incomes`
+- `POST /api/finance/incomes`
+- `GET /api/finance/budgets`
+- `POST /api/finance/budgets`
+- `POST /api/chat`
+- `POST /mcp`
 
-Example create request:
+## MCP
 
-```bash
-curl -X POST http://localhost:3000/api/expenses \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Groceries",
-    "amount": 42.50,
-    "category": "Food",
-    "spentOn": "2026-04-01",
-    "notes": "Weekly shopping"
-  }'
-```
-
-## 5. Run the MCP Server
-
-The MCP server uses stdio, which is the easiest way to connect from Claude Desktop:
+Local stdio MCP server:
 
 ```bash
 npm run mcp
 ```
 
-It exposes these tools:
-
-- `list_expenses`
-- `create_expense`
-- `monthly_summary`
-
-## 6. Connect to Claude Desktop
-
-Claude Desktop reads MCP server definitions from its config file.
-
-On macOS, open:
+Remote MCP endpoint:
 
 ```text
-~/Library/Application Support/Claude/claude_desktop_config.json
+POST /mcp
 ```
 
-Add a server entry like this and replace the paths with your local values:
+Main MCP tools:
 
-```json
-{
-  "mcpServers": {
-    "expense-manager": {
-      "command": "node",
-      "args": [
-        "/Users/mictco/Desktop/demo_mcp/src/mcp/server.js"
-      ],
-      "env": {
-        "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/expense_manager"
-      }
-    }
-  }
-}
+- `finance_dashboard`
+- `period_summary`
+- `list_categories`
+- `create_category`
+- `list_expenses`
+- `create_expense`
+- `list_incomes`
+- `create_income`
+- `list_budgets`
+- `create_budget`
+
+The AI layer keeps MCP as the tool boundary. LangChain wraps the MCP tool catalog rather than calling finance persistence directly.
+
+## AI Architecture
+
+```text
+User chat
+  -> LangChain agent
+     -> MCP-backed finance tools
+     -> pgvector semantic retriever
+     -> financial insights service
+  -> response + vector memory write
 ```
 
-If you prefer to launch through npm:
+Folder structure:
 
-```json
-{
-  "mcpServers": {
-    "expense-manager": {
-      "command": "npm",
-      "args": [
-        "run",
-        "mcp"
-      ],
-      "cwd": "/Users/mictco/Desktop/demo_mcp",
-      "env": {
-        "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/expense_manager"
-      }
-    }
-  }
-}
+```text
+src/ai/
+  agent/
+    finance-agent.js
+    json-schema-to-zod.js
+    mcp-langchain-tools.js
+  insights/
+    finance-insights-service.js
+  llm/
+    provider-factory.js
+    providers/
+      gemini.provider.js
+      mistral.provider.js
+      openrouter.provider.js
+      generic.provider.js
+  memory/
+    conversation-memory.js
+  vector/
+    document-store.js
+    finance-document-sync.js
+    finance-retriever.js
+    pgvector-utils.js
 ```
 
-After saving the file:
+## pgvector Schema
 
-1. Quit Claude Desktop completely
-2. Reopen Claude Desktop
-3. Start a new chat
-4. Confirm the `expense-manager` MCP server is available
+`npm run db:migrate-ai` creates:
 
-## 7. Deploy to Render with Neon
+- `ai_documents`
+- `vector` and `pgcrypto` extensions
+- metadata and user/type indexes
+- HNSW similarity index with IVFFLAT fallback
 
-This project is a good fit for:
+Embedded document types:
 
-- Render for hosting the Express API
-- Neon for hosting PostgreSQL
-- Claude Desktop connecting to the MCP server locally on your machine
+- `expense`
+- `income`
+- `category`
+- `query_memory`
 
-### Architecture
+## Multi-LLM
 
-- Render hosts the Express API from [src/app.js](/Users/mictco/Desktop/demo_mcp/src/app.js)
-- Neon hosts the PostgreSQL database
-- Claude Desktop connects to the local MCP server from [src/mcp/server.js](/Users/mictco/Desktop/demo_mcp/src/mcp/server.js)
+Provider selection is environment-driven:
 
-Hosting the Express API on Render does not replace the local MCP server. Claude Desktop still talks to the MCP server over local stdio.
+- `AI_PROVIDER=gemini|mistral|openrouter`
+- `EMBEDDING_PROVIDER=gemini|mistral|openrouter|generic`
 
-### 1. Prepare Neon
+OpenRouter can be used for model routing. Generic embeddings can target any OpenAI-compatible embedding endpoint.
 
-1. Create a Neon project
-2. Copy the pooled connection string from the Neon dashboard
-3. Prefer `sslmode=verify-full` for production-style usage
+## Render + Neon
 
-Example:
+Recommended production setup:
 
-```env
-DATABASE_URL=postgresql://neondb_owner:YOUR_PASSWORD@ep-example-pooler.us-east-1.aws.neon.tech/neondb?sslmode=verify-full&channel_binding=require
-```
+- Render for the Node app
+- Neon for PostgreSQL
 
-If you exposed your Neon password anywhere, rotate it before deploying.
+Render environment variables:
 
-### 2. Push the Project to GitHub
+- `DATABASE_URL`
+- `GEMINI_API_KEY`
+- `GEMINI_MODEL=gemini-2.5-flash`
 
-Render deploys this app cleanly from a GitHub repository, so push the full project first.
-
-### 3. Create a Render Web Service
-
-In Render:
-
-1. Create a new `Web Service`
-2. Select your GitHub repository
-3. Use these settings:
-
-- Environment: `Node`
-- Build Command: `npm install`
-- Start Command: `npm start`
-
-Render will provide the `PORT` environment variable automatically. This app already reads `PORT`, so no code changes are required for that.
-
-### 4. Add Environment Variables in Render
-
-Set this environment variable in the Render dashboard:
-
-```env
-DATABASE_URL=postgresql://neondb_owner:YOUR_PASSWORD@ep-example-pooler.us-east-1.aws.neon.tech/neondb?sslmode=verify-full&channel_binding=require
-```
-
-You do not usually need to set `PORT` manually on Render.
-
-### 5. Initialize the Database Schema
-
-Render will deploy the API, but it will not automatically create your tables unless you run the schema initialization step.
-
-Run this once against your Neon database:
+After deploying, initialize the schema once against Neon:
 
 ```bash
 npm run db:init
 ```
 
-You can run it locally as long as your local `.env` points to the same Neon `DATABASE_URL`.
+## Flutter App
 
-### 6. Verify the Deployment
+The Flutter client lives in [mobile_app](/Users/mictco/Desktop/demo_mcp/mobile_app).
 
-After Render finishes deploying, open:
+Run it with:
 
-- `https://YOUR-RENDER-SERVICE.onrender.com/`
-- `https://YOUR-RENDER-SERVICE.onrender.com/health`
-- `https://YOUR-RENDER-SERVICE.onrender.com/api/expenses`
-
-Expected responses:
-
-- `/` returns a welcome JSON message
-- `/health` returns API health status
-- `/api/expenses` returns your stored expense records
-
-### 7. Connect Claude Desktop to the Same Neon Database
-
-Keep the MCP server local on your Mac, but point it to the Neon database.
-
-Example Claude Desktop config on macOS:
-
-```json
-{
-  "mcpServers": {
-    "expense-manager": {
-      "command": "/opt/homebrew/bin/node",
-      "args": [
-        "/Users/mictco/Desktop/demo_mcp/src/mcp/server.js"
-      ],
-      "env": {
-        "DATABASE_URL": "postgresql://neondb_owner:YOUR_PASSWORD@ep-example-pooler.us-east-1.aws.neon.tech/neondb?sslmode=verify-full&channel_binding=require"
-      }
-    }
-  }
-}
+```bash
+cd mobile_app
+flutter pub get
+flutter run --dart-define=API_BASE_URL=https://your-render-url.onrender.com
 ```
 
-This lets:
+The app supports:
 
-- Render use Neon for the hosted API
-- Claude Desktop use the same Neon database through your local MCP server
+- finance dashboard
+- add expense
+- add income
+- add budget
+- add category
+- chat assistant
 
-### Production Notes
+## Chat
 
-- Use the Neon pooled connection string for hosted environments
-- Keep secrets only in `.env` locally and Render environment variables in production
-- Do not commit live credentials to Git
-- Rotate credentials if they were ever shared
-- Run `npm run db:init` whenever you need to initialize a fresh database
-- If you later add migrations, use migrations instead of running the full schema file repeatedly
+`POST /api/chat` uses LangChain as the orchestration layer and gives the selected model access to:
 
-## Notes
+- the existing MCP finance tools
+- semantic retrieval over pgvector
+- overspending and anomaly insight generation
+- long-term vector memory of prior finance chats
 
-- Claude Desktop must be able to find `node` on your machine if you use the `node` command directly.
-- The MCP server and the API both require PostgreSQL to be running.
-- If Claude Desktop does not load the server, check its logs and verify the absolute paths in the config.
+This lets the mobile chat tab handle prompts like:
+
+- "Add an income of 5000 for freelance today"
+- "Create a monthly food budget of 300"
+- "Show my balance for this month"
+- "Where am I overspending?"
+- "Show unusual expenses"
+- "Compare this month with last month"

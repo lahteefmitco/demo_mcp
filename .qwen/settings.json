@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter *)",
+      "Bash(chmod *)",
+      "Bash(./gradlew *)",
+      "Bash(file *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(echo *)",
+      "Bash(source *)",
+      "Bash(launchctl *)",
+      "Bash(tr *)"
+    ]
+  },
+  "$version": 3
+}

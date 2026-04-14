@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Delete Your <%= appName %> Account</title>
+  </head>
+  <body style="margin:0;padding:24px;background:#f4f7fb;font-family:Arial,sans-serif;color:#111827;">
+    <div style="max-width:720px;margin:0 auto;background:#ffffff;border-radius:18px;padding:32px;">
+      <h1 style="margin-top:0;color:#0f766e;">Delete your <%= appName %> account</h1>
+      <p>This page belongs to <strong><%= developerName %></strong> and explains how users can request deletion of their <strong><%= appName %></strong> account and associated data.</p>
+
+      <h2>How to request deletion</h2>
+      <ol>
+        <li>Sign in below with the email address and password for your <%= appName %> account.</li>
+        <li>If your account is verified, we send a confirmation email containing a secure deletion link.</li>
+        <li>If your account is not verified, we delete it immediately after confirming your credentials.</li>
+      </ol>
+
+      <% if (message) { %>
+        <div style="margin:20px 0;padding:14px 16px;border-radius:12px;background:<%= success ? '#ecfdf5' : '#fef2f2' %>;color:<%= success ? '#065f46' : '#991b1b' %>;">
+          <%= message %>
+        </div>
+      <% } %>
+
+      <form method="post" action="<%= requestUrl %>" style="margin:24px 0;padding:20px;border:1px solid #e5e7eb;border-radius:16px;background:#f8fafc;">
+        <h2 style="margin-top:0;">Request account deletion</h2>
+        <label style="display:block;margin-bottom:12px;">
+          <span style="display:block;margin-bottom:6px;font-weight:600;">Email</span>
+          <input
+            type="email"
+            name="email"
+            value="<%= email || '' %>"
+            required
+            style="width:100%;padding:12px 14px;border:1px solid #cbd5e1;border-radius:10px;box-sizing:border-box;"
+          />
+        </label>
+        <label style="display:block;margin-bottom:16px;">
+          <span style="display:block;margin-bottom:6px;font-weight:600;">Password</span>
+          <input
+            type="password"
+            name="password"
+            required
+            style="width:100%;padding:12px 14px;border:1px solid #cbd5e1;border-radius:10px;box-sizing:border-box;"
+          />
+        </label>
+        <button
+          type="submit"
+          style="background:#b91c1c;color:#ffffff;border:none;border-radius:10px;padding:12px 18px;font-weight:600;cursor:pointer;"
+        >
+          Continue deletion request
+        </button>
+      </form>
+
+      <h2>What data is deleted</h2>
+      <p>When deletion is completed, we remove the following from the primary application database:</p>
+      <ul>
+        <li>User profile and login credentials</li>
+        <li>Categories</li>
+        <li>Expenses</li>
+        <li>Incomes</li>
+        <li>Budgets</li>
+        <li>Active auth and verification tokens</li>
+      </ul>
+
+      <h2>What may be retained temporarily</h2>
+      <p>Operational infrastructure records such as server logs or email delivery logs may remain outside the primary application database for a limited retention period, typically up to 30 days, before automatic cleanup.</p>
+
+      <h2>Partial data deletion</h2>
+      <p>At this time, <%= appName %> does not provide a separate self-service flow for deleting only part of your data without deleting the account.</p>
+    </div>
+  </body>
+</html>
