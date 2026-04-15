@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { logger } from "../logger.js";
 import ejs from "ejs";
 import nodemailer from "nodemailer";
 
@@ -58,6 +59,7 @@ async function sendEmail({ to, subject, template, data, text }) {
 }
 
 export async function sendVerificationEmail({ to, name, token }) {
+  try{
   const verificationUrl = `${appBaseUrl}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
 
   await sendEmail({
@@ -70,6 +72,13 @@ export async function sendVerificationEmail({ to, name, token }) {
     },
     text: `Verify your email by opening this link: ${verificationUrl}`
   });
+  return true;
+  } catch (error) {
+    logger.error(`Error sending verification email: ${error?.message || error}`, {
+      stack: error?.stack
+    });
+    return false;
+  }
 }
 
 export async function sendPasswordResetEmail({ to, name, token }) {

@@ -3,6 +3,7 @@ import express from "express";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createExpenseManagerServer } from "./mcp/create-server.js";
 import { authenticateRequest, requireAuth, unauthorizedJsonRpcResponse } from "./middleware/auth-middleware.js";
+import { logger, requestLogger } from "./logger.js";
 import { runExpenseChat } from "./services/chat-service.js";
 import authRouter from "./routes/auth.js";
 import financeRouter from "./routes/finance.js";
@@ -14,8 +15,10 @@ const port = Number(process.env.PORT || 3000);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(requestLogger());
 
 app.get("/", (_req, res) => {
+  logger.info("Welcome to the Personal Finance API (root)");
   res.json({ message: "Welcome to the Personal Finance API" });
 });
 
@@ -50,7 +53,9 @@ app.post("/mcp", async (req, res) => {
       server.close().catch(() => {});
     });
   } catch (error) {
-    console.error("MCP request failed", error);
+    logger.error(`MCP request failed: ${error?.message || error}`, {
+      stack: error?.stack
+    });
 
     if (!res.headersSent) {
       if (error.statusCode === 401) {
@@ -94,7 +99,7 @@ app.delete("/mcp", (_req, res) => {
 app.use("/api/finance", requireAuth, financeRouter);
 
 app.use((error, _req, res, _next) => {
-  console.error(error);
+  logger.error(error?.message || String(error), { stack: error?.stack });
   const statusCode = error.statusCode || 500;
   res.status(statusCode).json({
     error: statusCode === 401 ? "Unauthorized" : "Internal server error",
@@ -103,5 +108,5 @@ app.use((error, _req, res, _next) => {
 });
 
 app.listen(port, () => {
-  console.log(`Personal finance API listening on http://localhost:${port}`);
+  logger.info(`Personal finance API listening on http://localhost:${port}`);
 });

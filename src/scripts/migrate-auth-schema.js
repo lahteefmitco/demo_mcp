@@ -1,8 +1,6 @@
 import crypto from "node:crypto";
-import dotenv from "dotenv";
+import { logger } from "../logger.js";
 import { QueryTypes, closeDatabase, query, sequelize } from "../db.js";
-
-dotenv.config({ quiet: true });
 
 const legacyUserName = process.env.LEGACY_USER_NAME || "Legacy User";
 const legacyUserEmail = process.env.LEGACY_USER_EMAIL || "legacy@example.com";
@@ -466,16 +464,18 @@ async function main() {
       { transaction }
     );
 
-    console.log("Non-destructive auth migration completed.");
-    console.log(`Legacy user email: ${legacyUserEmail.toLowerCase()}`);
-    console.log(`Legacy user password: ${legacyUserPassword}`);
+    logger.info("Non-destructive auth migration completed.");
+    logger.info(`Legacy user email: ${legacyUserEmail.toLowerCase()}`);
+    logger.info("Legacy user password is set from LEGACY_USER_PASSWORD (not logged).");
   });
 }
 
 main()
   .catch((error) => {
-    console.error("Failed to migrate auth schema.");
-    console.error(error);
+    logger.error("Failed to migrate auth schema.", {
+      message: error?.message,
+      stack: error?.stack
+    });
     process.exitCode = 1;
   })
   .finally(async () => {

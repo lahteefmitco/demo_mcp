@@ -1,8 +1,6 @@
-import dotenv from "dotenv";
+import { logger } from "../logger.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createExpenseManagerServer } from "./create-server.js";
-
-dotenv.config({ quiet: true });
 
 async function main() {
   const server = createExpenseManagerServer();
@@ -11,7 +9,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("MCP server failed to start.");
-  console.error(error);
+  logger.error("MCP server failed to start.", { stack: error?.stack, message: error?.message });
   process.exit(1);
 });

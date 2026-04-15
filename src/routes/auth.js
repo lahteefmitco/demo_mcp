@@ -1,4 +1,5 @@
 import express from "express";
+import { logger } from "../logger.js";
 import { requireAuth } from "../middleware/auth-middleware.js";
 import {
   authenticateUserCredentials,
@@ -71,11 +72,15 @@ router.post("/auth/register", async (req, res, next) => {
     const user = await registerUser(value);
     const token = await resendVerificationForEmail(user.email);
     if (token.user && token.token) {
-      await sendVerificationEmail({
+     const isSent = await sendVerificationEmail({
         to: user.email,
         name: user.name,
         token: token.token
       });
+      logger.info(`Verification email send result: ${isSent}`);
+      if (!isSent) {
+        return res.status(500).json({ error: "Failed to send verification email" });
+      }
     }
 
     res.status(201).json({

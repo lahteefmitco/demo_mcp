@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 
 import 'package:http/http.dart' as http;
 
@@ -9,7 +10,8 @@ class AuthApi {
     : _client = client ?? http.Client(),
       baseUrl = const String.fromEnvironment(
         'API_BASE_URL',
-        defaultValue: 'https://demo-mcp-l0rq.onrender.com',
+        //defaultValue: 'https://demo-mcp-l0rq.onrender.com',
+        defaultValue: 'http://10.0.2.2:3000',
       );
 
   final http.Client _client;
@@ -33,6 +35,9 @@ class AuthApi {
     required String email,
     required String password,
   }) async {
+    log("login url: $baseUrl/api/auth/login");
+    log("email: $email");
+    log("password: $password");
     final response = await _client.post(
       Uri.parse('$baseUrl/api/auth/login'),
       headers: const {'Content-Type': 'application/json'},

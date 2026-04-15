@@ -12,6 +12,7 @@ import {
   listIncomes,
   updateExpense
 } from "./finance-service.js";
+import { logger } from "../logger.js";
 import { formatProjectDate } from "../utils/date-utils.js";
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
@@ -331,12 +332,12 @@ async function runGeminiChat(history, user) {
 
     const data = await response.json();
 
-    console.log("LLM Request:", {
+    logger.debug("LLM Request", {
       provider: "gemini",
       model: geminiModel,
       historyLength: history.length
     });
-    console.log("LLM Response:", JSON.stringify(data, null, 2));
+    logger.debug("LLM Response", { body: data });
 
     const assistantMessage = data.candidates?.[0]?.content;
 
@@ -433,12 +434,12 @@ async function runOpenAiCompatibleChat(
 
     const data = await response.json();
 
-    console.log("LLM Request:", {
+    logger.debug("LLM Request", {
       provider,
       model,
       historyLength: history.length
     });
-    console.log("LLM Response:", JSON.stringify(data, null, 2));
+    logger.debug("LLM Response", { body: data });
 
     const assistantMessage = data.choices?.[0]?.message;
 
