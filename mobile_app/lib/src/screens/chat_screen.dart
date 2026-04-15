@@ -278,18 +278,88 @@ class _ChatActiveWatcherState extends State<_ChatActiveWatcher> {
   Widget build(BuildContext context) => widget.child;
 }
 
-class _MessagesList extends StatelessWidget {
+class _MessagesList extends StatefulWidget {
   const _MessagesList({required this.messages});
 
   final List<ChatUiMessage> messages;
 
   @override
+  State<_MessagesList> createState() => _MessagesListState();
+}
+
+class _MessagesListState extends State<_MessagesList> {
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.messages.isNotEmpty) {
+      _scrollToBottom();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _MessagesList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_messagesMeaningfullyChanged(oldWidget.messages, widget.messages)) {
+      _scrollToBottom();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// Scroll when the list is not the same instance and either length or the
+  /// last bubble changed (covers new messages without scrolling on `isSending`-only rebuilds).
+  static bool _messagesMeaningfullyChanged(
+    List<ChatUiMessage> oldList,
+    List<ChatUiMessage> newList,
+  ) {
+    if (identical(oldList, newList)) return false;
+    if (oldList.length != newList.length) return true;
+    if (oldList.isEmpty) return false;
+    final o = oldList.last;
+    final n = newList.last;
+    return o.role != n.role ||
+        o.content != n.content ||
+        o.chartData != n.chartData;
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      final max = _scroll.position.maxScrollExtent;
+      if (max <= 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !_scroll.hasClients) return;
+          final max2 = _scroll.position.maxScrollExtent;
+          _scroll.animateTo(
+            max2,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+          );
+        });
+        return;
+      }
+      _scroll.animateTo(
+        max,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ListView.builder(
+      controller: _scroll,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: messages.length,
+      itemCount: widget.messages.length,
       itemBuilder: (context, index) {
-        final message = messages[index];
+        final message = widget.messages[index];
         final isUser = message.role == 'user';
 
         if (message.chartData != null) {
