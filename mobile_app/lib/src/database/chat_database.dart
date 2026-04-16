@@ -1,9 +1,5 @@
-import 'dart:io';
-
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
+import 'drift_executor.dart';
 
 part 'chat_database.g.dart';
 
@@ -25,7 +21,7 @@ class ChatMessages extends Table {
 
 @DriftDatabase(tables: [ChatSessions, ChatMessages])
 class ChatDatabase extends _$ChatDatabase {
-  ChatDatabase._internal() : super(_openConnection());
+  ChatDatabase._internal() : super(openChatExecutor());
 
   static final ChatDatabase _instance = ChatDatabase._internal();
   factory ChatDatabase() => _instance;
@@ -80,12 +76,4 @@ class ChatDatabase extends _$ChatDatabase {
     await delete(chatMessages).go();
     await delete(chatSessions).go();
   }
-}
-
-LazyDatabase _openConnection() {
-  return LazyDatabase(() async {
-    final dbFolder = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dbFolder.path, 'chat_history.db'));
-    return NativeDatabase.createInBackground(file);
-  });
 }

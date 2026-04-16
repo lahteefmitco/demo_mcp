@@ -1,9 +1,5 @@
-import 'dart:io';
-
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
+import 'drift_executor.dart';
 
 part 'finance_database.g.dart';
 
@@ -144,18 +140,10 @@ class LocalBudgets extends Table {
   ],
 )
 class FinanceDatabase extends _$FinanceDatabase {
-  FinanceDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
+  FinanceDatabase([QueryExecutor? executor]) : super(executor ?? openFinanceExecutor());
 
   /// In-memory database for tests.
-  FinanceDatabase.memory() : super(NativeDatabase.memory());
-
-  static LazyDatabase _openConnection() {
-    return LazyDatabase(() async {
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File(p.join(dir.path, 'finance.sqlite'));
-      return NativeDatabase.createInBackground(file);
-    });
-  }
+  FinanceDatabase.memory() : super(openInMemoryExecutor());
 
   @override
   int get schemaVersion => 1;

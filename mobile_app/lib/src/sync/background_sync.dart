@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:workmanager/workmanager.dart';
 
@@ -12,10 +13,12 @@ const _oneOffUniqueName = 'finance.sync.oneoff';
 /// Registers Workmanager and periodic finance sync (best-effort when OS allows).
 class BackgroundSync {
   static Future<void> initialize() async {
+    if (kIsWeb) return;
     await Workmanager().initialize(callbackDispatcher);
   }
 
   static Future<void> registerPeriodicSync() async {
+    if (kIsWeb) return;
     await Workmanager().cancelByUniqueName(_uniqueTaskName);
     await Workmanager().registerPeriodicTask(
       _uniqueTaskName,
@@ -29,6 +32,7 @@ class BackgroundSync {
 
   /// Runs once when online after a short delay (e.g. immediate sync left rows pending).
   static Future<void> scheduleDeferredSync() async {
+    if (kIsWeb) return;
     await Workmanager().cancelByUniqueName(_oneOffUniqueName);
     await Workmanager().registerOneOffTask(
       _oneOffUniqueName,
@@ -41,6 +45,7 @@ class BackgroundSync {
   }
 
   static Future<void> cancelPeriodicSync() async {
+    if (kIsWeb) return;
     await Workmanager().cancelByUniqueName(_uniqueTaskName);
   }
 }
