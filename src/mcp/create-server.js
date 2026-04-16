@@ -34,6 +34,8 @@ import {
   updateExpense,
   updateIncome
 } from "../services/finance-service.js";
+import { ragSearchForUser } from "../services/rag-context.js";
+import { reindexUser } from "../services/rag-backfill-service.js";
 
 export function createExpenseManagerServer({ user }) {
   const userId = user.id;
@@ -434,6 +436,28 @@ export function createExpenseManagerServer({ user }) {
             accountId: { type: "number" }
           }
         }
+      },
+      {
+        name: "rag_search",
+        description:
+          "Semantic search over the user's embedded finance knowledge (pgvector + Mistral embeddings). Use for fuzzy recall of notes and past context.",
+        inputSchema: {
+          type: "object",
+          required: ["query"],
+          properties: {
+            query: { type: "string", description: "Search query in natural language." },
+            limit: { type: "number", description: "Max hits (1-24, default 8)." }
+          }
+        }
+      },
+      {
+        name: "rag_reindex_user",
+        description:
+          "Delete this user's ai_documents rows and rebuild them from categories, expenses, incomes, budgets, accounts, and transfers. Requires MISTRAL_API_KEY on the server.",
+        inputSchema: {
+          type: "object",
+          properties: {}
+        }
       }
     ]
   }));
@@ -556,6 +580,23 @@ export function createExpenseManagerServer({ user }) {
 
     if (name === "get_chart_data") {
       return jsonText(await getChartData(userId, args));
+    }
+
+    if (name === "rag_search") {
+      const rows = await ragSearchForUser(userId, args.query, args.limit);
+      return jsonText(
+        rows.map((row) => ({
+          content: row.content,
+          documentType: row.document_type,
+          sourceId: row.source_id,
+          distance: row.distance != null ? Number(row.distance) : null,
+          metadata: row.metadata
+        }))
+      );
+    }
+
+    if (name === "rag_reindex_user") {
+      return jsonText(await reindexUser(userId));
     }
 
     throw new Error(`Unknown tool: ${name}`);

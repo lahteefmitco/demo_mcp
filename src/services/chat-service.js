@@ -14,6 +14,7 @@ import {
 } from "./finance-service.js";
 import { logger } from "../logger.js";
 import { formatProjectDate } from "../utils/date-utils.js";
+import { buildRagContextBlock, getLastUserMessageText } from "./rag-context.js";
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const geminiModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
@@ -256,8 +257,17 @@ const toolDefinitions = [
 export async function runExpenseChat(history, provider = "gemini", user) {
   const normalizedProvider = normalizeProvider(provider);
 
+  let ragContext = "";
+  try {
+    ragContext = await buildRagContextBlock(user.id, getLastUserMessageText(history));
+  } catch (error) {
+    logger.warn("RAG context retrieval failed; continuing without retrieved context.", {
+      message: error?.message
+    });
+  }
+
   if (normalizedProvider === "gemini") {
-    return runGeminiChat(history, user);
+    return runGeminiChat(history, user, { ragContext });
   }
 
   if (normalizedProvider === "mistral") {
@@ -269,7 +279,8 @@ export async function runExpenseChat(history, provider = "gemini", user) {
       provider: "mistral",
       apiKey: mistralApiKey,
       model: mistralModel,
-      apiBaseUrl: mistralApiBaseUrl
+      apiBaseUrl: mistralApiBaseUrl,
+      ragContext
     });
   }
 
@@ -285,17 +296,18 @@ export async function runExpenseChat(history, provider = "gemini", user) {
     extraHeaders: {
       "HTTP-Referer": process.env.OPENROUTER_HTTP_REFERER || "http://localhost:3000",
       "X-Title": process.env.OPENROUTER_APP_TITLE || "Personal Finance Mobile"
-    }
+    },
+    ragContext
   });
 }
 
-async function runGeminiChat(history, user) {
+async function runGeminiChat(history, user, { ragContext = "" } = {}) {
   if (!geminiApiKey) {
     throw new Error("GEMINI_API_KEY is required to use Gemini chat.");
   }
 
   let contents = normalizeGeminiChatHistory(history);
-  const systemInstruction = buildSystemInstruction();
+  const systemInstruction = buildSystemInstruction({ ragContext });
 
   for (let attempt = 0; attempt < 6; attempt += 1) {
     const response = await fetch(`${geminiApiBaseUrl}/models/${geminiModel}:generateContent`, {
@@ -403,10 +415,10 @@ async function runGeminiChat(history, user) {
 async function runOpenAiCompatibleChat(
   history,
   user,
-  { provider, apiKey, model, apiBaseUrl, extraHeaders = {} }
+  { provider, apiKey, model, apiBaseUrl, extraHeaders = {}, ragContext = "" }
 ) {
   const messages = [
-    { role: "system", content: buildSystemInstruction() },
+    { role: "system", content: buildSystemInstruction({ ragContext }) },
     ...normalizeOpenAiChatHistory(history)
   ];
 
@@ -544,12 +556,12 @@ function extractOpenAiText(message) {
   return "";
 }
 
-function buildSystemInstruction() {
+function buildSystemInstruction({ ragContext = "" } = {}) {
   const now = new Date();
   const today = formatProjectDate(now);
   const currentMonth = `${String(now.getUTCMonth() + 1).padStart(2, "0")}-${now.getUTCFullYear()}`;
 
-  return [
+  const base = [
     "You are a helpful personal finance assistant.",
     "You help the user manage categories, expenses, incomes, and budgets for daily, weekly, monthly, and yearly periods.",
     "Keep answers concise and practical. Use tools whenever real data or write actions are needed.",
@@ -558,6 +570,13 @@ function buildSystemInstruction() {
     "Use dd-MM-yyyy for all full dates in conversation and tool arguments.",
     "For month-only filters in finance_dashboard and period_summary, convert the month internally to YYYY-MM."
   ].join(" ");
+
+  const trimmedRag = typeof ragContext === "string" ? ragContext.trim() : "";
+  if (!trimmedRag) {
+    return base;
+  }
+
+  return `${base}\n\n${trimmedRag}`;
 }
 
 function normalizeFunctionResponse(value) {

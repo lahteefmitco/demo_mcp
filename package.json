@@ -9,7 +9,9 @@
     "start": "node src/app.js",
     "mcp": "node src/mcp/server.js",
     "db:init": "node src/scripts/init-db.js",
-    "db:migrate-auth": "node src/scripts/migrate-auth-schema.js"
+    "db:migrate-auth": "node src/scripts/migrate-auth-schema.js",
+    "db:migrate-rag": "node src/scripts/migrate-rag-schema.js",
+    "rag:reindex": "node src/scripts/rag-reindex.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "latest",

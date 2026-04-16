@@ -7,6 +7,7 @@ import { logger, requestLogger } from "./logger.js";
 import { runExpenseChat } from "./services/chat-service.js";
 import authRouter from "./routes/auth.js";
 import financeRouter from "./routes/finance.js";
+import ragRouter from "./routes/rag.js";
 
 dotenv.config({ quiet: true });
 
@@ -97,6 +98,7 @@ app.delete("/mcp", (_req, res) => {
 });
 
 app.use("/api/finance", requireAuth, financeRouter);
+app.use("/api/rag", requireAuth, ragRouter);
 
 app.use((error, _req, res, _next) => {
   logger.error(error?.message || String(error), { stack: error?.stack });

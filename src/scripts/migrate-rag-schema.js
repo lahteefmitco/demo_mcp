@@ -8,20 +8,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function main() {
-  const schemaPath = path.join(__dirname, "..", "schema.sql");
-  const schemaSql = await fs.readFile(schemaPath, "utf8");
-  await query(schemaSql);
-
   const schemaAiPath = path.join(__dirname, "..", "schema-ai.sql");
   const schemaAiSql = await fs.readFile(schemaAiPath, "utf8");
   await query(schemaAiSql);
-
-  logger.info("Database schema initialized (including ai_documents / pgvector).");
+  logger.info("RAG schema (extension + ai_documents) applied.");
 }
 
 main()
   .catch((error) => {
-    logger.error("Failed to initialize database schema.", {
+    logger.error("Failed to apply RAG schema.", {
       message: error?.message,
       stack: error?.stack
     });
