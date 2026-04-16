@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import winston from "winston";
 
-dotenv.config({ quiet: true });
+dotenv.config({ quiet: true, override: false });
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(__dirname, "..");

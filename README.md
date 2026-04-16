@@ -51,6 +51,18 @@ GEMINI_API_KEY=your_gemini_api_key
 GEMINI_MODEL=gemini-2.5-flash
 ```
 
+## Flutter Web + CORS
+
+When running the Flutter app in a browser, the API must allow your web app origin via CORS.
+
+Set `CORS_ORIGINS` (comma-separated) in `.env` to include your Flutter web origin(s), for example:
+
+```env
+CORS_ORIGINS=http://localhost:5173,https://app.yourdomain.com
+```
+
+Preflight requests (`OPTIONS`) are handled by the API automatically.
+
 ## Initialize the Database
 
 ```bash

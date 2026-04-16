@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 import { QueryTypes, Sequelize } from "sequelize";
 
-dotenv.config({ quiet: true });
+dotenv.config({ quiet: true, override: false });
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is required. Copy .env.example to .env and update it.");

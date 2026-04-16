@@ -3,13 +3,14 @@ import express from "express";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createExpenseManagerServer } from "./mcp/create-server.js";
 import { authenticateRequest, requireAuth, unauthorizedJsonRpcResponse } from "./middleware/auth-middleware.js";
+import { corsMiddleware } from "./middleware/cors.js";
 import { logger, requestLogger } from "./logger.js";
 import { runExpenseChat } from "./services/chat-service.js";
 import authRouter from "./routes/auth.js";
 import financeRouter from "./routes/finance.js";
 import ragRouter from "./routes/rag.js";
 
-dotenv.config({ quiet: true });
+dotenv.config({ quiet: true, override: false });
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -17,6 +18,12 @@ const port = Number(process.env.PORT || 3000);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(requestLogger());
+app.use(corsMiddleware());
+
+// Handle browser CORS preflight before auth middleware.
+app.options(/.*/, (_req, res) => {
+  res.sendStatus(204);
+});
 
 app.get("/", (_req, res) => {
   logger.info("Welcome to the Personal Finance API (root)");
