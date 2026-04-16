@@ -10,8 +10,8 @@ class AuthApi {
     : _client = client ?? http.Client(),
       baseUrl = const String.fromEnvironment(
         'API_BASE_URL',
-        //defaultValue: 'https://demo-mcp-l0rq.onrender.com',
-        defaultValue: 'http://10.0.2.2:3000',
+        defaultValue: 'https://demo-mcp-l0rq.onrender.com',
+       // defaultValue: 'http://10.0.2.2:3000',
       );
 
   final http.Client _client;
