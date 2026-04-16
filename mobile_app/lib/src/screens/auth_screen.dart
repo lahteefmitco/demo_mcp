@@ -117,6 +117,7 @@ class _AuthFormState extends State<_AuthForm> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -127,6 +128,7 @@ class _AuthFormState extends State<_AuthForm> {
   }
 
   Future<void> _submit() async {
+    FocusManager.instance.primaryFocus?.unfocus();
     final cubit = context.read<AuthCubit>();
     if (cubit.state.isSubmitting || !_formKey.currentState!.validate()) {
       return;
@@ -222,14 +224,24 @@ class _AuthFormState extends State<_AuthForm> {
             },
           ),
           const SizedBox(height: 16),
+          // password field
           TextFormField(
             controller: _passwordController,
-            obscureText: true,
+            obscureText: _obscurePassword,
             textInputAction: TextInputAction.done,
             onFieldSubmitted: (_) => _submit(),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Password',
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                ),
+                onPressed: () => setState(() {
+                  _obscurePassword = !_obscurePassword;
+                }),
+              ),
             ),
             validator: (value) {
               if (value == null || value.length < 6) {
