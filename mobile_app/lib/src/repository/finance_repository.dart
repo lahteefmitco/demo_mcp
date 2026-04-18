@@ -1354,7 +1354,7 @@ class FinanceRepository {
     _scheduleSyncAfterMutation();
   }
 
-  Future<void> createAccount({
+  Future<String> createAccount({
     required String name,
     String type = 'cash',
     double initialBalance = 0,
@@ -1379,6 +1379,7 @@ class FinanceRepository {
           ),
         );
     _scheduleSyncAfterMutation();
+    return id;
   }
 
   Future<void> updateAccount({

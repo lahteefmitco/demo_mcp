@@ -9,7 +9,7 @@ import '../cubits/home/home_cubit.dart';
 import '../cubits/home/home_state.dart';
 import '../models/currency_option.dart';
 import '../models/finance_models.dart';
-import 'add_entry_screen.dart';
+import 'add_entry_screen.dart' show AddEntryScreen, readLastSelectedAccountUuidIfValid;
 import '../utils/currency_utils.dart';
 import '../utils/toast.dart';
 
@@ -385,6 +385,8 @@ class HomeScreen extends StatelessWidget {
             (category) => category.kind == 'expense' || category.kind == 'both',
           )
           .toList();
+      final initialAccountUuid =
+          await readLastSelectedAccountUuidIfValid(dashboard.accounts);
       final payload = await navigator.push<Map<String, dynamic>>(
         MaterialPageRoute(
           builder: (_) => AddEntryScreen(
@@ -393,6 +395,7 @@ class HomeScreen extends StatelessWidget {
             accounts: dashboard.accounts,
             dateLabel: 'Spent on',
             dateKey: 'spentOn',
+            initialAccountUuid: initialAccountUuid,
           ),
         ),
       );
@@ -419,6 +422,8 @@ class HomeScreen extends StatelessWidget {
             (category) => category.kind == 'income' || category.kind == 'both',
           )
           .toList();
+      final initialAccountUuid =
+          await readLastSelectedAccountUuidIfValid(dashboard.accounts);
       final payload = await navigator.push<Map<String, dynamic>>(
         MaterialPageRoute(
           builder: (_) => AddEntryScreen(
@@ -427,6 +432,7 @@ class HomeScreen extends StatelessWidget {
             accounts: dashboard.accounts,
             dateLabel: 'Received on',
             dateKey: 'receivedOn',
+            initialAccountUuid: initialAccountUuid,
           ),
         ),
       );
