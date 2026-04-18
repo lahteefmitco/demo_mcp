@@ -1,0 +1,19 @@
+# Same patterns as .dockerignore for `gcloud run deploy --source .` uploads.
+.git
+.gitignore
+node_modules
+.env
+.env.*
+mobile_app
+compose.yaml
+compose.yml
+docker-compose*.yml
+logs
+*.log
+.DS_Store
+.cursor
+.idea
+*.swp
+*.swo
+play_store_icon.png
+README.md

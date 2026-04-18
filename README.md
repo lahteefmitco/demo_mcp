@@ -144,6 +144,53 @@ After deploying, initialize the schema once against Neon:
 npm run db:init
 ```
 
+## Google Cloud Run + Neon
+
+You can run the Node API on [Cloud Run](https://cloud.google.com/run) and keep PostgreSQL on [Neon](https://neon.tech). The repo includes a root [`Dockerfile`](Dockerfile) that copies [`src/`](src/) and runs `npm run start` as a non-root user. Cloud Run sets `PORT` automatically; the app reads it in [`src/app.js`](src/app.js).
+
+### Prerequisites
+
+- [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) (`gcloud`) and a project with billing enabled.
+- APIs used by source-based deploys: Cloud Run and Cloud Build (Artifact Registry is used implicitly for staging images when you deploy from source).
+
+### Deploy from the repo root
+
+Replace placeholders with your project ID, region, and service name:
+
+```bash
+gcloud config set project YOUR_GCP_PROJECT_ID
+
+gcloud run deploy YOUR_SERVICE_NAME \
+  --source . \
+  --region YOUR_REGION \
+  --allow-unauthenticated \
+  --set-secrets DATABASE_URL=neon-database-url:latest,AUTH_SECRET=auth-secret:latest \
+  --set-env-vars "APP_BASE_URL=https://YOUR_SERVICE_NAME-XXXX.a.run.app,CORS_ALLOW_ALL=false,GEMINI_MODEL=gemini-2.5-flash"
+```
+
+- Use `--no-allow-unauthenticated` if you only want authenticated callers (IAM).
+- Store sensitive values in [Secret Manager](https://cloud.google.com/secret-manager) and reference them with `--set-secrets` (`ENV_VAR=secret-name:version`).
+- Point `DATABASE_URL` at Neon’s connection string; prefer Neon’s **pooled** / pooler endpoint so many Cloud Run instances do not exhaust database connections.
+- Set `APP_BASE_URL` to your service URL (or custom domain) so auth and email links match production.
+- Set `CORS_ORIGINS` (comma-separated) for browser clients; keep `CORS_ALLOW_ALL=false` in production. See [`.env.example`](.env.example) for the full set of variables (`GEMINI_*`, `MISTRAL_*`, `OPENROUTER_*`, mail, RAG, etc.).
+
+### One-time database setup
+
+Run against Neon from your machine or CI (not as part of the container startup unless you add a job):
+
+```bash
+DATABASE_URL='postgresql://...neon...' npm run db:init
+```
+
+Run other migration scripts from [`.env.example`](.env.example) / `package.json` as needed for your environment.
+
+### Local image build (optional)
+
+```bash
+docker build -t finance-api:local .
+docker run --rm -p 8080:8080 -e PORT=8080 -e DATABASE_URL=... finance-api:local
+```
+
 ## Flutter App
 
 The Flutter client lives in [mobile_app](/Users/mictco/Desktop/demo_mcp/mobile_app).
