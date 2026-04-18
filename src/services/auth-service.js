@@ -193,10 +193,6 @@ export async function loginUser({ email, password }) {
     return { ok: false, reason: "INVALID_CREDENTIALS" };
   }
 
-  if (!row.is_verified) {
-    return { ok: false, reason: "EMAIL_NOT_VERIFIED", user: normalizeUser(row) };
-  }
-
   return { ok: true, user: normalizeUser(row) };
 }
 

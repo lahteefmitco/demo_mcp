@@ -38,7 +38,6 @@ class AuthApi {
   }) async {
     log("login url: $baseUrl/api/auth/login");
     log("email: $email");
-    log("password: $password");
     final response = await _client.post(
       Uri.parse('$baseUrl/api/auth/login'),
       headers: const {'Content-Type': 'application/json'},
@@ -52,16 +51,6 @@ class AuthApi {
     return AuthSession.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
-  }
-
-  Future<String> resendVerificationEmail(String email) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/api/auth/resend-verification'),
-      headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email}),
-    );
-
-    return _parseMessage(response);
   }
 
   Future<String> requestPasswordReset(String email) async {
