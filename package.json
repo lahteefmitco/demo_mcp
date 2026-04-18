@@ -2,8 +2,19 @@
   "name": "personal-expense-manager-mcp",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
   "description": "Personal expense manager with PostgreSQL, Express.js API, and a sample MCP server.",
+  "homepage": "https://github.com/lahteefmitco/demo_mcp#readme",
+  "bugs": {
+    "url": "https://github.com/lahteefmitco/demo_mcp/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lahteefmitco/demo_mcp.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "index.js",
   "scripts": {
     "dev": "node --watch src/app.js",
     "start": "node src/app.js",
@@ -22,5 +33,6 @@
     "pg": "latest",
     "sequelize": "latest",
     "winston": "^3.19.0"
-  }
+  },
+  "devDependencies": {}
 }

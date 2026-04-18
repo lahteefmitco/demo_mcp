@@ -174,3 +174,4 @@ This lets the mobile chat tab handle prompts like:
 - "Add an income of 5000 for freelance today"
 - "Create a monthly food budget of 300"
 - "Show my balance for this month"
+kk
