@@ -31,6 +31,22 @@ class AuthApi {
     return _parseMessage(response);
   }
 
+  Future<AuthSession> loginWithGoogle({required String idToken}) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/api/auth/google'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({'idToken': idToken}),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_extractMessage(response));
+    }
+
+    return AuthSession.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
   Future<AuthSession> login({
     required String email,
     required String password,

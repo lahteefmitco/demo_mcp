@@ -7,6 +7,7 @@ import {
   deleteAccountWithToken,
   getUserByEmail,
   getValidPasswordResetRecord,
+  loginOrRegisterWithGoogle,
   loginUser,
   requestAccountDeletionForUser,
   registerUser,
@@ -112,6 +113,35 @@ router.post("/auth/login", async (req, res, next) => {
 
     res.json(createAuthResponse(result.user));
   } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/auth/google", async (req, res, next) => {
+  try {
+    const idToken = req.body?.idToken;
+    if (typeof idToken !== "string" || !idToken.trim()) {
+      return res.status(400).json({ error: "idToken is required" });
+    }
+
+    const result = await loginOrRegisterWithGoogle({ idToken: idToken.trim() });
+    if (!result.ok) {
+      if (result.reason === "GOOGLE_ACCOUNT_CONFLICT") {
+        return res.status(409).json({
+          error: "This email is linked to a different Google account."
+        });
+      }
+
+      return res.status(400).json({ error: "Google sign-in failed" });
+    }
+
+    res.json(createAuthResponse(result.user));
+  } catch (error) {
+    const statusCode = error.statusCode;
+    if (statusCode === 401 || statusCode === 403 || statusCode === 503) {
+      return res.status(statusCode).json({ error: error.message });
+    }
+
     next(error);
   }
 });

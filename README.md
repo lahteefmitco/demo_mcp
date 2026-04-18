@@ -85,6 +85,7 @@ npm run dev
 Useful endpoints:
 
 - `GET /health`
+- `POST /api/auth/google` (Google Sign-In; body `{ "idToken": "..." }`)
 - `GET /api/finance/dashboard?month=2026-04`
 - `GET /api/finance/summary?month=2026-04`
 - `GET /api/finance/categories`
@@ -153,8 +154,14 @@ Run it with:
 ```bash
 cd mobile_app
 flutter pub get
-flutter run --dart-define=API_BASE_URL=https://your-render-url.onrender.com
+flutter run \
+  --dart-define=API_BASE_URL=https://your-render-url.onrender.com \
+  --dart-define=GOOGLE_WEB_CLIENT_ID=YOUR_WEB_OAUTH_CLIENT_ID.apps.googleusercontent.com
 ```
+
+`GOOGLE_WEB_CLIENT_ID` is the **Web application** OAuth client ID from Google Cloud (used by the app to obtain an ID token the backend can verify). On the server, set `GOOGLE_WEB_CLIENT_ID`, `GOOGLE_IOS_CLIENT_ID`, and/or `GOOGLE_ANDROID_CLIENT_ID` in `.env` to match each client you use (see `.env.example`).
+
+For **iOS**, add the reversed iOS client ID as a URL scheme in `mobile_app/ios/Runner/Info.plist` (Google Sign-In requirement). For **Android**, register your app’s SHA-1 with the Android OAuth client in Google Cloud.
 
 The app supports:
 
@@ -174,4 +181,3 @@ This lets the mobile chat tab handle prompts like:
 - "Add an income of 5000 for freelance today"
 - "Create a monthly food budget of 300"
 - "Show my balance for this month"
-kk

@@ -264,6 +264,54 @@ class _AuthFormState extends State<_AuthForm> {
               ),
             ),
           ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const Expanded(child: Divider()),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  'or',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: const Color(0xFF64748B),
+                  ),
+                ),
+              ),
+              const Expanded(child: Divider()),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton.icon(
+              onPressed: state.isSubmitting
+                  ? null
+                  : () => context.read<AuthCubit>().signInWithGoogle(),
+              icon: SizedBox(
+                width: 22,
+                height: 22,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: const Color(0xFFdadce0)),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'G',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF4285F4),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              label: const Text('Continue with Google'),
+            ),
+          ),
           if (state.isLogin) ...[
             const SizedBox(height: 8),
             Center(

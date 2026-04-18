@@ -29,6 +29,7 @@
     "dotenv": "latest",
     "ejs": "^3.1.10",
     "express": "latest",
+    "google-auth-library": "^9.15.1",
     "nodemailer": "^7.0.5",
     "pg": "latest",
     "sequelize": "latest",

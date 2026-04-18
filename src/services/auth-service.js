@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { QueryTypes, query } from "../db.js";
 import { ensureDefaultCategoriesForUser } from "./finance-service.js";
+import { verifyGoogleSignInIdToken } from "./google-id-token.js";
 
 const authSecret = process.env.AUTH_SECRET || "dev-only-change-me";
 const tokenLifetimeSeconds = 60 * 60 * 24 * 30;
@@ -142,6 +143,7 @@ export async function getUserByEmail(email) {
         name,
         email,
         password_hash,
+        google_sub,
         is_verified,
         pending_email,
         email_verified_at,
@@ -155,6 +157,97 @@ export async function getUserByEmail(email) {
   );
 
   return rows[0] ?? null;
+}
+
+/**
+ * @param {string} googleSub
+ * @returns {Promise<object | null>}
+ */
+export async function getUserByGoogleSub(googleSub) {
+  const rows = await query(
+    `
+      SELECT
+        id,
+        name,
+        email,
+        password_hash,
+        google_sub,
+        is_verified,
+        pending_email,
+        email_verified_at,
+        created_at,
+        updated_at
+      FROM users
+      WHERE google_sub = $1
+    `,
+    [googleSub],
+    { type: QueryTypes.SELECT }
+  );
+
+  return rows[0] ?? null;
+}
+
+/**
+ * Google Sign-In: verify ID token, link by email, or create user.
+ * @param {{ idToken: string }} param0
+ * @returns {Promise<{ ok: true, user: ReturnType<typeof normalizeUser> } | { ok: false, reason: string, statusCode?: number }>}
+ */
+export async function loginOrRegisterWithGoogle({ idToken }) {
+  const { sub, email, name } = await verifyGoogleSignInIdToken(idToken);
+
+  const existingBySub = await getUserByGoogleSub(sub);
+  if (existingBySub) {
+    return { ok: true, user: normalizeUser(existingBySub) };
+  }
+
+  const existingByEmail = await getUserByEmail(email);
+  if (existingByEmail) {
+    if (existingByEmail.google_sub != null && existingByEmail.google_sub !== sub) {
+      return { ok: false, reason: "GOOGLE_ACCOUNT_CONFLICT", statusCode: 409 };
+    }
+
+    const rows = await query(
+      `
+        UPDATE users
+        SET
+          google_sub = $2,
+          is_verified = true,
+          email_verified_at = COALESCE(email_verified_at, NOW()),
+          pending_email = NULL,
+          name = CASE
+            WHEN LENGTH(TRIM($3)) >= 2 THEN TRIM($3)
+            ELSE name
+          END
+        WHERE id = $1
+        RETURNING id, name, email, is_verified, pending_email, email_verified_at, created_at, updated_at
+      `,
+      [existingByEmail.id, sub, name]
+    );
+
+    return { ok: true, user: normalizeUser(rows[0]) };
+  }
+
+  const placeholderPassword = hashPassword(crypto.randomBytes(32).toString("hex"));
+  const rows = await query(
+    `
+      INSERT INTO users (
+        name,
+        email,
+        password_hash,
+        google_sub,
+        is_verified,
+        pending_email,
+        email_verified_at
+      )
+      VALUES ($1, $2, $3, $4, true, NULL, NOW())
+      RETURNING id, name, email, is_verified, pending_email, email_verified_at, created_at, updated_at
+    `,
+    [name, email, placeholderPassword, sub]
+  );
+
+  const user = normalizeUser(rows[0]);
+  await ensureDefaultCategoriesForUser(user.id);
+  return { ok: true, user };
 }
 
 export async function findUserByPendingEmail(email) {

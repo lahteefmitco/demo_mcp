@@ -36,8 +36,12 @@ For the chat tab:
 ```bash
 cd mobile_app
 flutter pub get
-flutter run --dart-define=API_BASE_URL=https://demo-mcp-l0rq.onrender.com
+flutter run \
+  --dart-define=API_BASE_URL=https://demo-mcp-l0rq.onrender.com \
+  --dart-define=GOOGLE_WEB_CLIENT_ID=YOUR_WEB_OAUTH_CLIENT_ID.apps.googleusercontent.com
 ```
+
+Google Sign-In calls `POST /api/auth/google` on the backend. The server must have matching `GOOGLE_*_CLIENT_ID` values in `.env`. On **Flutter Web**, `GOOGLE_WEB_CLIENT_ID` is required. On **iOS**, add the reversed iOS client ID URL scheme to `ios/Runner/Info.plist` (see Google Sign-In iOS setup).
 
 ## Main Files
 

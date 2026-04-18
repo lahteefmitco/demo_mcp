@@ -156,6 +156,18 @@ async function ensureUsersTable(transaction) {
   await ensureColumn(transaction, "users", "is_verified", "BOOLEAN NOT NULL DEFAULT false");
   await ensureColumn(transaction, "users", "pending_email", "TEXT");
   await ensureColumn(transaction, "users", "email_verified_at", "TIMESTAMPTZ");
+  await ensureColumn(transaction, "users", "google_sub", "TEXT");
+}
+
+async function ensureGoogleSubUniqueIndex(transaction) {
+  if (await indexExists(transaction, "idx_users_google_sub_unique")) {
+    return;
+  }
+
+  await sequelize.query(
+    `CREATE UNIQUE INDEX idx_users_google_sub_unique ON users (google_sub) WHERE google_sub IS NOT NULL`,
+    { transaction }
+  );
 }
 
 async function ensureAuthTokensTable(transaction) {
@@ -234,6 +246,7 @@ async function addUserColumnAndBackfill(transaction, tableName) {
 async function main() {
   await sequelize.transaction(async (transaction) => {
     await ensureUsersTable(transaction);
+    await ensureGoogleSubUniqueIndex(transaction);
     await ensureAuthTokensTable(transaction);
     await ensureUpdatedAtFunctionAndTrigger(transaction);
 

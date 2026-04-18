@@ -18,6 +18,7 @@ CREATE TABLE users (
   name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
+  google_sub TEXT UNIQUE,
   is_verified BOOLEAN NOT NULL DEFAULT false,
   pending_email TEXT,
   email_verified_at TIMESTAMPTZ,
