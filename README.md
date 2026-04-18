@@ -84,7 +84,7 @@ npm run dev
 
 Useful endpoints:
 
-- `GET /health`
+- `GET /health` (same JSON at `GET /api/health`)
 - `GET /api/finance/dashboard?month=2026-04`
 - `GET /api/finance/summary?month=2026-04`
 - `GET /api/finance/categories`
@@ -186,9 +186,11 @@ Run other migration scripts from [`.env.example`](.env.example) / `package.json`
 
 ### Local image build (optional)
 
+The image sets **`PORT=8080`** by default so `docker run -p 8080:8080` matches the process inside the container. If your `--env-file` sets `PORT` (for example to `3000`), map the host port to that value instead, e.g. `-p 8080:3000`.
+
 ```bash
 docker build -t finance-api:local .
-docker run --rm -p 8080:8080 -e PORT=8080 -e DATABASE_URL=... finance-api:local
+docker run --rm -p 8080:8080 --env-file .env finance-api:local
 ```
 
 ## Flutter App
