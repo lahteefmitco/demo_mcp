@@ -339,6 +339,7 @@ class _AddEntryFormState extends State<_AddEntryForm> {
                     (account) => DropdownMenuItem<String?>(
                       value: account.uuid,
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             AddEntryScreen.getAccountIcon(account.icon),
@@ -346,7 +347,14 @@ class _AddEntryFormState extends State<_AddEntryForm> {
                             color: AddEntryScreen.parseColor(account.color),
                           ),
                           const SizedBox(width: 8),
-                          Expanded(child: Text(account.name)),
+                          Flexible(
+                            fit: FlexFit.loose,
+                            child: Text(
+                              account.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ],
                       ),
                     ),
