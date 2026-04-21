@@ -275,6 +275,7 @@ class FinanceRepository {
       accountColor: row.read<String>('account_color'),
       date: row.read<String>('tx_date'),
       notes: row.read<String>('notes'),
+      isSynced: row.read<bool>('is_synced'),
     );
     return AccountLedgerItem(isExpense: isExpense, entry: entry);
   }
@@ -379,6 +380,7 @@ class FinanceRepository {
       accountColor: e.accountColor,
       date: e.spentOn,
       notes: e.notes,
+      isSynced: e.isSynced,
     );
   }
 
@@ -398,6 +400,7 @@ class FinanceRepository {
       accountColor: e.accountColor,
       date: e.receivedOn,
       notes: e.notes,
+      isSynced: e.isSynced,
     );
   }
 

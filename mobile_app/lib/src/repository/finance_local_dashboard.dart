@@ -262,6 +262,7 @@ class FinanceLocalDashboard {
       accountColor: e.accountColor,
       date: e.spentOn,
       notes: e.notes,
+      isSynced: e.isSynced,
     );
   }
 
@@ -281,6 +282,7 @@ class FinanceLocalDashboard {
       accountColor: e.accountColor,
       date: e.receivedOn,
       notes: e.notes,
+      isSynced: e.isSynced,
     );
   }
 }

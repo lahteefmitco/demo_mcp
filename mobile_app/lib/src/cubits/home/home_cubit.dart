@@ -55,6 +55,29 @@ class HomeCubit extends Cubit<HomeState> {
     }
   }
 
+  Future<void> syncNow({required String monthYyyyMm}) async {
+    try {
+      await _repository.pushUnsynced();
+      emit(
+        state.copyWith(
+          toastNonce: state.toastNonce + 1,
+          toastMessage: 'Sync complete',
+          toastIsError: false,
+        ),
+      );
+      await refresh(monthYyyyMm);
+    } catch (e, st) {
+      AppLogger.e('Sync now failed', error: e, stackTrace: st);
+      emit(
+        state.copyWith(
+          toastNonce: state.toastNonce + 1,
+          toastMessage: 'Sync failed',
+          toastIsError: true,
+        ),
+      );
+    }
+  }
+
   Future<void> createExpense({
     required String title,
     required double amount,
