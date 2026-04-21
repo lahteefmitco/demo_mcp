@@ -10,7 +10,8 @@ class AuthApi {
     : _client = client ?? http.Client(),
       baseUrl = const String.fromEnvironment(
         'API_BASE_URL',
-        defaultValue: 'https://demo-mcp-l0rq.onrender.com',
+        defaultValue: 'https://demo-mcp-615058378594.europe-west1.run.app',
+       // defaultValue: 'https://demo-mcp-l0rq.onrender.com',
        // defaultValue: 'http://10.0.2.2:3000',
       );
 
@@ -37,7 +38,6 @@ class AuthApi {
   }) async {
     log("login url: $baseUrl/api/auth/login");
     log("email: $email");
-    log("password: $password");
     final response = await _client.post(
       Uri.parse('$baseUrl/api/auth/login'),
       headers: const {'Content-Type': 'application/json'},
@@ -51,16 +51,6 @@ class AuthApi {
     return AuthSession.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
-  }
-
-  Future<String> resendVerificationEmail(String email) async {
-    final response = await _client.post(
-      Uri.parse('$baseUrl/api/auth/resend-verification'),
-      headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email}),
-    );
-
-    return _parseMessage(response);
   }
 
   Future<String> requestPasswordReset(String email) async {

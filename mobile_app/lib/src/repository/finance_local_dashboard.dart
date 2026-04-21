@@ -91,9 +91,9 @@ class FinanceLocalDashboard {
         .toList();
 
     final recentExpenses = [...expenses]
-      ..sort((a, b) => _cmpDateDesc(a.spentOn, b.spentOn));
+      ..sort(_cmpExpenseRecentDesc);
     final recentIncomes = [...incomes]
-      ..sort((a, b) => _cmpDateDesc(a.receivedOn, b.receivedOn));
+      ..sort(_cmpIncomeRecentDesc);
 
     final recentExpenseModels = recentExpenses
         .take(8)
@@ -170,6 +170,82 @@ class FinanceLocalDashboard {
     return db.compareTo(da);
   }
 
+  static DateTime? _parseTimestamp(String? isoLike) {
+    if (isoLike == null) {
+      return null;
+    }
+    final s = isoLike.trim();
+    if (s.isEmpty) {
+      return null;
+    }
+    return DateTime.tryParse(s);
+  }
+
+  static int _cmpTimestampDesc(DateTime? a, DateTime? b) {
+    if (a == null && b == null) {
+      return 0;
+    }
+    if (a == null) {
+      return 1;
+    }
+    if (b == null) {
+      return -1;
+    }
+    return b.compareTo(a);
+  }
+
+  static int _cmpUuidDesc(String a, String b) => b.compareTo(a);
+
+  static int _cmpExpenseRecentDesc(LocalExpenseRow a, LocalExpenseRow b) {
+    final dateCmp = _cmpDateDesc(a.spentOn, b.spentOn);
+    if (dateCmp != 0) {
+      return dateCmp;
+    }
+
+    final createdCmp = _cmpTimestampDesc(
+      _parseTimestamp(a.createdAt),
+      _parseTimestamp(b.createdAt),
+    );
+    if (createdCmp != 0) {
+      return createdCmp;
+    }
+
+    final updatedCmp = _cmpTimestampDesc(
+      _parseTimestamp(a.updatedAt),
+      _parseTimestamp(b.updatedAt),
+    );
+    if (updatedCmp != 0) {
+      return updatedCmp;
+    }
+
+    return _cmpUuidDesc(a.uuid, b.uuid);
+  }
+
+  static int _cmpIncomeRecentDesc(LocalIncomeRow a, LocalIncomeRow b) {
+    final dateCmp = _cmpDateDesc(a.receivedOn, b.receivedOn);
+    if (dateCmp != 0) {
+      return dateCmp;
+    }
+
+    final createdCmp = _cmpTimestampDesc(
+      _parseTimestamp(a.createdAt),
+      _parseTimestamp(b.createdAt),
+    );
+    if (createdCmp != 0) {
+      return createdCmp;
+    }
+
+    final updatedCmp = _cmpTimestampDesc(
+      _parseTimestamp(a.updatedAt),
+      _parseTimestamp(b.updatedAt),
+    );
+    if (updatedCmp != 0) {
+      return updatedCmp;
+    }
+
+    return _cmpUuidDesc(a.uuid, b.uuid);
+  }
+
   static FinanceEntry _expenseRowToEntry(LocalExpenseRow e) {
     return FinanceEntry(
       id: e.serverId ?? 0,
@@ -186,6 +262,7 @@ class FinanceLocalDashboard {
       accountColor: e.accountColor,
       date: e.spentOn,
       notes: e.notes,
+      isSynced: e.isSynced,
     );
   }
 
@@ -205,6 +282,7 @@ class FinanceLocalDashboard {
       accountColor: e.accountColor,
       date: e.receivedOn,
       notes: e.notes,
+      isSynced: e.isSynced,
     );
   }
 }

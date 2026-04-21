@@ -64,27 +64,5 @@ class AuthCubit extends Cubit<AuthState> {
       emit(state.copyWith(isSubmitting: false));
     }
   }
-
-  Future<void> resendVerification(String email) async {
-    if (state.isSubmitting) {
-      return;
-    }
-
-    final trimmed = email.trim();
-    if (!trimmed.contains('@')) {
-      emit(state.toastError('Enter your email first'));
-      return;
-    }
-
-    emit(state.copyWith(isSubmitting: true, toastMessage: null));
-    try {
-      final message = await _authApi.resendVerificationEmail(trimmed);
-      emit(state.copyWith(infoMessage: message));
-    } catch (e) {
-      emit(state.toastError(e.toString().replaceFirst('Exception: ', '')));
-    } finally {
-      emit(state.copyWith(isSubmitting: false));
-    }
-  }
 }
 

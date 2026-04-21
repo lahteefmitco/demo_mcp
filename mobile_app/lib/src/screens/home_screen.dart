@@ -9,7 +9,8 @@ import '../cubits/home/home_cubit.dart';
 import '../cubits/home/home_state.dart';
 import '../models/currency_option.dart';
 import '../models/finance_models.dart';
-import 'add_entry_screen.dart';
+import 'add_entry_screen.dart'
+    show AddEntryScreen, readLastSelectedAccountUuidIfValid;
 import '../utils/currency_utils.dart';
 import '../utils/toast.dart';
 
@@ -39,70 +40,67 @@ class HomeScreen extends StatelessWidget {
           context.read<HomeCubit>().refresh(month);
         },
         child: BlocConsumer<HomeCubit, HomeState>(
-        listenWhen: (p, n) => p.toastNonce != n.toastNonce,
-        listener: (context, state) {
-          final msg = state.toastMessage;
-          if (msg == null || msg.isEmpty) return;
-          if (state.toastIsError) {
-            AppToast.error(context, msg);
-          } else {
-            AppToast.success(context, msg);
-          }
-        },
-        buildWhen: (p, n) =>
-            p.isLoading != n.isLoading ||
-            p.dashboard != n.dashboard ||
-            p.errorMessage != n.errorMessage,
-        builder: (context, state) {
-          return Scaffold(
-            appBar: AppBar(
-              title: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Gulfon Finance'),
-                  Text(
-                    session.user.email,
-                    style: Theme.of(context).textTheme.labelSmall,
+          listenWhen: (p, n) => p.toastNonce != n.toastNonce,
+          listener: (context, state) {
+            final msg = state.toastMessage;
+            if (msg == null || msg.isEmpty) return;
+            if (state.toastIsError) {
+              AppToast.error(context, msg);
+            } else {
+              AppToast.success(context, msg);
+            }
+          },
+          buildWhen: (p, n) =>
+              p.isLoading != n.isLoading ||
+              p.dashboard != n.dashboard ||
+              p.errorMessage != n.errorMessage,
+          builder: (context, state) {
+            return Scaffold(
+              appBar: AppBar(
+                title: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Gulfon Finance'),
+                    Text(
+                      session.user.email,
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ],
+                ),
+                actions: [
+                  IconButton(
+                    onPressed: onOpenProfile,
+                    icon: const Icon(Icons.person_outline),
+                    tooltip: 'Profile',
+                  ),
+                  IconButton(
+                    onPressed: () => context.read<HomeCubit>().refresh(month),
+                    icon: const Icon(Icons.refresh),
                   ),
                 ],
               ),
-              actions: [
-                IconButton(
-                  onPressed: onOpenProfile,
-                  icon: const Icon(Icons.person_outline),
-                  tooltip: 'Profile',
-                ),
-                IconButton(
-                  onPressed: () => context.read<HomeCubit>().refresh(month),
-                  icon: const Icon(Icons.refresh),
-                ),
-              ],
-            ),
-            body: _HomeBody(
-              month: month,
-              currency: currency,
-              state: state,
-              onExpenseTap: (dash, item) =>
-                  _openExpenseActions(context, dash, item, month),
-              onIncomeTap: (dash, item) =>
-                  _openIncomeActions(context, dash, item, month),
-              onAddPressed: (dash) => _openActionSheet(context, dash, month),
-            ),
-            floatingActionButton: state.dashboard == null
-                ? null
-                : FloatingActionButton.extended(
-                    heroTag: 'home_fab',
-                    onPressed: () => _openActionSheet(
-                      context,
-                      state.dashboard!,
-                      month,
+              body: _HomeBody(
+                month: month,
+                currency: currency,
+                state: state,
+                onExpenseTap: (dash, item) =>
+                    _openExpenseActions(context, dash, item, month),
+                onIncomeTap: (dash, item) =>
+                    _openIncomeActions(context, dash, item, month),
+                onAddPressed: (dash) => _openActionSheet(context, dash, month),
+              ),
+              floatingActionButton: state.dashboard == null
+                  ? null
+                  : FloatingActionButton.extended(
+                      heroTag: 'home_fab',
+                      onPressed: () =>
+                          _openActionSheet(context, state.dashboard!, month),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add'),
                     ),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add'),
-                  ),
-          );
-        },
-      ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -181,15 +179,15 @@ class HomeScreen extends StatelessWidget {
     }
 
     await context.read<HomeCubit>().updateExpense(
-          uuid: expense.uuid,
-          title: payload['title'] as String,
-          amount: payload['amount'] as double,
-          categoryUuid: payload['categoryUuid'] as String,
-          accountUuid: payload['accountUuid'] as String,
-          spentOn: payload['spentOn'] as String,
-          notes: payload['notes'] as String? ?? '',
-          monthYyyyMm: month,
-        );
+      uuid: expense.uuid,
+      title: payload['title'] as String,
+      amount: payload['amount'] as double,
+      categoryUuid: payload['categoryUuid'] as String,
+      accountUuid: payload['accountUuid'] as String,
+      spentOn: payload['spentOn'] as String,
+      notes: payload['notes'] as String? ?? '',
+      monthYyyyMm: month,
+    );
   }
 
   Future<void> _confirmDeleteExpense(
@@ -222,9 +220,9 @@ class HomeScreen extends StatelessWidget {
     }
 
     await context.read<HomeCubit>().deleteExpense(
-          uuid: expense.uuid,
-          monthYyyyMm: month,
-        );
+      uuid: expense.uuid,
+      monthYyyyMm: month,
+    );
   }
 
   Future<void> _openIncomeActions(
@@ -301,15 +299,15 @@ class HomeScreen extends StatelessWidget {
     }
 
     await context.read<HomeCubit>().updateIncome(
-          uuid: income.uuid,
-          title: payload['title'] as String,
-          amount: payload['amount'] as double,
-          categoryUuid: payload['categoryUuid'] as String,
-          accountUuid: payload['accountUuid'] as String,
-          receivedOn: payload['receivedOn'] as String,
-          notes: payload['notes'] as String? ?? '',
-          monthYyyyMm: month,
-        );
+      uuid: income.uuid,
+      title: payload['title'] as String,
+      amount: payload['amount'] as double,
+      categoryUuid: payload['categoryUuid'] as String,
+      accountUuid: payload['accountUuid'] as String,
+      receivedOn: payload['receivedOn'] as String,
+      notes: payload['notes'] as String? ?? '',
+      monthYyyyMm: month,
+    );
   }
 
   Future<void> _confirmDeleteIncome(
@@ -342,9 +340,9 @@ class HomeScreen extends StatelessWidget {
     }
 
     await context.read<HomeCubit>().deleteIncome(
-          uuid: income.uuid,
-          monthYyyyMm: month,
-        );
+      uuid: income.uuid,
+      monthYyyyMm: month,
+    );
   }
 
   Future<void> _openActionSheet(
@@ -385,6 +383,9 @@ class HomeScreen extends StatelessWidget {
             (category) => category.kind == 'expense' || category.kind == 'both',
           )
           .toList();
+      final initialAccountUuid = await readLastSelectedAccountUuidIfValid(
+        dashboard.accounts,
+      );
       final payload = await navigator.push<Map<String, dynamic>>(
         MaterialPageRoute(
           builder: (_) => AddEntryScreen(
@@ -393,6 +394,7 @@ class HomeScreen extends StatelessWidget {
             accounts: dashboard.accounts,
             dateLabel: 'Spent on',
             dateKey: 'spentOn',
+            initialAccountUuid: initialAccountUuid,
           ),
         ),
       );
@@ -402,14 +404,14 @@ class HomeScreen extends StatelessWidget {
       }
       if (payload != null) {
         await context.read<HomeCubit>().createExpense(
-              title: payload['title'] as String,
-              amount: payload['amount'] as double,
-              categoryUuid: payload['categoryUuid'] as String,
-              accountUuid: payload['accountUuid'] as String,
-              spentOn: payload['spentOn'] as String,
-              notes: payload['notes'] as String? ?? '',
-              monthYyyyMm: month,
-            );
+          title: payload['title'] as String,
+          amount: payload['amount'] as double,
+          categoryUuid: payload['categoryUuid'] as String,
+          accountUuid: payload['accountUuid'] as String,
+          spentOn: payload['spentOn'] as String,
+          notes: payload['notes'] as String? ?? '',
+          monthYyyyMm: month,
+        );
       }
     }
 
@@ -419,6 +421,9 @@ class HomeScreen extends StatelessWidget {
             (category) => category.kind == 'income' || category.kind == 'both',
           )
           .toList();
+      final initialAccountUuid = await readLastSelectedAccountUuidIfValid(
+        dashboard.accounts,
+      );
       final payload = await navigator.push<Map<String, dynamic>>(
         MaterialPageRoute(
           builder: (_) => AddEntryScreen(
@@ -427,6 +432,7 @@ class HomeScreen extends StatelessWidget {
             accounts: dashboard.accounts,
             dateLabel: 'Received on',
             dateKey: 'receivedOn',
+            initialAccountUuid: initialAccountUuid,
           ),
         ),
       );
@@ -436,14 +442,14 @@ class HomeScreen extends StatelessWidget {
       }
       if (payload != null) {
         await context.read<HomeCubit>().createIncome(
-              title: payload['title'] as String,
-              amount: payload['amount'] as double,
-              categoryUuid: payload['categoryUuid'] as String,
-              accountUuid: payload['accountUuid'] as String,
-              receivedOn: payload['receivedOn'] as String,
-              notes: payload['notes'] as String? ?? '',
-              monthYyyyMm: month,
-            );
+          title: payload['title'] as String,
+          amount: payload['amount'] as double,
+          categoryUuid: payload['categoryUuid'] as String,
+          accountUuid: payload['accountUuid'] as String,
+          receivedOn: payload['receivedOn'] as String,
+          notes: payload['notes'] as String? ?? '',
+          monthYyyyMm: month,
+        );
       }
     }
   }
@@ -470,9 +476,9 @@ class _HomeBody extends StatelessWidget {
   final HomeState state;
   final Future<void> Function(FinanceDashboard dashboard) onAddPressed;
   final Future<void> Function(FinanceDashboard dashboard, FinanceEntry entry)
-      onExpenseTap;
+  onExpenseTap;
   final Future<void> Function(FinanceDashboard dashboard, FinanceEntry entry)
-      onIncomeTap;
+  onIncomeTap;
 
   @override
   Widget build(BuildContext context) {
@@ -526,6 +532,7 @@ class _HomeBody extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
             ),
             child: _RecentTabs(
+              monthYyyyMm: month,
               currency: currency,
               expenses: dashboard.recentExpenses,
               incomes: dashboard.recentIncomes,
@@ -534,10 +541,7 @@ class _HomeBody extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          _SectionTitle(
-            title: 'Spending by Category',
-            subtitle: summary.month,
-          ),
+          _SectionTitle(title: 'Spending by Category', subtitle: summary.month),
           const SizedBox(height: 8),
           if (summary.expenseByCategory.isEmpty)
             const _EmptyCard(message: 'No category spending yet.')
@@ -553,6 +557,7 @@ class _HomeBody extends StatelessWidget {
 
 class _RecentTabs extends StatefulWidget {
   const _RecentTabs({
+    required this.monthYyyyMm,
     required this.currency,
     required this.expenses,
     required this.incomes,
@@ -560,6 +565,7 @@ class _RecentTabs extends StatefulWidget {
     required this.onIncomeTap,
   });
 
+  final String monthYyyyMm;
   final CurrencyOption currency;
   final List<FinanceEntry> expenses;
   final List<FinanceEntry> incomes;
@@ -603,6 +609,7 @@ class _RecentTabsState extends State<_RecentTabs>
             controller: _controller,
             children: [
               _EntryList(
+                monthYyyyMm: widget.monthYyyyMm,
                 currency: widget.currency,
                 items: widget.expenses,
                 isIncome: false,
@@ -610,6 +617,7 @@ class _RecentTabsState extends State<_RecentTabs>
                 onTap: widget.onExpenseTap,
               ),
               _EntryList(
+                monthYyyyMm: widget.monthYyyyMm,
                 currency: widget.currency,
                 items: widget.incomes,
                 isIncome: true,
@@ -649,6 +657,7 @@ class _SectionTitle extends StatelessWidget {
 
 class _EntryList extends StatelessWidget {
   const _EntryList({
+    required this.monthYyyyMm,
     required this.currency,
     required this.items,
     required this.isIncome,
@@ -656,6 +665,7 @@ class _EntryList extends StatelessWidget {
     required this.onTap,
   });
 
+  final String monthYyyyMm;
   final CurrencyOption currency;
   final List<FinanceEntry> items;
   final bool isIncome;
@@ -677,6 +687,7 @@ class _EntryList extends StatelessWidget {
       itemBuilder: (context, index) {
         final item = items[index];
         return _EntryTile(
+          monthYyyyMm: monthYyyyMm,
           currency: currency,
           item: item,
           isIncome: isIncome,
@@ -689,12 +700,14 @@ class _EntryList extends StatelessWidget {
 
 class _EntryTile extends StatelessWidget {
   const _EntryTile({
+    required this.monthYyyyMm,
     required this.currency,
     required this.item,
     required this.isIncome,
     this.onTap,
   });
 
+  final String monthYyyyMm;
   final CurrencyOption currency;
   final FinanceEntry item;
   final bool isIncome;
@@ -727,12 +740,27 @@ class _EntryTile extends StatelessWidget {
             ),
           ],
         ),
-        trailing: Text(
-          formatSignedMoney(currency, item.amount, isPositive: isIncome),
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: isIncome ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
-          ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            if (!item.isSynced)
+              IconButton(
+                tooltip: 'Sync',
+                icon: const Icon(Icons.sync),
+                onPressed: () =>
+                    context.read<HomeCubit>().syncNow(monthYyyyMm: monthYyyyMm),
+              ),
+            Text(
+              formatSignedMoney(currency, item.amount, isPositive: isIncome),
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: isIncome
+                    ? const Color(0xFF15803D)
+                    : const Color(0xFFB91C1C),
+              ),
+            ),
+          ],
         ),
       ),
     );

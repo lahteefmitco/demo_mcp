@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:drift/drift.dart';
+import 'package:mobile_app/src/utils/app_logger.dart';
 import 'package:uuid/uuid.dart';
 
 import '../api/finance_rest_api.dart';
@@ -27,7 +28,8 @@ class FinanceRepository {
   Future<FinanceDashboard> fetchDashboard(String monthYyyyMm) async {
     final categories = await _db.select(_db.localCategories).get();
     final accounts = await _db.select(_db.localAccounts).get();
-    final expenses = await _db.select(_db.localExpenses).get();
+    final List<LocalExpenseRow> expenses = await _db.select(_db.localExpenses).get();
+    AppLogger.d('Expenses: ${expenses.map((e) => e.toJson()).toList()}');
     final incomes = await _db.select(_db.localIncomes).get();
     final budgets = await _db.select(_db.localBudgets).get();
     return FinanceLocalDashboard.build(
@@ -273,6 +275,7 @@ class FinanceRepository {
       accountColor: row.read<String>('account_color'),
       date: row.read<String>('tx_date'),
       notes: row.read<String>('notes'),
+      isSynced: row.read<bool>('is_synced'),
     );
     return AccountLedgerItem(isExpense: isExpense, entry: entry);
   }
@@ -377,6 +380,7 @@ class FinanceRepository {
       accountColor: e.accountColor,
       date: e.spentOn,
       notes: e.notes,
+      isSynced: e.isSynced,
     );
   }
 
@@ -396,6 +400,7 @@ class FinanceRepository {
       accountColor: e.accountColor,
       date: e.receivedOn,
       notes: e.notes,
+      isSynced: e.isSynced,
     );
   }
 
@@ -1059,6 +1064,7 @@ class FinanceRepository {
       _db.localAccounts,
     )..where((t) => t.uuid.equals(accountUuid))).getSingleOrNull();
     final id = _uuid.v4();
+    final nowIso = DateTime.now().toIso8601String();
     await _db
         .into(_db.localExpenses)
         .insert(
@@ -1075,6 +1081,8 @@ class FinanceRepository {
             spentOn: spentOn,
             notes: Value(notes),
             isSynced: const Value(false),
+            createdAt: Value(nowIso),
+            updatedAt: Value(nowIso),
           ),
         );
     await recomputeAccountBalances();
@@ -1096,6 +1104,7 @@ class FinanceRepository {
     final acc = await (_db.select(
       _db.localAccounts,
     )..where((t) => t.uuid.equals(accountUuid))).getSingleOrNull();
+    final nowIso = DateTime.now().toIso8601String();
     await (_db.update(
       _db.localExpenses,
     )..where((t) => t.uuid.equals(uuid))).write(
@@ -1111,6 +1120,7 @@ class FinanceRepository {
         spentOn: Value(spentOn),
         notes: Value(notes),
         isSynced: const Value(false),
+        updatedAt: Value(nowIso),
       ),
     );
     final row = await (_db.select(
@@ -1184,6 +1194,7 @@ class FinanceRepository {
       _db.localAccounts,
     )..where((t) => t.uuid.equals(accountUuid))).getSingleOrNull();
     final id = _uuid.v4();
+    final nowIso = DateTime.now().toIso8601String();
     await _db
         .into(_db.localIncomes)
         .insert(
@@ -1200,6 +1211,8 @@ class FinanceRepository {
             receivedOn: receivedOn,
             notes: Value(notes),
             isSynced: const Value(false),
+            createdAt: Value(nowIso),
+            updatedAt: Value(nowIso),
           ),
         );
     await recomputeAccountBalances();
@@ -1221,6 +1234,7 @@ class FinanceRepository {
     final acc = await (_db.select(
       _db.localAccounts,
     )..where((t) => t.uuid.equals(accountUuid))).getSingleOrNull();
+    final nowIso = DateTime.now().toIso8601String();
     await (_db.update(
       _db.localIncomes,
     )..where((t) => t.uuid.equals(uuid))).write(
@@ -1236,6 +1250,7 @@ class FinanceRepository {
         receivedOn: Value(receivedOn),
         notes: Value(notes),
         isSynced: const Value(false),
+        updatedAt: Value(nowIso),
       ),
     );
     final row = await (_db.select(
@@ -1354,7 +1369,7 @@ class FinanceRepository {
     _scheduleSyncAfterMutation();
   }
 
-  Future<void> createAccount({
+  Future<String> createAccount({
     required String name,
     String type = 'cash',
     double initialBalance = 0,
@@ -1379,6 +1394,7 @@ class FinanceRepository {
           ),
         );
     _scheduleSyncAfterMutation();
+    return id;
   }
 
   Future<void> updateAccount({

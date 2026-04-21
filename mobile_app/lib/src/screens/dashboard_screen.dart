@@ -349,27 +349,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       return Center(
                         child: Padding(
                           padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.cloud_off, size: 52),
-                              const SizedBox(height: 12),
-                              Text(
-                                'Could not load dashboard',
-                                style: Theme.of(context).textTheme.titleLarge,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                snapshot.error.toString(),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 16),
-                              FilledButton(
-                                onPressed: () =>
-                                    context.read<DashboardCubit>().refresh(),
-                                child: const Text('Try Again'),
-                              ),
-                            ],
+                          child: SingleChildScrollView(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.cloud_off, size: 52),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Could not load dashboard',
+                                  style: Theme.of(context).textTheme.titleLarge,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  snapshot.error.toString(),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 16),
+                                FilledButton(
+                                  onPressed: () =>
+                                      context.read<DashboardCubit>().refresh(),
+                                  child: const Text('Try Again'),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       );

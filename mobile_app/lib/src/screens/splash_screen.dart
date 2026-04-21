@@ -44,7 +44,7 @@ class SplashScreen extends StatelessWidget {
                   ),
                   SizedBox(height: 2.h),
                   Text(
-                    'Finance Mobile',
+                    'Gulfon Finance',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w800,
                       color: scheme.onSurface,

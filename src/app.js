@@ -30,9 +30,13 @@ app.get("/", (_req, res) => {
   res.json({ message: "Welcome to the Personal Finance API" });
 });
 
-app.get("/health", (_req, res) => {
+function sendHealthJson(_req, res) {
   res.json({ ok: true, service: "personal-finance-api" });
-});
+}
+
+app.get("/health", sendHealthJson);
+// Alias for probes and docs that expect a path under /api
+app.get("/api/health", sendHealthJson);
 
 app.use("/api", authRouter);
 

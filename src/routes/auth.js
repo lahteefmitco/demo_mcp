@@ -29,6 +29,22 @@ import {
 
 const router = express.Router();
 
+/** Best-effort verification email; never throws (logs only). */
+async function trySendVerificationEmail(email) {
+  try {
+    const result = await resendVerificationForEmail(email);
+    if (result.user && result.token) {
+      await sendVerificationEmail({
+        to: result.user.email,
+        name: result.user.name,
+        token: result.token
+      });
+    }
+  } catch (error) {
+    logger.warn(`Verification email skipped for ${email}: ${error?.message || error}`);
+  }
+}
+
 function isValidEmail(email) {
   return typeof email === "string" && email.includes("@");
 }
@@ -70,21 +86,11 @@ router.post("/auth/register", async (req, res, next) => {
     }
 
     const user = await registerUser(value);
-    const token = await resendVerificationForEmail(user.email);
-    if (token.user && token.token) {
-     const isSent = await sendVerificationEmail({
-        to: user.email,
-        name: user.name,
-        token: token.token
-      });
-      logger.info(`Verification email send result: ${isSent}`);
-      if (!isSent) {
-        return res.status(500).json({ error: "Failed to send verification email" });
-      }
-    }
+    await trySendVerificationEmail(user.email);
 
     res.status(201).json({
-      message: "Registration successful. Please verify your email before logging in."
+      message:
+        "Registration successful. You can sign in now. Check your email for a link to verify your address."
     });
   } catch (error) {
     next(error);
@@ -100,14 +106,11 @@ router.post("/auth/login", async (req, res, next) => {
 
     const result = await loginUser(value);
     if (!result.ok) {
-      if (result.reason === "EMAIL_NOT_VERIFIED") {
-        return res.status(403).json({
-          error: "Please verify your email before logging in.",
-          code: "EMAIL_NOT_VERIFIED"
-        });
-      }
-
       return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    if (!result.user.isVerified) {
+      await trySendVerificationEmail(result.user.email);
     }
 
     res.json(createAuthResponse(result.user));
@@ -123,14 +126,7 @@ router.post("/auth/resend-verification", async (req, res, next) => {
       return res.status(400).json({ error: "valid email is required" });
     }
 
-    const result = await resendVerificationForEmail(email);
-    if (result.user && result.token) {
-      await sendVerificationEmail({
-        to: result.user.email,
-        name: result.user.name,
-        token: result.token
-      });
-    }
+    await trySendVerificationEmail(email);
 
     res.json({
       message: "If your account exists and is not yet verified, a verification email has been sent."

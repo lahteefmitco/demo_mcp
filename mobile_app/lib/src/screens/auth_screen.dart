@@ -171,8 +171,8 @@ class _AuthFormState extends State<_AuthForm> {
           const SizedBox(height: 8),
           Text(
             state.isLogin
-                ? 'Only verified users can sign in.'
-                : 'After signup, we will send a verification email before first login.',
+                ? 'Sign in with your email and password.'
+                : 'You can sign in right away. We will email you a link to verify your address.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: const Color(0xFF475569),
             ),
@@ -278,16 +278,6 @@ class _AuthFormState extends State<_AuthForm> {
                         );
                       },
                 child: const Text('Forgot password?'),
-              ),
-            ),
-            Center(
-              child: TextButton(
-                onPressed: state.isSubmitting
-                    ? null
-                    : () => context
-                        .read<AuthCubit>()
-                        .resendVerification(_emailController.text),
-                child: const Text('Resend verification email'),
               ),
             ),
           ],

@@ -95,6 +95,7 @@ class FinanceEntry {
     required this.accountColor,
     required this.date,
     required this.notes,
+    required this.isSynced,
   });
 
   final int id;
@@ -111,6 +112,7 @@ class FinanceEntry {
   final String accountColor;
   final String date;
   final String notes;
+  final bool isSynced;
 
   factory FinanceEntry.fromExpenseJson(Map<String, dynamic> json) {
     return FinanceEntry(
@@ -128,6 +130,7 @@ class FinanceEntry {
       accountColor: json['accountColor'] as String? ?? '#10B981',
       date: json['spentOn'] as String? ?? '',
       notes: json['notes'] as String? ?? '',
+      isSynced: json['isSynced'] as bool? ?? true,
     );
   }
 
@@ -147,6 +150,7 @@ class FinanceEntry {
       accountColor: json['accountColor'] as String? ?? '#10B981',
       date: json['receivedOn'] as String? ?? '',
       notes: json['notes'] as String? ?? '',
+      isSynced: json['isSynced'] as bool? ?? true,
     );
   }
 }
