@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { OAuth2Client } from "google-auth-library";
 import { QueryTypes, query } from "../db.js";
-import { ensureDefaultCategoriesForUser } from "./finance-service.js";
+import { ensureDefaultCategoriesForUser, ensureDefaultAccountForUser } from "./finance-service.js";
 
 const googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) : null;
 
@@ -213,6 +213,7 @@ export async function registerUser({ name, email, password }) {
 
   const user = normalizeUser(rows[0]);
   await ensureDefaultCategoriesForUser(user.id);
+  await ensureDefaultAccountForUser(user.id);
   return user;
 }
 
@@ -229,6 +230,7 @@ export async function registerGoogleUser({ googleId, email, name }) {
 
   const user = normalizeUser(rows[0]);
   await ensureDefaultCategoriesForUser(user.id);
+  await ensureDefaultAccountForUser(user.id);
   return user;
 }
 

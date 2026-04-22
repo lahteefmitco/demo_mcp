@@ -967,7 +967,7 @@ export async function ensureDefaultAccountForUser(userId) {
   await query(
     `
       INSERT INTO accounts (user_id, name, type, initial_balance, color, icon, notes)
-      VALUES ($1, 'General Account', 'cash', 0, '#10B981', 'account_balance_wallet', 'Default account for all transactions')
+      VALUES ($1, 'Cash', 'cash', 0, '#10B981', 'account_balance_wallet', 'Default cash account')
       ON CONFLICT (user_id, name) DO NOTHING
     `,
     [userId]
