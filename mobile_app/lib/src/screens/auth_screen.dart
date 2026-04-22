@@ -80,7 +80,7 @@ class AuthScreen extends StatelessWidget {
                         ),
                         child: Card(
                           elevation: 0,
-                          color: Colors.white,
+                          color: theme.colorScheme.surfaceContainerLow,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(24),
                           ),
@@ -154,12 +154,12 @@ class _AuthFormState extends State<_AuthForm> {
             height: 56,
             width: 56,
             decoration: BoxDecoration(
-              color: const Color(0xFFCCFBF1),
+              color: theme.colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(18),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.lock_person_outlined,
-              color: Color(0xFF0F766E),
+              color: theme.colorScheme.onPrimaryContainer,
             ),
           ),
           const SizedBox(height: 20),
@@ -173,7 +173,7 @@ class _AuthFormState extends State<_AuthForm> {
                 ? 'Sign in with your email and password.'
                 : 'You can sign in right away. We will email you a link to verify your address.',
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFF475569),
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
           if (state.infoMessage != null) ...[
@@ -182,10 +182,13 @@ class _AuthFormState extends State<_AuthForm> {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFECFDF5),
+                color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Text(state.infoMessage!),
+              child: Text(
+                state.infoMessage!,
+                style: TextStyle(color: theme.colorScheme.onSurface),
+              ),
             ),
           ],
           const SizedBox(height: 24),
@@ -274,7 +277,7 @@ class _AuthFormState extends State<_AuthForm> {
                 child: Text(
                   'OR',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: const Color(0xFF94A3B8),
+                    color: theme.colorScheme.outline,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
