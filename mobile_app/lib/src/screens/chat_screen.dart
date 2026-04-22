@@ -27,10 +27,9 @@ class ChatScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => ChatCubit(
-        token: session.token,
-        currencySymbol: currency.symbol,
-      )..initialize(),
+      create: (_) =>
+          ChatCubit(token: session.token, currencySymbol: currency.symbol)
+            ..initialize(),
       child: _ChatActiveWatcher(
         isActiveTab: isActiveTab,
         child: BlocConsumer<ChatCubit, ChatState>(
@@ -154,94 +153,97 @@ class ChatScreen extends StatelessWidget {
                 return FutureBuilder<List<ChatSessionData>>(
                   future: chatCubit.getAllSessions(),
                   builder: (context, snapshot) {
-                  final sessions = snapshot.data ?? [];
+                    final sessions = snapshot.data ?? [];
 
-                  return Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
+                    return Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Chat History',
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                              TextButton.icon(
+                                onPressed: () async {
+                                  context.read<ChatCubit>().startNewSession();
+                                  Navigator.pop(context);
+                                },
+                                icon: const Icon(Icons.add),
+                                label: const Text('New Chat'),
+                              ),
+                            ],
+                          ),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Chat History',
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            TextButton.icon(
-                              onPressed: () async {
-                                context.read<ChatCubit>().startNewSession();
-                                Navigator.pop(context);
-                              },
-                              icon: const Icon(Icons.add),
-                              label: const Text('New Chat'),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Divider(),
-                      Expanded(
-                        child: snapshot.connectionState == ConnectionState.waiting
-                            ? const Center(child: CircularProgressIndicator())
-                            : sessions.isEmpty
-                                ? const Center(child: Text('No chat history yet'))
-                                : ListView.builder(
-                                    controller: scrollController,
-                                    itemCount: sessions.length,
-                                    itemBuilder: (context, index) {
-                                      final session = sessions[index];
-                                      return ListTile(
-                                        leading: CircleAvatar(
-                                          backgroundColor: const Color(0xFF0E7490)
-                                              .withValues(alpha: 0.1),
-                                          child: Text(
-                                            ChatCubit.providers[session.model]
-                                                    ?.substring(0, 1) ??
-                                                'C',
-                                            style: const TextStyle(
-                                              color: Color(0xFF0E7490),
-                                            ),
+                        const Divider(),
+                        Expanded(
+                          child:
+                              snapshot.connectionState ==
+                                  ConnectionState.waiting
+                              ? const Center(child: CircularProgressIndicator())
+                              : sessions.isEmpty
+                              ? const Center(child: Text('No chat history yet'))
+                              : ListView.builder(
+                                  controller: scrollController,
+                                  itemCount: sessions.length,
+                                  itemBuilder: (context, index) {
+                                    final session = sessions[index];
+                                    return ListTile(
+                                      leading: CircleAvatar(
+                                        backgroundColor: const Color(
+                                          0xFF0E7490,
+                                        ).withValues(alpha: 0.1),
+                                        child: Text(
+                                          ChatCubit.providers[session.model]
+                                                  ?.substring(0, 1) ??
+                                              'C',
+                                          style: const TextStyle(
+                                            color: Color(0xFF0E7490),
                                           ),
                                         ),
-                                        title: Text(
-                                          ChatCubit.providers[session.model] ??
-                                              session.model,
+                                      ),
+                                      title: Text(
+                                        ChatCubit.providers[session.model] ??
+                                            session.model,
+                                      ),
+                                      subtitle: Text(
+                                        '${_formatDate(session.createdAt)} - Session #${session.id}',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                      trailing: IconButton(
+                                        icon: const Icon(
+                                          Icons.delete_outline,
+                                          size: 20,
                                         ),
-                                        subtitle: Text(
-                                          '${_formatDate(session.createdAt)} - Session #${session.id}',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall,
-                                        ),
-                                        trailing: IconButton(
-                                          icon: const Icon(
-                                            Icons.delete_outline,
-                                            size: 20,
-                                          ),
-                                          onPressed: () async {
-                                            await context
-                                                .read<ChatCubit>()
-                                                .deleteSession(session.id);
-                                            setSheetState(() {});
-                                          },
-                                        ),
-                                        onTap: () async {
+                                        onPressed: () async {
                                           await context
                                               .read<ChatCubit>()
-                                              .loadSession(session);
-                                          if (context.mounted) {
-                                            Navigator.pop(context);
-                                          }
+                                              .deleteSession(session.id);
+                                          setSheetState(() {});
                                         },
-                                      );
-                                    },
-                                  ),
-                      ),
-                    ],
-                  );
-                },
+                                      ),
+                                      onTap: () async {
+                                        await context
+                                            .read<ChatCubit>()
+                                            .loadSession(session);
+                                        if (context.mounted) {
+                                          Navigator.pop(context);
+                                        }
+                                      },
+                                    );
+                                  },
+                                ),
+                        ),
+                      ],
+                    );
+                  },
                 );
               },
             );
@@ -253,10 +255,7 @@ class ChatScreen extends StatelessWidget {
 }
 
 class _ChatActiveWatcher extends StatefulWidget {
-  const _ChatActiveWatcher({
-    required this.isActiveTab,
-    required this.child,
-  });
+  const _ChatActiveWatcher({required this.isActiveTab, required this.child});
 
   final bool isActiveTab;
   final Widget child;
@@ -373,7 +372,11 @@ class _MessagesListState extends State<_MessagesList> {
             padding: const EdgeInsets.all(12),
             constraints: const BoxConstraints(maxWidth: 320),
             decoration: BoxDecoration(
-              color: isUser ? const Color(0xFF0E7490) : Colors.grey.shade100,
+              color: isUser 
+                  ? const Color(0xFF0E7490) 
+                  : (Theme.of(context).brightness == Brightness.dark
+                      ? Theme.of(context).colorScheme.surfaceContainerHighest
+                      : Colors.grey.shade100),
               borderRadius: BorderRadius.circular(16),
             ),
             child: isUser
@@ -381,10 +384,7 @@ class _MessagesListState extends State<_MessagesList> {
                     message.content,
                     style: const TextStyle(color: Colors.white),
                   )
-                : MarkdownBody(
-                    data: message.content,
-                    selectable: true,
-                  ),
+                : MarkdownBody(data: message.content, selectable: true),
           ),
         );
       },
@@ -482,9 +482,15 @@ class _ExpenseChart extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: Theme.of(context).brightness == Brightness.dark
+            ? Theme.of(context).colorScheme.surfaceContainerHighest
+            : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Theme.of(context).colorScheme.outlineVariant
+              : Colors.grey.shade200,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -713,8 +719,9 @@ class _ExpenseChart extends StatelessWidget {
               sectionsSpace: 2,
               centerSpaceRadius: 40,
               sections: chartData.data.asMap().entries.map((entry) {
-                final percentage =
-                    total > 0 ? (entry.value.value / total * 100) : 0;
+                final percentage = total > 0
+                    ? (entry.value.value / total * 100)
+                    : 0;
                 return PieChartSectionData(
                   color: _chartColors[entry.key % _chartColors.length],
                   value: entry.value.value,
@@ -761,4 +768,3 @@ class _ExpenseChart extends StatelessWidget {
     );
   }
 }
-

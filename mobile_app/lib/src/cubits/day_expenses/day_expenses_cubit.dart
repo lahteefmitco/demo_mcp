@@ -8,9 +8,9 @@ class DayExpensesCubit extends Cubit<DayExpensesState> {
   DayExpensesCubit({
     required FinanceRepository repository,
     required String date,
-  })  : _repository = repository,
-        _date = date,
-        super(DayExpensesState(future: _load(repository, date)));
+  }) : _repository = repository,
+       _date = date,
+       super(DayExpensesState(future: _load(repository, date)));
 
   final FinanceRepository _repository;
   final String _date;
@@ -30,13 +30,10 @@ class DayExpensesCubit extends Cubit<DayExpensesState> {
     FinanceRepository repository,
     String date,
   ) {
-    return repository.listExpensesLocal(
-      spentOnEquals: _spentOnDayKey(date),
-    );
+    return repository.listExpensesLocal(spentOnEquals: _spentOnDayKey(date));
   }
 
   Future<void> refresh() async {
     emit(state.copyWith(future: _load(_repository, _date)));
   }
 }
-

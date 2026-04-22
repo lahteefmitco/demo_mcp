@@ -9,6 +9,17 @@ class AppPreferencesStorage {
   static const _appLockPinHashKey = 'app_lock_pin_hash';
   static const _appLockPinSaltKey = 'app_lock_pin_salt';
   static const _appLockBiometricEnabledKey = 'app_lock_biometric_enabled';
+  static const _themeModeKey = 'app_theme_mode';
+
+  Future<String?> readThemeMode() async {
+    final preferences = await SharedPreferences.getInstance();
+    return preferences.getString(_themeModeKey);
+  }
+
+  Future<void> writeThemeMode(String mode) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(_themeModeKey, mode);
+  }
 
   Future<String?> readCurrencyCode() async {
     final preferences = await SharedPreferences.getInstance();

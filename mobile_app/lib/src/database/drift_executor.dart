@@ -12,4 +12,3 @@ QueryExecutor openChatExecutor() => openChatExecutorImpl();
 
 /// Opens an executor suitable for tests.
 QueryExecutor openInMemoryExecutor() => openInMemoryExecutorImpl();
-

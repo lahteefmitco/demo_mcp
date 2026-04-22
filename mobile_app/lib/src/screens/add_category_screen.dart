@@ -182,7 +182,8 @@ class _AddCategoryFormState extends State<_AddCategoryForm> {
               DropdownMenuItem(value: 'both', child: Text('Both')),
             ],
             onChanged: (value) {
-              if (value != null) context.read<AddCategoryCubit>().setKind(value);
+              if (value != null)
+                context.read<AddCategoryCubit>().setKind(value);
             },
           ),
           const SizedBox(height: 16),
@@ -223,7 +224,9 @@ class _AddCategoryFormState extends State<_AddCategoryForm> {
           const SizedBox(height: 24),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: screen.isEditing ? const Color(0xFF16A34A) : null,
+              backgroundColor: screen.isEditing
+                  ? const Color(0xFF16A34A)
+                  : null,
             ),
             onPressed: _submit,
             child: Text(screen.isEditing ? 'Update Category' : 'Save Category'),

@@ -1,24 +1,20 @@
 import '../../models/finance_models.dart';
 
-enum PeriodExpenseRowLimit {
-  fifty,
-  hundred,
-  all,
-}
+enum PeriodExpenseRowLimit { fifty, hundred, all }
 
 extension PeriodExpenseRowLimitX on PeriodExpenseRowLimit {
   /// `null` means no SQL LIMIT (all matching rows).
   int? get sqlLimit => switch (this) {
-        PeriodExpenseRowLimit.fifty => 50,
-        PeriodExpenseRowLimit.hundred => 100,
-        PeriodExpenseRowLimit.all => null,
-      };
+    PeriodExpenseRowLimit.fifty => 50,
+    PeriodExpenseRowLimit.hundred => 100,
+    PeriodExpenseRowLimit.all => null,
+  };
 
   String get label => switch (this) {
-        PeriodExpenseRowLimit.fifty => '50',
-        PeriodExpenseRowLimit.hundred => '100',
-        PeriodExpenseRowLimit.all => 'All',
-      };
+    PeriodExpenseRowLimit.fifty => '50',
+    PeriodExpenseRowLimit.hundred => '100',
+    PeriodExpenseRowLimit.all => 'All',
+  };
 }
 
 class PeriodExpensesState {

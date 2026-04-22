@@ -33,11 +33,7 @@ abstract final class AppResponsive {
 
 /// Centers content and caps width on tablets so lines do not span edge-to-edge.
 class ResponsiveContentWidth extends StatelessWidget {
-  const ResponsiveContentWidth({
-    required this.child,
-    this.maxWidth,
-    super.key,
-  });
+  const ResponsiveContentWidth({required this.child, this.maxWidth, super.key});
 
   final Widget child;
   final double? maxWidth;

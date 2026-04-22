@@ -57,8 +57,7 @@ class AuthScreen extends StatelessWidget {
                         onPressed: () {
                           Navigator.of(context).push<void>(
                             MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  const LocalDatabaseViewerScreen(),
+                              builder: (_) => const LocalDatabaseViewerScreen(),
                             ),
                           );
                         },
@@ -236,7 +235,9 @@ class _AuthFormState extends State<_AuthForm> {
               suffixIcon: IconButton(
                 tooltip: _obscurePassword ? 'Show password' : 'Hide password',
                 icon: Icon(
-                  _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                  _obscurePassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
                 ),
                 onPressed: () => setState(() {
                   _obscurePassword = !_obscurePassword;
@@ -259,8 +260,8 @@ class _AuthFormState extends State<_AuthForm> {
                 state.isSubmitting
                     ? 'Please wait...'
                     : state.isLogin
-                        ? 'Sign in'
-                        : 'Create account',
+                    ? 'Sign in'
+                    : 'Create account',
               ),
             ),
           ),
@@ -284,8 +285,9 @@ class _AuthFormState extends State<_AuthForm> {
           const SizedBox(height: 12),
           Center(
             child: TextButton(
-              onPressed:
-                  state.isSubmitting ? null : () => context.read<AuthCubit>().toggleMode(),
+              onPressed: state.isSubmitting
+                  ? null
+                  : () => context.read<AuthCubit>().toggleMode(),
               child: Text(
                 state.isLogin
                     ? 'Need an account? Sign up'

@@ -7,8 +7,7 @@ part 'finance_database.g.dart';
 class LocalAccounts extends Table {
   TextColumn get uuid => text()();
   IntColumn get serverId => integer().nullable()();
-  BoolColumn get isSynced =>
-      boolean().withDefault(const Constant(false))();
+  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
   TextColumn get name => text()();
   TextColumn get type => text()();
   RealColumn get initialBalance => real()();
@@ -28,8 +27,7 @@ class LocalAccounts extends Table {
 class LocalCategories extends Table {
   TextColumn get uuid => text()();
   IntColumn get serverId => integer().nullable()();
-  BoolColumn get isSynced =>
-      boolean().withDefault(const Constant(false))();
+  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
   TextColumn get name => text()();
   TextColumn get kind => text()();
   TextColumn get color => text()();
@@ -45,16 +43,17 @@ class LocalCategories extends Table {
 class LocalExpenses extends Table {
   TextColumn get uuid => text()();
   IntColumn get serverId => integer().nullable()();
-  BoolColumn get isSynced =>
-      boolean().withDefault(const Constant(false))();
+  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
   TextColumn get title => text()();
   RealColumn get amount => real()();
   TextColumn get categoryUuid => text()();
   TextColumn get accountUuid => text()();
   TextColumn get categoryName => text().withDefault(const Constant(''))();
-  TextColumn get categoryColor => text().withDefault(const Constant('#0E7490'))();
+  TextColumn get categoryColor =>
+      text().withDefault(const Constant('#0E7490'))();
   TextColumn get accountName => text().withDefault(const Constant(''))();
-  TextColumn get accountColor => text().withDefault(const Constant('#10B981'))();
+  TextColumn get accountColor =>
+      text().withDefault(const Constant('#10B981'))();
   TextColumn get spentOn => text()();
   TextColumn get notes => text().withDefault(const Constant(''))();
   TextColumn get createdAt => text().nullable()();
@@ -68,16 +67,17 @@ class LocalExpenses extends Table {
 class LocalIncomes extends Table {
   TextColumn get uuid => text()();
   IntColumn get serverId => integer().nullable()();
-  BoolColumn get isSynced =>
-      boolean().withDefault(const Constant(false))();
+  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
   TextColumn get title => text()();
   RealColumn get amount => real()();
   TextColumn get categoryUuid => text()();
   TextColumn get accountUuid => text()();
   TextColumn get categoryName => text().withDefault(const Constant(''))();
-  TextColumn get categoryColor => text().withDefault(const Constant('#0E7490'))();
+  TextColumn get categoryColor =>
+      text().withDefault(const Constant('#0E7490'))();
   TextColumn get accountName => text().withDefault(const Constant(''))();
-  TextColumn get accountColor => text().withDefault(const Constant('#10B981'))();
+  TextColumn get accountColor =>
+      text().withDefault(const Constant('#10B981'))();
   TextColumn get receivedOn => text()();
   TextColumn get notes => text().withDefault(const Constant(''))();
   TextColumn get createdAt => text().nullable()();
@@ -91,8 +91,7 @@ class LocalIncomes extends Table {
 class LocalTransfers extends Table {
   TextColumn get uuid => text()();
   IntColumn get serverId => integer().nullable()();
-  BoolColumn get isSynced =>
-      boolean().withDefault(const Constant(false))();
+  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
   TextColumn get fromAccountUuid => text()();
   TextColumn get toAccountUuid => text()();
   TextColumn get fromAccountName => text().withDefault(const Constant(''))();
@@ -109,8 +108,7 @@ class LocalTransfers extends Table {
 class LocalBudgets extends Table {
   TextColumn get uuid => text()();
   IntColumn get serverId => integer().nullable()();
-  BoolColumn get isSynced =>
-      boolean().withDefault(const Constant(false))();
+  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
   TextColumn get name => text()();
   RealColumn get amount => real()();
   TextColumn get period => text()();
@@ -140,7 +138,8 @@ class LocalBudgets extends Table {
   ],
 )
 class FinanceDatabase extends _$FinanceDatabase {
-  FinanceDatabase([QueryExecutor? executor]) : super(executor ?? openFinanceExecutor());
+  FinanceDatabase([QueryExecutor? executor])
+    : super(executor ?? openFinanceExecutor());
 
   /// In-memory database for tests.
   FinanceDatabase.memory() : super(openInMemoryExecutor());
@@ -195,10 +194,7 @@ class FinanceDatabase extends _$FinanceDatabase {
     }
     return customSelect(
       buffer.toString(),
-      variables: [
-        Variable<String>(fromIso),
-        Variable<String>(toIso),
-      ],
+      variables: [Variable<String>(fromIso), Variable<String>(toIso)],
       readsFrom: {localExpenses},
     ).map(_localExpenseRowFromQueryRow).get();
   }
@@ -234,7 +230,8 @@ class FinanceDatabase extends _$FinanceDatabase {
     return raw.replaceAll(RegExp(r'[%_\\]'), '');
   }
 
-  static String get _ledgerExpenseSelect => '''
+  static String get _ledgerExpenseSelect =>
+      '''
 SELECT
   'expense' AS tx_kind,
   e.uuid AS uuid,
@@ -259,7 +256,8 @@ WHERE e.account_uuid = ?
   AND $_eSortIso <= ?
 ''';
 
-  static String get _ledgerIncomeSelect => '''
+  static String get _ledgerIncomeSelect =>
+      '''
 SELECT
   'income' AS tx_kind,
   i.uuid AS uuid,

@@ -10,15 +10,13 @@ import '../../settings/app_preferences_storage.dart';
 import 'chat_state.dart';
 
 class ChatCubit extends Cubit<ChatState> {
-  ChatCubit({
-    required String token,
-    required String currencySymbol,
-  })  : _currencySymbol = currencySymbol,
-        _chatApi = ChatApi(token: token),
-        _financeClient = FinanceMcpClient(token: token),
-        _database = ChatDatabase(),
-        _preferencesStorage = AppPreferencesStorage(),
-        super(const ChatState.initial());
+  ChatCubit({required String token, required String currencySymbol})
+    : _currencySymbol = currencySymbol,
+      _chatApi = ChatApi(token: token),
+      _financeClient = FinanceMcpClient(token: token),
+      _database = ChatDatabase(),
+      _preferencesStorage = AppPreferencesStorage(),
+      super(const ChatState.initial());
 
   final String _currencySymbol;
   final ChatApi _chatApi;
@@ -70,7 +68,9 @@ class ChatCubit extends Cubit<ChatState> {
     final rows = await _database.getMessagesForSession(id);
     emit(
       state.copyWith(
-        messages: rows.map((m) => ChatUiMessage(role: m.role, content: m.content)).toList(),
+        messages: rows
+            .map((m) => ChatUiMessage(role: m.role, content: m.content))
+            .toList(),
       ),
     );
   }
@@ -145,7 +145,11 @@ class ChatCubit extends Cubit<ChatState> {
         content: 'No expense data found for the requested period.',
       );
       emit(state.copyWith(messages: [...state.messages, msg]));
-      await _database.addMessage(sessionId, 'assistant', 'No expense data found.');
+      await _database.addMessage(
+        sessionId,
+        'assistant',
+        'No expense data found.',
+      );
     } else if (chartData == null) {
       try {
         final reply = await _chatApi.sendMessage(
@@ -250,4 +254,3 @@ class ChatCubit extends Cubit<ChatState> {
     }
   }
 }
-

@@ -24,4 +24,3 @@ QueryExecutor openChatExecutorImpl() {
 QueryExecutor openInMemoryExecutorImpl() {
   return NativeDatabase.memory();
 }
-

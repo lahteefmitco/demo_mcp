@@ -1,8 +1,5 @@
 class AddCategoryState {
-  const AddCategoryState({
-    required this.kind,
-    required this.selectedColor,
-  });
+  const AddCategoryState({required this.kind, required this.selectedColor});
 
   final String kind;
   final String selectedColor;
@@ -14,4 +11,3 @@ class AddCategoryState {
     );
   }
 }
-

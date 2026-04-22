@@ -10,16 +10,16 @@ class SettingsCubit extends Cubit<SettingsState> {
   SettingsCubit({
     required FinanceRepository repository,
     required FinanceMcpClient toolsClient,
-  })  : _repository = repository,
-        _toolsClient = toolsClient,
-        super(
-          SettingsState(
-            future: _loadInitial(repository, toolsClient),
-            toastNonce: 0,
-            toastMessage: null,
-            toastIsError: false,
-          ),
-        );
+  }) : _repository = repository,
+       _toolsClient = toolsClient,
+       super(
+         SettingsState(
+           future: _loadInitial(repository, toolsClient),
+           toastNonce: 0,
+           toastMessage: null,
+           toastIsError: false,
+         ),
+       );
 
   final FinanceRepository _repository;
   final FinanceMcpClient _toolsClient;
@@ -270,4 +270,3 @@ class SettingsCubit extends Cubit<SettingsState> {
     }
   }
 }
-

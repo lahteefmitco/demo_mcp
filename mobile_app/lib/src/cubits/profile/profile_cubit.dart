@@ -9,9 +9,9 @@ class ProfileCubit extends Cubit<ProfileState> {
     required AuthApi authApi,
     required AuthSession session,
     required Future<void> Function(AuthSession session) onSessionUpdated,
-  })  : _authApi = authApi,
-        _onSessionUpdated = onSessionUpdated,
-        super(ProfileState.initial(session));
+  }) : _authApi = authApi,
+       _onSessionUpdated = onSessionUpdated,
+       super(ProfileState.initial(session));
 
   final AuthApi _authApi;
   final Future<void> Function(AuthSession session) _onSessionUpdated;
@@ -60,4 +60,3 @@ class ProfileCubit extends Cubit<ProfileState> {
     }
   }
 }
-

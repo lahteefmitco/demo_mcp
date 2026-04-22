@@ -121,16 +121,14 @@ class _CategoryEntriesScreenState extends State<CategoryEntriesScreen>
                         currency: widget.currency,
                         entries: data.expenses,
                         isIncome: false,
-                        emptyMessage:
-                            'No expense records in this category.',
+                        emptyMessage: 'No expense records in this category.',
                         onRefresh: _refresh,
                       ),
                       _CategoryEntryList(
                         currency: widget.currency,
                         entries: data.incomes,
                         isIncome: true,
-                        emptyMessage:
-                            'No income records in this category.',
+                        emptyMessage: 'No income records in this category.',
                         onRefresh: _refresh,
                       ),
                     ],

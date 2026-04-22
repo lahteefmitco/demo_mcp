@@ -8,4 +8,3 @@ class ShellState {
     return ShellState(selectedIndex: selectedIndex ?? this.selectedIndex);
   }
 }
-

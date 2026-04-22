@@ -37,4 +37,3 @@ class SettingsData {
   final FinanceDashboard dashboard;
   final List<McpTool> tools;
 }
-

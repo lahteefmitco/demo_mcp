@@ -12,9 +12,9 @@ class ChatDbViewerState {
   final Map<int, List<ChatMessageData>> sessionMessages;
 
   const ChatDbViewerState.initial()
-      : isLoading = true,
-        sessions = const [],
-        sessionMessages = const {};
+    : isLoading = true,
+      sessions = const [],
+      sessionMessages = const {};
 
   ChatDbViewerState copyWith({
     bool? isLoading,
@@ -28,4 +28,3 @@ class ChatDbViewerState {
     );
   }
 }
-

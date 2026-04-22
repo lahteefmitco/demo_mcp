@@ -20,13 +20,13 @@ class HomeState {
   final bool toastIsError;
 
   factory HomeState.initial() => const HomeState(
-        isLoading: true,
-        dashboard: null,
-        errorMessage: null,
-        toastNonce: 0,
-        toastMessage: null,
-        toastIsError: false,
-      );
+    isLoading: true,
+    dashboard: null,
+    errorMessage: null,
+    toastNonce: 0,
+    toastMessage: null,
+    toastIsError: false,
+  );
 
   HomeState copyWith({
     bool? isLoading,
@@ -46,4 +46,3 @@ class HomeState {
     );
   }
 }
-

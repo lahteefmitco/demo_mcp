@@ -83,8 +83,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: ExpenseAppTheme.splashBackgroundGradient,
+        decoration: BoxDecoration(
+          gradient: ExpenseAppTheme.splashBackgroundGradient(context),
         ),
         child: SafeArea(
           child: Column(
@@ -100,10 +100,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    final maxW = math.min(
-                      640.0,
-                      constraints.maxWidth - 8.w,
-                    );
+                    final maxW = math.min(640.0, constraints.maxWidth - 8.w);
                     return Center(
                       child: ConstrainedBox(
                         constraints: BoxConstraints(maxWidth: maxW),
@@ -121,7 +118,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   Container(
                                     padding: EdgeInsets.all(6.w),
                                     decoration: BoxDecoration(
-                                      color: scheme.primary.withValues(alpha: 0.1),
+                                      color: scheme.primary.withValues(
+                                        alpha: 0.1,
+                                      ),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
@@ -147,9 +146,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   Text(
                                     page.body,
                                     textAlign: TextAlign.center,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyLarge
+                                    style: Theme.of(context).textTheme.bodyLarge
                                         ?.copyWith(
                                           color: scheme.onSurface.withValues(
                                             alpha: 0.75,

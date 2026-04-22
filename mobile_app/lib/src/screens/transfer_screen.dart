@@ -44,161 +44,180 @@ class TransferScreen extends StatelessWidget {
             return Scaffold(
               appBar: AppBar(title: const Text('Transfers')),
               body: FutureBuilder<List<FinanceAccount>>(
-                future: blocContext.watch<TransfersCubit>().state.accountsFuture,
+                future: blocContext
+                    .watch<TransfersCubit>()
+                    .state
+                    .accountsFuture,
                 builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-          if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.error_outline, size: 52),
-                  const SizedBox(height: 12),
-                  Text(snapshot.error.toString()),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: () => context.read<TransfersCubit>().refresh(),
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            );
-          }
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.error_outline, size: 52),
+                          const SizedBox(height: 12),
+                          Text(snapshot.error.toString()),
+                          const SizedBox(height: 16),
+                          FilledButton(
+                            onPressed: () =>
+                                context.read<TransfersCubit>().refresh(),
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
 
-          final accounts = snapshot.data!;
+                  final accounts = snapshot.data!;
 
-          return RefreshIndicator(
-            onRefresh: () => context.read<TransfersCubit>().refresh(),
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  return RefreshIndicator(
+                    onRefresh: () => context.read<TransfersCubit>().refresh(),
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
                       children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: const Color(
-                                  0xFF10B981,
-                                ).withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.swap_horiz,
-                                color: Color(0xFF10B981),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Transfer Money',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.bold),
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: const Color(
+                                          0xFF10B981,
+                                        ).withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Icon(
+                                        Icons.swap_horiz,
+                                        color: Color(0xFF10B981),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Transfer Money',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleMedium
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                          ),
+                                          Text(
+                                            'Move funds between accounts',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(color: Colors.grey),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: FilledButton.icon(
+                                    onPressed: accounts.length >= 2
+                                        ? () => _openTransferDialog(
+                                            context,
+                                            accounts,
+                                          )
+                                        : null,
+                                    icon: const Icon(Icons.add),
+                                    label: const Text('New Transfer'),
                                   ),
-                                  Text(
-                                    'Move funds between accounts',
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(color: Colors.grey),
+                                ),
+                                if (accounts.length < 2)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8),
+                                    child: Text(
+                                      'You need at least 2 accounts to transfer',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(color: Colors.orange),
+                                    ),
                                   ),
-                                ],
-                              ),
+                              ],
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            onPressed: accounts.length >= 2
-                                ? () => _openTransferDialog(context, accounts)
-                                : null,
-                            icon: const Icon(Icons.add),
-                            label: const Text('New Transfer'),
                           ),
                         ),
-                        if (accounts.length < 2)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              'You need at least 2 accounts to transfer',
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: Colors.orange),
-                            ),
-                          ),
+                        const SizedBox(height: 24),
+                        Text(
+                          'Transfer History',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        FutureBuilder<List<Transfer>>(
+                          future: context
+                              .watch<TransfersCubit>()
+                              .state
+                              .transfersFuture,
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState !=
+                                ConnectionState.done) {
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
+                            }
+
+                            if (snapshot.hasError) {
+                              return Card(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Text(
+                                    'Error loading transfers: ${snapshot.error}',
+                                  ),
+                                ),
+                              );
+                            }
+
+                            final transfers = snapshot.data!;
+
+                            if (transfers.isEmpty) {
+                              return const Card(
+                                child: Padding(
+                                  padding: EdgeInsets.all(24),
+                                  child: Center(
+                                    child: Text(
+                                      'No transfers yet',
+                                      style: TextStyle(color: Colors.grey),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+
+                            return Column(
+                              children: transfers
+                                  .map(
+                                    (transfer) => _TransferTile(
+                                      transfer: transfer,
+                                      currency: currency,
+                                    ),
+                                  )
+                                  .toList(),
+                            );
+                          },
+                        ),
                       ],
                     ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Transfer History',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                FutureBuilder<List<Transfer>>(
-                  future: context.watch<TransfersCubit>().state.transfersFuture,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState != ConnectionState.done) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-
-                    if (snapshot.hasError) {
-                      return Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Text(
-                            'Error loading transfers: ${snapshot.error}',
-                          ),
-                        ),
-                      );
-                    }
-
-                    final transfers = snapshot.data!;
-
-                    if (transfers.isEmpty) {
-                      return const Card(
-                        child: Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Center(
-                            child: Text(
-                              'No transfers yet',
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          ),
-                        ),
-                      );
-                    }
-
-                    return Column(
-                      children: transfers
-                          .map(
-                            (transfer) => _TransferTile(
-                              transfer: transfer,
-                              currency: currency,
-                            ),
-                          )
-                          .toList(),
-                    );
-                  },
-                ),
-              ],
-            ),
-          );
+                  );
                 },
               ),
             );
@@ -220,11 +239,11 @@ Future<void> _openTransferDialog(
     return;
   }
   await context.read<TransfersCubit>().createTransfer(
-        fromAccountUuid: payload['fromAccountUuid'] as String,
-        toAccountUuid: payload['toAccountUuid'] as String,
-        amount: payload['amount'] as double,
-        notes: payload['notes'] as String? ?? '',
-      );
+    fromAccountUuid: payload['fromAccountUuid'] as String,
+    toAccountUuid: payload['toAccountUuid'] as String,
+    amount: payload['amount'] as double,
+    notes: payload['notes'] as String? ?? '',
+  );
 }
 
 class _TransferTile extends StatelessWidget {
@@ -313,7 +332,10 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
         initialToAccountUuid: active[1].uuid,
       );
     } else {
-      _cubit = AddTransferCubit(initialFromAccountUuid: null, initialToAccountUuid: null);
+      _cubit = AddTransferCubit(
+        initialFromAccountUuid: null,
+        initialToAccountUuid: null,
+      );
     }
   }
 
@@ -396,52 +418,53 @@ class _AddTransferScreenState extends State<AddTransferScreen> {
                     validator: (value) =>
                         value == null ? 'Select an account' : null,
                   ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _amountController,
-              decoration: const InputDecoration(
-                labelText: 'Amount',
-                prefixIcon: Icon(Icons.attach_money),
-              ),
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Enter an amount';
-                }
-                final amount = double.tryParse(value);
-                if (amount == null || amount <= 0) {
-                  return 'Enter a valid positive amount';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _notesController,
-              decoration: const InputDecoration(
-                labelText: 'Notes (optional)',
-                prefixIcon: Icon(Icons.note),
-              ),
-              maxLines: 2,
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed:
-                  state.fromAccountUuid != state.toAccountUuid ? _submit : null,
-              child: const Text('Transfer'),
-            ),
-            if (state.fromAccountUuid == state.toAccountUuid &&
-                state.fromAccountUuid != null)
-              const Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: Text(
-                  'Select different accounts for transfer',
-                  style: TextStyle(color: Colors.red),
-                  textAlign: TextAlign.center,
-                ),
-              ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _amountController,
+                    decoration: const InputDecoration(
+                      labelText: 'Amount',
+                      prefixIcon: Icon(Icons.attach_money),
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Enter an amount';
+                      }
+                      final amount = double.tryParse(value);
+                      if (amount == null || amount <= 0) {
+                        return 'Enter a valid positive amount';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _notesController,
+                    decoration: const InputDecoration(
+                      labelText: 'Notes (optional)',
+                      prefixIcon: Icon(Icons.note),
+                    ),
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    onPressed: state.fromAccountUuid != state.toAccountUuid
+                        ? _submit
+                        : null,
+                    child: const Text('Transfer'),
+                  ),
+                  if (state.fromAccountUuid == state.toAccountUuid &&
+                      state.fromAccountUuid != null)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Select different accounts for transfer',
+                        style: TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                 ],
               ),
             );

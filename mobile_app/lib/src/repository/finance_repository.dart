@@ -28,7 +28,9 @@ class FinanceRepository {
   Future<FinanceDashboard> fetchDashboard(String monthYyyyMm) async {
     final categories = await _db.select(_db.localCategories).get();
     final accounts = await _db.select(_db.localAccounts).get();
-    final List<LocalExpenseRow> expenses = await _db.select(_db.localExpenses).get();
+    final List<LocalExpenseRow> expenses = await _db
+        .select(_db.localExpenses)
+        .get();
     AppLogger.d('Expenses: ${expenses.map((e) => e.toJson()).toList()}');
     final incomes = await _db.select(_db.localIncomes).get();
     final budgets = await _db.select(_db.localBudgets).get();

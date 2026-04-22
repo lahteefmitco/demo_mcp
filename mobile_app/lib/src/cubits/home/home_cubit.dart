@@ -6,8 +6,8 @@ import 'home_state.dart';
 
 class HomeCubit extends Cubit<HomeState> {
   HomeCubit({required FinanceRepository repository})
-      : _repository = repository,
-        super(HomeState.initial());
+    : _repository = repository,
+      super(HomeState.initial());
 
   final FinanceRepository _repository;
 
@@ -24,12 +24,7 @@ class HomeCubit extends Cubit<HomeState> {
       );
     } catch (e, st) {
       AppLogger.e('Home load failed', error: e, stackTrace: st);
-      emit(
-        state.copyWith(
-          isLoading: false,
-          errorMessage: e.toString(),
-        ),
-      );
+      emit(state.copyWith(isLoading: false, errorMessage: e.toString()));
     }
   }
 
@@ -286,4 +281,3 @@ class HomeCubit extends Cubit<HomeState> {
     }
   }
 }
-

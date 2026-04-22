@@ -7,20 +7,22 @@ import 'transfers_state.dart';
 
 class TransfersCubit extends Cubit<TransfersState> {
   TransfersCubit({required FinanceRepository repository})
-      : _repository = repository,
-        super(
-          TransfersState(
-            accountsFuture: repository.listAccountsLocal(),
-            transfersFuture: _loadTransfers(repository),
-            toastNonce: 0,
-            toastMessage: null,
-            toastIsError: false,
-          ),
-        );
+    : _repository = repository,
+      super(
+        TransfersState(
+          accountsFuture: repository.listAccountsLocal(),
+          transfersFuture: _loadTransfers(repository),
+          toastNonce: 0,
+          toastMessage: null,
+          toastIsError: false,
+        ),
+      );
 
   final FinanceRepository _repository;
 
-  static Future<List<Transfer>> _loadTransfers(FinanceRepository repository) async {
+  static Future<List<Transfer>> _loadTransfers(
+    FinanceRepository repository,
+  ) async {
     final list = await repository.listTransfersLocal();
     return list.length > 20 ? list.sublist(0, 20) : list;
   }
@@ -67,4 +69,3 @@ class TransfersCubit extends Cubit<TransfersState> {
     }
   }
 }
-

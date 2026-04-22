@@ -18,14 +18,8 @@ class FinanceLocalDashboard {
         .where((e) => _inMonth(e.receivedOn, monthYyyyMm))
         .toList();
 
-    final expenseTotal = monthExpenses.fold<double>(
-      0,
-      (s, e) => s + e.amount,
-    );
-    final incomeTotal = monthIncomes.fold<double>(
-      0,
-      (s, e) => s + e.amount,
-    );
+    final expenseTotal = monthExpenses.fold<double>(0, (s, e) => s + e.amount);
+    final incomeTotal = monthIncomes.fold<double>(0, (s, e) => s + e.amount);
 
     final byCat = <String, (String color, double total)>{};
     for (final e in monthExpenses) {
@@ -39,16 +33,17 @@ class FinanceLocalDashboard {
       }
     }
 
-    final expenseByCategory = byCat.entries
-        .map(
-          (e) => CategorySpend(
-            category: e.key,
-            color: e.value.$1,
-            total: e.value.$2,
-          ),
-        )
-        .toList()
-      ..sort((a, b) => b.total.compareTo(a.total));
+    final expenseByCategory =
+        byCat.entries
+            .map(
+              (e) => CategorySpend(
+                category: e.key,
+                color: e.value.$1,
+                total: e.value.$2,
+              ),
+            )
+            .toList()
+          ..sort((a, b) => b.total.compareTo(a.total));
 
     final summary = PeriodSummary(
       month: _displayMonth(monthYyyyMm),
@@ -90,10 +85,8 @@ class FinanceLocalDashboard {
         )
         .toList();
 
-    final recentExpenses = [...expenses]
-      ..sort(_cmpExpenseRecentDesc);
-    final recentIncomes = [...incomes]
-      ..sort(_cmpIncomeRecentDesc);
+    final recentExpenses = [...expenses]..sort(_cmpExpenseRecentDesc);
+    final recentIncomes = [...incomes]..sort(_cmpIncomeRecentDesc);
 
     final recentExpenseModels = recentExpenses
         .take(8)
@@ -150,8 +143,7 @@ class FinanceLocalDashboard {
     if (d == null) {
       return false;
     }
-    final key =
-        '${d.year}-${d.month.toString().padLeft(2, '0')}';
+    final key = '${d.year}-${d.month.toString().padLeft(2, '0')}';
     return key == monthYyyyMm;
   }
 

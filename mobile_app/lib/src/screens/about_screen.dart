@@ -81,10 +81,13 @@ class AboutScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       InkWell(
-                        onTap: () => launchUrl(Uri.parse('https://gulfon-web.onrender.com')),
+                        onTap: () => launchUrl(
+                          Uri.parse('https://gulfon-web.onrender.com'),
+                        ),
                         child: Text(
                           'https://gulfon-web.onrender.com',
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          style: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(
                                 color: Colors.blue,
                                 decoration: TextDecoration.underline,
                                 height: 1.45,

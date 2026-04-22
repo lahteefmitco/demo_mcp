@@ -17,10 +17,10 @@ class AppCubit extends Cubit<AppState> {
     required AuthStorage authStorage,
     required AppPreferencesStorage preferencesStorage,
     required AuthApi authApi,
-  })  : _authStorage = authStorage,
-        _preferencesStorage = preferencesStorage,
-        _authApi = authApi,
-        super(const AppBootstrapping());
+  }) : _authStorage = authStorage,
+       _preferencesStorage = preferencesStorage,
+       _authApi = authApi,
+       super(const AppBootstrapping());
 
   final AuthStorage _authStorage;
   final AppPreferencesStorage _preferencesStorage;
@@ -57,7 +57,11 @@ class AppCubit extends Cubit<AppState> {
           final currentUser = await _authApi.fetchCurrentUser(stored.token);
           session = AuthSession(token: stored.token, user: currentUser);
         } catch (e, st) {
-          AppLogger.i('Session restore failed, clearing token', error: e, stackTrace: st);
+          AppLogger.i(
+            'Session restore failed, clearing token',
+            error: e,
+            stackTrace: st,
+          );
           await _authStorage.clear();
         }
       }
@@ -149,8 +153,9 @@ class AppCubit extends Cubit<AppState> {
     await BackgroundSync.cancelPeriodicSync();
     await _authStorage.clear();
     final state = this.state;
-    final currency = state is AppAuthenticated ? state.currency : defaultCurrency;
+    final currency = state is AppAuthenticated
+        ? state.currency
+        : defaultCurrency;
     emit(AppUnauthenticated(currency: currency));
   }
 }
-

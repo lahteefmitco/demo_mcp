@@ -404,11 +404,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           const SizedBox(height: 24),
                           Container(
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: Theme.of(context).colorScheme.surface,
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.grey.withValues(alpha: 0.2),
+                                  color: Theme.of(context).shadowColor.withValues(alpha: 0.1),
                                   spreadRadius: 2,
                                   blurRadius: 5,
                                   offset: const Offset(0, 0),
@@ -797,8 +797,10 @@ class _CategoryPieCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFF8FAFC), Color(0xFFE2E8F0)],
+                        gradient: LinearGradient(
+                          colors: Theme.of(context).brightness == Brightness.dark
+                              ? const [Color(0xFF1E293B), Color(0xFF0F172A)]
+                              : const [Color(0xFFF8FAFC), Color(0xFFE2E8F0)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),

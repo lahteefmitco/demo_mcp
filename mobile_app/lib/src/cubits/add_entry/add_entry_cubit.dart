@@ -8,12 +8,12 @@ class AddEntryCubit extends Cubit<AddEntryState> {
     required String? initialAccountUuid,
     required String initialDate,
   }) : super(
-          AddEntryState(
-            selectedCategoryUuid: initialCategoryUuid,
-            selectedAccountUuid: initialAccountUuid,
-            date: initialDate,
-          ),
-        );
+         AddEntryState(
+           selectedCategoryUuid: initialCategoryUuid,
+           selectedAccountUuid: initialAccountUuid,
+           date: initialDate,
+         ),
+       );
 
   void selectCategory(String? uuid) {
     emit(state.copyWith(selectedCategoryUuid: uuid));
@@ -27,4 +27,3 @@ class AddEntryCubit extends Cubit<AddEntryState> {
     emit(state.copyWith(date: value));
   }
 }
-
