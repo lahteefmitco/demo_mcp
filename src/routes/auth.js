@@ -8,6 +8,7 @@ import {
   getUserByEmail,
   getValidPasswordResetRecord,
   loginUser,
+  loginWithGoogle,
   requestAccountDeletionForUser,
   registerUser,
   requestEmailChange,
@@ -115,6 +116,27 @@ router.post("/auth/login", async (req, res, next) => {
 
     res.json(createAuthResponse(result.user));
   } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/auth/google", async (req, res, next) => {
+  try {
+    const token = req.body.token;
+    if (!token || typeof token !== "string") {
+      return res.status(400).json({ error: "Google ID token is required" });
+    }
+
+    const result = await loginWithGoogle({ token });
+    if (!result.ok) {
+      return res.status(401).json({ error: result.reason || "Google authentication failed" });
+    }
+
+    res.json(createAuthResponse(result.user));
+  } catch (error) {
+    if (error.message === "Google Sign-In is not configured on the server.") {
+      return res.status(501).json({ error: error.message });
+    }
     next(error);
   }
 });

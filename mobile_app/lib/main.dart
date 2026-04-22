@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sizer/sizer.dart';
 
 import 'src/app.dart';
@@ -17,6 +18,10 @@ Future<void> main() async {
   Bloc.observer = AppBlocObserver();
   await setupServiceLocator();
   await BackgroundSync.initialize();
+  await GoogleSignIn.instance.initialize(
+    clientId: const String.fromEnvironment('GOOGLE_CLIENT_ID'),
+    serverClientId: const String.fromEnvironment('GOOGLE_CLIENT_ID'),
+  );
   runApp(
     Sizer(
       builder: (context, orientation, screenType) {

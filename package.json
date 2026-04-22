@@ -22,6 +22,7 @@
     "db:init": "node src/scripts/init-db.js",
     "db:migrate-auth": "node src/scripts/migrate-auth-schema.js",
     "db:migrate-rag": "node src/scripts/migrate-rag-schema.js",
+    "db:migrate-google-auth": "node src/scripts/migrate-google-auth.js",
     "rag:reindex": "node src/scripts/rag-reindex.js"
   },
   "dependencies": {
@@ -29,10 +30,10 @@
     "dotenv": "latest",
     "ejs": "^3.1.10",
     "express": "latest",
+    "google-auth-library": "^10.6.2",
     "nodemailer": "^7.0.5",
     "pg": "latest",
     "sequelize": "latest",
     "winston": "^3.19.0"
-  },
-  "devDependencies": {}
+  }
 }

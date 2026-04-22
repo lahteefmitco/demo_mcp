@@ -51,6 +51,7 @@ dependencies:
   url_launcher: ^6.3.0
   sizer: ^3.1.3
   local_auth: ^2.3.0
+  google_sign_in: ^7.2.0
 
 # path_provider_foundation 2.6+ pulls objective_c (bundled native lib); 2.4.x uses the classic plugin.
 dependency_overrides:
