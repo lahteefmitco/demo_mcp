@@ -16,7 +16,7 @@ abstract final class AppToast {
       autoCloseDuration: const Duration(seconds: 3),
       primaryColor: Colors.white,
       foregroundColor: Colors.white,
-      backgroundColor: ExpenseAppTheme.seedColor
+      backgroundColor: ExpenseAppTheme.seedColor,
     );
   }
 
@@ -31,4 +31,3 @@ abstract final class AppToast {
     );
   }
 }
-

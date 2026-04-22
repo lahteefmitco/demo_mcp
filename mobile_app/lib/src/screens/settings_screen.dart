@@ -10,6 +10,7 @@ import '../cubits/settings/settings_cubit.dart';
 import '../cubits/settings/settings_state.dart';
 import '../cubits/shell/shell_cubit.dart';
 import '../cubits/shell/shell_state.dart';
+import '../cubits/theme/theme_cubit.dart';
 import '../models/app_lock_config.dart';
 import '../models/auth_session.dart';
 import '../repository/finance_repository.dart';
@@ -333,6 +334,51 @@ class SettingsScreen extends StatelessWidget {
     _showMessage(context, '${selected.currency} selected');
   }
 
+  Future<void> _selectTheme(BuildContext context) async {
+    final currentTheme = context.read<ThemeCubit>().state;
+    final selected = await showModalBottomSheet<ThemeMode>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.brightness_auto),
+              title: const Text('System'),
+              trailing: currentTheme == ThemeMode.system
+                  ? const Icon(Icons.check)
+                  : null,
+              onTap: () => Navigator.pop(context, ThemeMode.system),
+            ),
+            ListTile(
+              leading: const Icon(Icons.light_mode),
+              title: const Text('Light'),
+              trailing: currentTheme == ThemeMode.light
+                  ? const Icon(Icons.check)
+                  : null,
+              onTap: () => Navigator.pop(context, ThemeMode.light),
+            ),
+            ListTile(
+              leading: const Icon(Icons.dark_mode),
+              title: const Text('Dark'),
+              trailing: currentTheme == ThemeMode.dark
+                  ? const Icon(Icons.check)
+                  : null,
+              onTap: () => Navigator.pop(context, ThemeMode.dark),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (!context.mounted || selected == null || selected == currentTheme) {
+      return;
+    }
+
+    await context.read<ThemeCubit>().setThemeMode(selected);
+  }
+
   Future<void> _editCategory(
     BuildContext context,
     FinanceCategory category,
@@ -541,6 +587,7 @@ class SettingsScreen extends StatelessWidget {
         },
         child: Builder(
           builder: (blocContext) {
+            final themeMode = blocContext.watch<ThemeCubit>().state;
             return BlocListener<SettingsCubit, SettingsState>(
               listenWhen: (p, n) => p.toastNonce != n.toastNonce,
               listener: (context, state) {
@@ -684,6 +731,21 @@ class SettingsScreen extends StatelessWidget {
                                         _toggleBiometrics(context, value),
                                   ),
                                   const SizedBox(height: 16),
+                                  ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: const Icon(
+                                      Icons.dark_mode_outlined,
+                                    ),
+                                    title: const Text('Theme'),
+                                    subtitle: Text(
+                                      themeMode == ThemeMode.system
+                                          ? 'System'
+                                          : themeMode == ThemeMode.light
+                                          ? 'Light'
+                                          : 'Dark',
+                                    ),
+                                    onTap: () => _selectTheme(blocContext),
+                                  ),
                                   ListTile(
                                     contentPadding: EdgeInsets.zero,
                                     leading: const Icon(

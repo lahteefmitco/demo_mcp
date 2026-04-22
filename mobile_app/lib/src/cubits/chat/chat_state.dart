@@ -51,14 +51,14 @@ class ChatState {
   final int toastNonce;
 
   const ChatState.initial()
-      : messages = const [],
-        isSending = false,
-        selectedProvider = 'gemini',
-        currentSessionId = null,
-        isLoadingSessions = false,
-        toastMessage = null,
-        toastIsError = false,
-        toastNonce = 0;
+    : messages = const [],
+      isSending = false,
+      selectedProvider = 'gemini',
+      currentSessionId = null,
+      isLoadingSessions = false,
+      toastMessage = null,
+      toastIsError = false,
+      toastNonce = 0;
 
   ChatState copyWith({
     List<ChatUiMessage>? messages,
@@ -92,4 +92,3 @@ extension ChatStateToast on ChatState {
     );
   }
 }
-

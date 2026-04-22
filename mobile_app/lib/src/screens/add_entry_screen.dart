@@ -269,9 +269,8 @@ class _AddEntryFormState extends State<_AddEntryForm> {
           TextFormField(
             controller: _titleController,
             decoration: const InputDecoration(labelText: 'Title'),
-            validator: (value) => value == null || value.trim().isEmpty
-                ? 'Enter a title'
-                : null,
+            validator: (value) =>
+                value == null || value.trim().isEmpty ? 'Enter a title' : null,
           ),
           const SizedBox(height: 16),
           TextFormField(
@@ -280,7 +279,9 @@ class _AddEntryFormState extends State<_AddEntryForm> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             validator: (value) {
               final amount = double.tryParse(value ?? '');
-              return amount == null || amount < 0 ? 'Enter a valid amount' : null;
+              return amount == null || amount < 0
+                  ? 'Enter a valid amount'
+                  : null;
             },
           ),
           const SizedBox(height: 16),
@@ -313,8 +314,8 @@ class _AddEntryFormState extends State<_AddEntryForm> {
                 Text(
                   'No accounts yet. Add one to save this entry.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: const Color(0xFF475569),
-                      ),
+                    color: const Color(0xFF475569),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 FilledButton.tonalIcon(

@@ -7,16 +7,16 @@ class DashboardCubit extends Cubit<DashboardState> {
   DashboardCubit({
     required FinanceRepository repository,
     required String monthYyyyMm,
-  })  : _repository = repository,
-        _month = monthYyyyMm,
-        super(
-          DashboardState(
-            dashboardFuture: repository.fetchDashboard(monthYyyyMm),
-            dailyFuture: repository.fetchDailyExpenses(days: 30),
-            weeklyFuture: repository.fetchWeeklyExpenses(weeks: 8),
-            monthlyFuture: repository.fetchMonthlyExpenses(months: 6),
-          ),
-        );
+  }) : _repository = repository,
+       _month = monthYyyyMm,
+       super(
+         DashboardState(
+           dashboardFuture: repository.fetchDashboard(monthYyyyMm),
+           dailyFuture: repository.fetchDailyExpenses(days: 30),
+           weeklyFuture: repository.fetchWeeklyExpenses(weeks: 8),
+           monthlyFuture: repository.fetchMonthlyExpenses(months: 6),
+         ),
+       );
 
   final FinanceRepository _repository;
   String _month;
@@ -39,4 +39,3 @@ class DashboardCubit extends Cubit<DashboardState> {
     );
   }
 }
-

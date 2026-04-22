@@ -21,9 +21,7 @@ class FinanceRestApi {
     'Content-Type': 'application/json',
   };
 
-  Map<String, String> get _authHeaders => {
-    'Authorization': 'Bearer $token',
-  };
+  Map<String, String> get _authHeaders => {'Authorization': 'Bearer $token'};
 
   Future<List<Map<String, dynamic>>> getAccounts() async {
     final response = await _client.get(

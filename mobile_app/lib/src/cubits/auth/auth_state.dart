@@ -18,12 +18,12 @@ class AuthState {
   final int toastNonce;
 
   const AuthState.initial()
-      : isLogin = true,
-        isSubmitting = false,
-        infoMessage = null,
-        toastMessage = null,
-        toastIsError = false,
-        toastNonce = 0;
+    : isLogin = true,
+      isSubmitting = false,
+      infoMessage = null,
+      toastMessage = null,
+      toastIsError = false,
+      toastNonce = 0;
 
   AuthState copyWith({
     bool? isLogin,
@@ -53,4 +53,3 @@ extension AuthStateToast on AuthState {
     );
   }
 }
-

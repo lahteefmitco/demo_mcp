@@ -24,9 +24,7 @@ class BackgroundSync {
       _uniqueTaskName,
       _periodicTaskName,
       frequency: const Duration(minutes: 15),
-      constraints: Constraints(
-        networkType: NetworkType.connected,
-      ),
+      constraints: Constraints(networkType: NetworkType.connected),
     );
   }
 
@@ -38,9 +36,7 @@ class BackgroundSync {
       _oneOffUniqueName,
       _periodicTaskName,
       initialDelay: const Duration(seconds: 20),
-      constraints: Constraints(
-        networkType: NetworkType.connected,
-      ),
+      constraints: Constraints(networkType: NetworkType.connected),
     );
   }
 

@@ -80,10 +80,11 @@ class PeriodExpensesScreen extends StatelessWidget {
                       children: [
                         Text(
                           'Data is read only from this device (offline-first).',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                         ),
                         const SizedBox(height: 12),
@@ -91,9 +92,9 @@ class PeriodExpensesScreen extends StatelessWidget {
                           Padding(
                             padding: const EdgeInsets.only(bottom: 12),
                             child: Material(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .errorContainer,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.errorContainer,
                               borderRadius: BorderRadius.circular(12),
                               child: Padding(
                                 padding: const EdgeInsets.all(12),
@@ -102,18 +103,18 @@ class PeriodExpensesScreen extends StatelessWidget {
                                   children: [
                                     Icon(
                                       Icons.warning_amber_rounded,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onErrorContainer,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onErrorContainer,
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
                                         state.invalidRangeMessage!,
                                         style: TextStyle(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onErrorContainer,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onErrorContainer,
                                         ),
                                       ),
                                     ),
@@ -233,8 +234,8 @@ class PeriodExpensesScreen extends StatelessWidget {
                               );
                               final limitNote =
                                   state.limit == PeriodExpenseRowLimit.all
-                                      ? 'Newest first (all in range).'
-                                      : 'Showing up to ${state.limit.label} newest in range.';
+                                  ? 'Newest first (all in range).'
+                                  : 'Showing up to ${state.limit.label} newest in range.';
 
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -358,8 +359,8 @@ class _DateRow extends StatelessWidget {
               Text(
                 label,
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 4),
               Row(
@@ -386,10 +387,7 @@ class _DateRow extends StatelessWidget {
 }
 
 class _LimitRow extends StatelessWidget {
-  const _LimitRow({
-    required this.value,
-    required this.onChanged,
-  });
+  const _LimitRow({required this.value, required this.onChanged});
 
   final PeriodExpenseRowLimit value;
   final ValueChanged<PeriodExpenseRowLimit> onChanged;
@@ -402,8 +400,8 @@ class _LimitRow extends StatelessWidget {
         Text(
           'Row limit',
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: 8),
         SegmentedButton<PeriodExpenseRowLimit>(
@@ -426,8 +424,8 @@ class _LimitRow extends StatelessWidget {
         Text(
           'Smaller limits keep queries fast on large local databases.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       ],
     );
@@ -501,10 +499,7 @@ class _ErrorCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 16),
-            FilledButton(
-              onPressed: onRetry,
-              child: const Text('Try again'),
-            ),
+            FilledButton(onPressed: onRetry, child: const Text('Try again')),
           ],
         ),
       ),

@@ -6,8 +6,8 @@ import 'period_expenses_state.dart';
 
 class PeriodExpensesCubit extends Cubit<PeriodExpensesState> {
   PeriodExpensesCubit({required FinanceRepository repository})
-      : _repository = repository,
-        super(_initial(repository));
+    : _repository = repository,
+      super(_initial(repository));
 
   final FinanceRepository _repository;
 

@@ -36,101 +36,104 @@ class DayExpensesScreen extends StatelessWidget {
             return FutureBuilder<List<FinanceEntry>>(
               future: state.future,
               builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error_outline, size: 52),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Could not load expenses',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(snapshot.error.toString()),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      onPressed: () => context.read<DayExpensesCubit>().refresh(),
-                      child: const Text('Try Again'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          final expenses = snapshot.data!;
-          final total = expenses.fold(0.0, (sum, e) => sum + e.amount);
-
-          return RefreshIndicator(
-            onRefresh: () => context.read<DayExpensesCubit>().refresh(),
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF0F766E), Color(0xFF155E75)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text(
-                            'Total Expenses',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                          const SizedBox(height: 4),
+                          const Icon(Icons.error_outline, size: 52),
+                          const SizedBox(height: 12),
                           Text(
-                            formatMoney(currency, total),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w700,
-                            ),
+                            'Could not load expenses',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(snapshot.error.toString()),
+                          const SizedBox(height: 16),
+                          FilledButton(
+                            onPressed: () =>
+                                context.read<DayExpensesCubit>().refresh(),
+                            child: const Text('Try Again'),
                           ),
                         ],
                       ),
-                      CircleAvatar(
-                        backgroundColor: Colors.white.withValues(alpha: 0.2),
-                        child: Text(
-                          '${expenses.length}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
+                    ),
+                  );
+                }
+
+                final expenses = snapshot.data!;
+                final total = expenses.fold(0.0, (sum, e) => sum + e.amount);
+
+                return RefreshIndicator(
+                  onRefresh: () => context.read<DayExpensesCubit>().refresh(),
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF0F766E), Color(0xFF155E75)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Total Expenses',
+                                  style: TextStyle(color: Colors.white70),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  formatMoney(currency, total),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            CircleAvatar(
+                              backgroundColor: Colors.white.withValues(
+                                alpha: 0.2,
+                              ),
+                              child: Text(
+                                '${expenses.length}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
+                      const SizedBox(height: 16),
+                      if (expenses.isEmpty)
+                        const _EmptyCard(message: 'No expenses for this day.')
+                      else
+                        ...expenses.map(
+                          (expense) => _ExpenseTile(
+                            expense: expense,
+                            currency: currency,
+                          ),
+                        ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 16),
-                if (expenses.isEmpty)
-                  const _EmptyCard(message: 'No expenses for this day.')
-                else
-                  ...expenses.map(
-                    (expense) => _ExpenseTile(
-                      expense: expense,
-                      currency: currency,
-                    ),
-                  ),
-              ],
-            ),
-          );
+                );
               },
             );
           },

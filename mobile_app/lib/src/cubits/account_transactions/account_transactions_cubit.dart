@@ -9,8 +9,8 @@ class AccountTransactionsCubit extends Cubit<AccountTransactionsState> {
   AccountTransactionsCubit({
     required FinanceRepository repository,
     required FinanceAccount account,
-  })  : _repository = repository,
-        super(_initial(repository, account));
+  }) : _repository = repository,
+       super(_initial(repository, account));
 
   final FinanceRepository _repository;
 

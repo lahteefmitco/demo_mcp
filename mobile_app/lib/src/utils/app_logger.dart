@@ -34,4 +34,3 @@ abstract final class AppLogger {
     dev.log('$prefix $message', error: error, stackTrace: stackTrace);
   }
 }
-

@@ -14,8 +14,8 @@ class SplashScreen extends StatelessWidget {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: ExpenseAppTheme.splashBackgroundGradient,
+        decoration: BoxDecoration(
+          gradient: ExpenseAppTheme.splashBackgroundGradient(context),
         ),
         child: SafeArea(
           child: LayoutBuilder(

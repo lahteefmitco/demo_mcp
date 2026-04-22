@@ -16,7 +16,8 @@ class AddBudgetScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final initial = budget;
-    final initialStartDate = initial?.startDate ?? formatAppDate(DateTime.now());
+    final initialStartDate =
+        initial?.startDate ?? formatAppDate(DateTime.now());
     final initialPeriod = initial?.period ?? 'monthly';
     final initialCategoryUuid = initial?.categoryUuid;
 
@@ -27,9 +28,7 @@ class AddBudgetScreen extends StatelessWidget {
         initialStartDate: initialStartDate,
       ),
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(isEditing ? 'Edit Budget' : 'Add Budget'),
-        ),
+        appBar: AppBar(title: Text(isEditing ? 'Edit Budget' : 'Add Budget')),
         body: const _AddBudgetForm(),
       ),
     );
@@ -136,7 +135,9 @@ class _AddBudgetFormState extends State<_AddBudgetForm> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             validator: (value) {
               final amount = double.tryParse(value ?? '');
-              return amount == null || amount < 0 ? 'Enter a valid amount' : null;
+              return amount == null || amount < 0
+                  ? 'Enter a valid amount'
+                  : null;
             },
           ),
           const SizedBox(height: 16),
@@ -150,7 +151,8 @@ class _AddBudgetFormState extends State<_AddBudgetForm> {
               DropdownMenuItem(value: 'yearly', child: Text('Yearly')),
             ],
             onChanged: (value) {
-              if (value != null) context.read<AddBudgetCubit>().setPeriod(value);
+              if (value != null)
+                context.read<AddBudgetCubit>().setPeriod(value);
             },
           ),
           const SizedBox(height: 16),
@@ -169,7 +171,8 @@ class _AddBudgetFormState extends State<_AddBudgetForm> {
                 ),
               ),
             ],
-            onChanged: (value) => context.read<AddBudgetCubit>().setCategoryUuid(value),
+            onChanged: (value) =>
+                context.read<AddBudgetCubit>().setCategoryUuid(value),
           ),
           const SizedBox(height: 16),
           TextFormField(

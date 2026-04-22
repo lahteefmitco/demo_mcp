@@ -112,7 +112,8 @@ class _ProfileFormState extends State<_ProfileForm> {
         FilledButton(
           onPressed: state.isSavingName
               ? null
-              : () => context.read<ProfileCubit>().saveName(_nameController.text),
+              : () =>
+                    context.read<ProfileCubit>().saveName(_nameController.text),
           child: Text(state.isSavingName ? 'Saving...' : 'Update name'),
         ),
         const SizedBox(height: 24),
@@ -128,9 +129,9 @@ class _ProfileFormState extends State<_ProfileForm> {
         FilledButton.tonal(
           onPressed: state.isRequestingEmailChange
               ? null
-              : () => context
-                  .read<ProfileCubit>()
-                  .requestEmailChange(_emailController.text),
+              : () => context.read<ProfileCubit>().requestEmailChange(
+                  _emailController.text,
+                ),
           child: Text(
             state.isRequestingEmailChange
                 ? 'Sending...'
@@ -141,10 +142,9 @@ class _ProfileFormState extends State<_ProfileForm> {
           const SizedBox(height: 12),
           Text(
             'Pending email verification: ${user.pendingEmail}',
-            style: Theme.of(context)
-                .textTheme
-                .bodyMedium
-                ?.copyWith(color: const Color(0xFF475569)),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF475569)),
           ),
         ],
       ],

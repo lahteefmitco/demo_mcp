@@ -45,68 +45,69 @@ class AccountsScreen extends StatelessWidget {
               body: FutureBuilder<List<FinanceAccount>>(
                 future: blocContext.watch<AccountsCubit>().state.accountsFuture,
                 builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-          if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.error_outline, size: 52),
-                  const SizedBox(height: 12),
-                  Text(snapshot.error.toString()),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: () => context.read<AccountsCubit>().refresh(),
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            );
-          }
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.error_outline, size: 52),
+                          const SizedBox(height: 12),
+                          Text(snapshot.error.toString()),
+                          const SizedBox(height: 16),
+                          FilledButton(
+                            onPressed: () =>
+                                context.read<AccountsCubit>().refresh(),
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
 
-          final accounts = snapshot.data!;
+                  final accounts = snapshot.data!;
 
-          if (accounts.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.account_balance_wallet_outlined,
-                    size: 64,
-                    color: Colors.grey,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('No accounts yet'),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: () => _openAddAccount(context),
-                    child: const Text('Add Account'),
-                  ),
-                ],
-              ),
-            );
-          }
+                  if (accounts.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.account_balance_wallet_outlined,
+                            size: 64,
+                            color: Colors.grey,
+                          ),
+                          const SizedBox(height: 16),
+                          const Text('No accounts yet'),
+                          const SizedBox(height: 16),
+                          FilledButton(
+                            onPressed: () => _openAddAccount(context),
+                            child: const Text('Add Account'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
 
-          return RefreshIndicator(
-            onRefresh: () => context.read<AccountsCubit>().refresh(),
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: accounts.length,
-              itemBuilder: (context, index) {
-                final account = accounts[index];
-                return _AccountCard(
-                  account: account,
-                  currency: currency,
-                  onEdit: () => _editAccount(context, account),
-                  onDelete: () => _deleteAccount(context, account),
-                );
-              },
-            ),
-          );
+                  return RefreshIndicator(
+                    onRefresh: () => context.read<AccountsCubit>().refresh(),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: accounts.length,
+                      itemBuilder: (context, index) {
+                        final account = accounts[index];
+                        return _AccountCard(
+                          account: account,
+                          currency: currency,
+                          onEdit: () => _editAccount(context, account),
+                          onDelete: () => _deleteAccount(context, account),
+                        );
+                      },
+                    ),
+                  );
                 },
               ),
               floatingActionButton: FloatingActionButton.extended(
@@ -131,13 +132,13 @@ Future<void> _openAddAccount(BuildContext context) async {
   }
 
   await context.read<AccountsCubit>().createAccount(
-        name: payload['name'] as String,
-        type: payload['type'] as String,
-        initialBalance: payload['initialBalance'] as double,
-        color: payload['color'] as String,
-        icon: payload['icon'] as String,
-        notes: payload['notes'] as String? ?? '',
-      );
+    name: payload['name'] as String,
+    type: payload['type'] as String,
+    initialBalance: payload['initialBalance'] as double,
+    color: payload['color'] as String,
+    icon: payload['icon'] as String,
+    notes: payload['notes'] as String? ?? '',
+  );
 }
 
 Future<void> _editAccount(BuildContext context, FinanceAccount account) async {
@@ -151,16 +152,19 @@ Future<void> _editAccount(BuildContext context, FinanceAccount account) async {
   }
 
   await context.read<AccountsCubit>().updateAccount(
-        uuid: account.uuid,
-        name: payload['name'] as String,
-        type: payload['type'] as String,
-        color: payload['color'] as String,
-        icon: payload['icon'] as String,
-        notes: payload['notes'] as String? ?? '',
-      );
+    uuid: account.uuid,
+    name: payload['name'] as String,
+    type: payload['type'] as String,
+    color: payload['color'] as String,
+    icon: payload['icon'] as String,
+    notes: payload['notes'] as String? ?? '',
+  );
 }
 
-Future<void> _deleteAccount(BuildContext context, FinanceAccount account) async {
+Future<void> _deleteAccount(
+  BuildContext context,
+  FinanceAccount account,
+) async {
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
@@ -245,7 +249,9 @@ class _AccountCard extends StatelessWidget {
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.grey.shade200,
+                                  color: Theme.of(context).brightness == Brightness.dark
+                                      ? Theme.of(context).colorScheme.surfaceContainerHighest
+                                      : Colors.grey.shade200,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: const Text(
@@ -302,7 +308,9 @@ class _AccountCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Theme.of(context).colorScheme.surfaceContainerHighest
+                      : Colors.grey.shade50,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -510,7 +518,9 @@ class _AddAccountFormState extends State<_AddAccountForm> {
                 labelText: 'Initial Balance',
                 hintText: 'Starting balance for this account',
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
             const SizedBox(height: 16),
           ],
@@ -534,9 +544,9 @@ class _AddAccountFormState extends State<_AddAccountForm> {
                   ],
                 ),
                 selected: isSelected,
-                onSelected: (_) => context
-                    .read<AddAccountCubit>()
-                    .setType(type['value'] as String),
+                onSelected: (_) => context.read<AddAccountCubit>().setType(
+                  type['value'] as String,
+                ),
               );
             }).toList(),
           ),
@@ -579,7 +589,11 @@ class _AddAccountFormState extends State<_AddAccountForm> {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: isSelected ? _parseColor(state.selectedColor) : Colors.grey.shade200,
+                    color: isSelected
+                        ? _parseColor(state.selectedColor)
+                        : (Theme.of(context).brightness == Brightness.dark
+                            ? Theme.of(context).colorScheme.surfaceContainerHighest
+                            : Colors.grey.shade200),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
