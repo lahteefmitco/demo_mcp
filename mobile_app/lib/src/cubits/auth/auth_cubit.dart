@@ -1,4 +1,7 @@
+import 'dart:developer';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../api/auth_api.dart';
 import '../../models/auth_session.dart';
@@ -63,6 +66,43 @@ class AuthCubit extends Cubit<AuthState> {
     } catch (e) {
       emit(state.toastError(e.toString().replaceFirst('Exception: ', '')));
     } finally {
+      emit(state.copyWith(isSubmitting: false));
+    }
+  }
+
+  Future<void> signInWithGoogle() async {
+    if (state.isSubmitting) return;
+
+    emit(
+      state.copyWith(isSubmitting: true, infoMessage: null, toastMessage: null),
+    );
+
+    try {
+      final account = await GoogleSignIn.instance.authenticate();
+      final auth = account.authentication;
+      final idToken = auth.idToken;
+
+      if (idToken == null) {
+        throw Exception('Failed to get Google ID token');
+      }
+
+      final session = await _authApi.loginWithGoogle(idToken);
+      await _onAuthenticated(session);
+    } on GoogleSignInException catch (e) {
+      print('Google Sign-In failed: $e');
+      log('Google Sign-In failed: $e');
+      if (e.code == GoogleSignInExceptionCode.canceled ||
+          e.code == GoogleSignInExceptionCode.interrupted) {
+        // User canceled the sign-in flow
+        emit(state.copyWith(isSubmitting: false));
+        return;
+      }
+      emit(state.toastError('Google Sign-In failed: $e'));
+      emit(state.copyWith(isSubmitting: false));
+    } catch (e) {
+      print('Google Sign-In failed: $e');
+      log('Google Sign-In failed: $e');
+      emit(state.toastError(e.toString().replaceFirst('Exception: ', '')));
       emit(state.copyWith(isSubmitting: false));
     }
   }

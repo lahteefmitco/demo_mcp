@@ -55,6 +55,22 @@ class AuthApi {
     );
   }
 
+  Future<AuthSession> loginWithGoogle(String idToken) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/api/auth/google'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({'token': idToken}),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_extractMessage(response));
+    }
+
+    return AuthSession.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
   Future<String> requestPasswordReset(String email) async {
     final response = await _client.post(
       Uri.parse('$baseUrl/api/auth/forgot-password'),

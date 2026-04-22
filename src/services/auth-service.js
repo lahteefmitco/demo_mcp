@@ -1,6 +1,9 @@
 import crypto from "node:crypto";
+import { OAuth2Client } from "google-auth-library";
 import { QueryTypes, query } from "../db.js";
 import { ensureDefaultCategoriesForUser } from "./finance-service.js";
+
+const googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) : null;
 
 const authSecret = process.env.AUTH_SECRET || "dev-only-change-me";
 const tokenLifetimeSeconds = 60 * 60 * 24 * 30;
@@ -58,6 +61,7 @@ function normalizeUser(row) {
     isVerified: Boolean(row.is_verified),
     pendingEmail: row.pending_email ?? null,
     emailVerifiedAt: row.email_verified_at,
+    hasPassword: row.password_hash != null,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -142,6 +146,7 @@ export async function getUserByEmail(email) {
         name,
         email,
         password_hash,
+        google_id,
         is_verified,
         pending_email,
         email_verified_at,
@@ -151,6 +156,30 @@ export async function getUserByEmail(email) {
       WHERE email = $1
     `,
     [email.toLowerCase()],
+    { type: QueryTypes.SELECT }
+  );
+
+  return rows[0] ?? null;
+}
+
+export async function getUserByGoogleId(googleId) {
+  const rows = await query(
+    `
+      SELECT
+        id,
+        name,
+        email,
+        password_hash,
+        google_id,
+        is_verified,
+        pending_email,
+        email_verified_at,
+        created_at,
+        updated_at
+      FROM users
+      WHERE google_id = $1
+    `,
+    [googleId],
     { type: QueryTypes.SELECT }
   );
 
@@ -177,7 +206,7 @@ export async function registerUser({ name, email, password }) {
     `
       INSERT INTO users (name, email, password_hash, is_verified, pending_email, email_verified_at)
       VALUES ($1, $2, $3, false, null, null)
-      RETURNING id, name, email, is_verified, pending_email, email_verified_at, created_at, updated_at
+      RETURNING id, name, email, is_verified, pending_email, email_verified_at, password_hash, created_at, updated_at
     `,
     [name.trim(), normalizedEmail, hashPassword(password)]
   );
@@ -187,18 +216,79 @@ export async function registerUser({ name, email, password }) {
   return user;
 }
 
+export async function registerGoogleUser({ googleId, email, name }) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const rows = await query(
+    `
+      INSERT INTO users (name, email, google_id, password_hash, is_verified, pending_email, email_verified_at)
+      VALUES ($1, $2, $3, null, true, null, NOW())
+      RETURNING id, name, email, is_verified, pending_email, email_verified_at, password_hash, created_at, updated_at
+    `,
+    [name.trim(), normalizedEmail, googleId]
+  );
+
+  const user = normalizeUser(rows[0]);
+  await ensureDefaultCategoriesForUser(user.id);
+  return user;
+}
+
 export async function loginUser({ email, password }) {
   const row = await getUserByEmail(email);
-  if (!row || !verifyPassword(password, row.password_hash)) {
+  if (!row || !row.password_hash || !verifyPassword(password, row.password_hash)) {
     return { ok: false, reason: "INVALID_CREDENTIALS" };
   }
 
   return { ok: true, user: normalizeUser(row) };
 }
 
+export async function loginWithGoogle({ token }) {
+  if (!googleClient) {
+    throw new Error("Google Sign-In is not configured on the server.");
+  }
+
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      return { ok: false, reason: "INVALID_GOOGLE_TOKEN" };
+    }
+
+    if (!payload.email_verified) {
+      return { ok: false, reason: "GOOGLE_EMAIL_NOT_VERIFIED" };
+    }
+
+    const googleId = payload.sub;
+    const email = payload.email.toLowerCase();
+    const name = payload.name || "Google User";
+
+    let row = await getUserByGoogleId(googleId);
+    if (!row) {
+      row = await getUserByEmail(email);
+      if (row) {
+        await query(
+          "UPDATE users SET google_id = $1, is_verified = true, email_verified_at = COALESCE(email_verified_at, NOW()) WHERE id = $2",
+          [googleId, row.id]
+        );
+        row.google_id = googleId;
+        row.is_verified = true;
+      } else {
+        const newUser = await registerGoogleUser({ googleId, email, name });
+        return { ok: true, user: newUser };
+      }
+    }
+
+    return { ok: true, user: normalizeUser(row) };
+  } catch (error) {
+    return { ok: false, reason: "GOOGLE_TOKEN_VERIFICATION_FAILED" };
+  }
+}
+
 export async function authenticateUserCredentials({ email, password }) {
   const row = await getUserByEmail(email);
-  if (!row || !verifyPassword(password, row.password_hash)) {
+  if (!row || !row.password_hash || !verifyPassword(password, row.password_hash)) {
     return { ok: false, reason: "INVALID_CREDENTIALS" };
   }
 
