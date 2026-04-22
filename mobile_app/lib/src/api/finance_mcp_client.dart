@@ -12,6 +12,8 @@ class FinanceMcpClient {
         'API_BASE_URL',
         // defaultValue: 'https://demo-mcp-l0rq.onrender.com',
         defaultValue: 'https://demo-mcp-615058378594.europe-west1.run.app',
+       // defaultValue: 'https://demo-mcp-l0rq.onrender.com',
+       
       );
 
   final http.Client _client;

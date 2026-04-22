@@ -94,12 +94,10 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     final String? initialCategoryUuid;
     final String? initialAccountUuid;
     if (initial != null) {
-      initialCategoryUuid = initial.categoryUuid.isNotEmpty
-          ? initial.categoryUuid
-          : null;
-      initialAccountUuid = initial.accountUuid.isNotEmpty
-          ? initial.accountUuid
-          : null;
+      initialCategoryUuid =
+          initial.categoryUuid.isNotEmpty ? initial.categoryUuid : null;
+      initialAccountUuid =
+          initial.accountUuid.isNotEmpty ? initial.accountUuid : null;
     } else {
       initialCategoryUuid = widget.initialCategoryUuid;
       initialAccountUuid = widget.initialAccountUuid;
