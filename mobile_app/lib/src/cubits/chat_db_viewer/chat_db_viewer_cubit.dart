@@ -5,8 +5,8 @@ import 'chat_db_viewer_state.dart';
 
 class ChatDbViewerCubit extends Cubit<ChatDbViewerState> {
   ChatDbViewerCubit({required ChatDatabase database})
-      : _database = database,
-        super(const ChatDbViewerState.initial());
+    : _database = database,
+      super(const ChatDbViewerState.initial());
 
   final ChatDatabase _database;
 
@@ -36,4 +36,3 @@ class ChatDbViewerCubit extends Cubit<ChatDbViewerState> {
     await load();
   }
 }
-

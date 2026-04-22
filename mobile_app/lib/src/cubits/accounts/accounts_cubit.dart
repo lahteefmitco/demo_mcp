@@ -6,15 +6,15 @@ import 'accounts_state.dart';
 
 class AccountsCubit extends Cubit<AccountsState> {
   AccountsCubit({required FinanceRepository repository})
-      : _repository = repository,
-        super(
-          AccountsState(
-            accountsFuture: repository.listAccountsLocal(),
-            toastNonce: 0,
-            toastMessage: null,
-            toastIsError: false,
-          ),
-        );
+    : _repository = repository,
+      super(
+        AccountsState(
+          accountsFuture: repository.listAccountsLocal(),
+          toastNonce: 0,
+          toastMessage: null,
+          toastIsError: false,
+        ),
+      );
 
   final FinanceRepository _repository;
 
@@ -131,4 +131,3 @@ class AccountsCubit extends Cubit<AccountsState> {
     }
   }
 }
-

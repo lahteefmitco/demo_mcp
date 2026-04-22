@@ -8,12 +8,12 @@ class AddAccountCubit extends Cubit<AddAccountState> {
     required String initialColor,
     required String initialIcon,
   }) : super(
-          AddAccountState(
-            selectedType: initialType,
-            selectedColor: initialColor,
-            selectedIcon: initialIcon,
-          ),
-        );
+         AddAccountState(
+           selectedType: initialType,
+           selectedColor: initialColor,
+           selectedIcon: initialIcon,
+         ),
+       );
 
   void setType(String value) => emit(state.copyWith(selectedType: value));
 
@@ -21,4 +21,3 @@ class AddAccountCubit extends Cubit<AddAccountState> {
 
   void setIcon(String value) => emit(state.copyWith(selectedIcon: value));
 }
-

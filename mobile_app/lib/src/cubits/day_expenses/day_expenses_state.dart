@@ -9,4 +9,3 @@ class DayExpensesState {
     return DayExpensesState(future: future ?? this.future);
   }
 }
-

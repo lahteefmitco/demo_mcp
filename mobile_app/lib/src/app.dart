@@ -7,6 +7,7 @@ import 'cubits/app/app_cubit.dart';
 import 'cubits/app/app_state.dart';
 import 'cubits/shell/shell_cubit.dart';
 import 'cubits/shell/shell_state.dart';
+import 'cubits/theme/theme_cubit.dart';
 import 'di/service_locator.dart';
 import 'database/finance_database_holder.dart';
 import 'models/app_lock_config.dart';
@@ -33,27 +34,42 @@ class ExpenseMobileApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) =>
-          AppCubit(authStorage: sl(), preferencesStorage: sl(), authApi: sl())
-            ..bootstrap(),
-      child: MaterialApp(
-        title: 'Finance Mobile',
-        debugShowCheckedModeBanner: false,
-        theme: ExpenseAppTheme.light(),
-        builder: (context, child) {
-          final mq = MediaQuery.of(context);
-          return MediaQuery(
-            data: mq.copyWith(
-              textScaler: mq.textScaler.clamp(
-                minScaleFactor: 0.85,
-                maxScaleFactor: 1.15,
-              ),
-            ),
-            child: child ?? const SizedBox.shrink(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) => AppCubit(
+            authStorage: sl(),
+            preferencesStorage: sl(),
+            authApi: sl(),
+          )..bootstrap(),
+        ),
+        BlocProvider(
+          create: (_) => ThemeCubit(preferencesStorage: sl())..loadTheme(),
+        ),
+      ],
+      child: BlocBuilder<ThemeCubit, ThemeMode>(
+        builder: (context, themeMode) {
+          return MaterialApp(
+            title: 'Finance Mobile',
+            debugShowCheckedModeBanner: false,
+            theme: ExpenseAppTheme.light(),
+            darkTheme: ExpenseAppTheme.dark(),
+            themeMode: themeMode,
+            builder: (context, child) {
+              final mq = MediaQuery.of(context);
+              return MediaQuery(
+                data: mq.copyWith(
+                  textScaler: mq.textScaler.clamp(
+                    minScaleFactor: 0.85,
+                    maxScaleFactor: 1.15,
+                  ),
+                ),
+                child: child ?? const SizedBox.shrink(),
+              );
+            },
+            home: const _AppRoot(),
           );
         },
-        home: const _AppRoot(),
       ),
     );
   }

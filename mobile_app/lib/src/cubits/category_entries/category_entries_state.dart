@@ -1,9 +1,7 @@
 import '../../models/finance_models.dart';
 
 class CategoryEntriesState {
-  const CategoryEntriesState({
-    required this.future,
-  });
+  const CategoryEntriesState({required this.future});
 
   final Future<CategoryEntriesData> future;
 
@@ -18,4 +16,3 @@ class CategoryEntriesData {
   final List<FinanceEntry> expenses;
   final List<FinanceEntry> incomes;
 }
-

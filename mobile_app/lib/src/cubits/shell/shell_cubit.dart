@@ -12,4 +12,3 @@ class ShellCubit extends Cubit<ShellState> {
     emit(state.copyWith(selectedIndex: index));
   }
 }
-

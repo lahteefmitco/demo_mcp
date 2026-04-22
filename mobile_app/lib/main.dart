@@ -12,9 +12,7 @@ import 'src/utils/app_bloc_observer.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   FinanceDatabaseHolder.instance = FinanceDatabase();
   Bloc.observer = AppBlocObserver();
   await setupServiceLocator();

@@ -24,4 +24,3 @@ class ValidationException extends AppException {
 class UnexpectedException extends AppException {
   const UnexpectedException(super.message, {super.cause});
 }
-

@@ -8,12 +8,12 @@ class AddBudgetCubit extends Cubit<AddBudgetState> {
     required String? initialCategoryUuid,
     required String initialStartDate,
   }) : super(
-          AddBudgetState(
-            period: initialPeriod,
-            categoryUuid: initialCategoryUuid,
-            startDate: initialStartDate,
-          ),
-        );
+         AddBudgetState(
+           period: initialPeriod,
+           categoryUuid: initialCategoryUuid,
+           startDate: initialStartDate,
+         ),
+       );
 
   void setPeriod(String value) => emit(state.copyWith(period: value));
 
@@ -22,4 +22,3 @@ class AddBudgetCubit extends Cubit<AddBudgetState> {
 
   void setStartDate(String value) => emit(state.copyWith(startDate: value));
 }
-

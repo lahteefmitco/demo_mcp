@@ -5,8 +5,8 @@ import 'forgot_password_state.dart';
 
 class ForgotPasswordCubit extends Cubit<ForgotPasswordState> {
   ForgotPasswordCubit({required AuthApi authApi})
-      : _authApi = authApi,
-        super(const ForgotPasswordState.initial());
+    : _authApi = authApi,
+      super(const ForgotPasswordState.initial());
 
   final AuthApi _authApi;
 
@@ -24,4 +24,3 @@ class ForgotPasswordCubit extends Cubit<ForgotPasswordState> {
     }
   }
 }
-

@@ -26,12 +26,8 @@ class AppUnauthenticated extends AppState {
 }
 
 class AppAuthenticated extends AppState {
-  const AppAuthenticated({
-    required this.session,
-    required this.currency,
-  });
+  const AppAuthenticated({required this.session, required this.currency});
 
   final AuthSession session;
   final CurrencyOption currency;
 }
-

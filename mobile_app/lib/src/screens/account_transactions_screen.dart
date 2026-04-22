@@ -79,10 +79,8 @@ class _AccountTransactionsScreenState extends State<AccountTransactionsScreen> {
   Widget build(BuildContext context) {
     final repo = context.read<FinanceRepository>();
     return BlocProvider(
-      create: (_) => AccountTransactionsCubit(
-        repository: repo,
-        account: widget.account,
-      ),
+      create: (_) =>
+          AccountTransactionsCubit(repository: repo, account: widget.account),
       child: Builder(
         builder: (context) {
           return Scaffold(
@@ -95,11 +93,10 @@ class _AccountTransactionsScreenState extends State<AccountTransactionsScreen> {
                   Text(
                     'Local transactions',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.75),
-                        ),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.75),
+                    ),
                   ),
                 ],
               ),
@@ -134,10 +131,11 @@ class _AccountTransactionsScreenState extends State<AccountTransactionsScreen> {
                       children: [
                         Text(
                           'Offline-first: expenses and incomes stored on this device.',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                         ),
                         const SizedBox(height: 12),
@@ -145,9 +143,9 @@ class _AccountTransactionsScreenState extends State<AccountTransactionsScreen> {
                           Padding(
                             padding: const EdgeInsets.only(bottom: 12),
                             child: Material(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .errorContainer,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.errorContainer,
                               borderRadius: BorderRadius.circular(12),
                               child: Padding(
                                 padding: const EdgeInsets.all(12),
@@ -156,18 +154,18 @@ class _AccountTransactionsScreenState extends State<AccountTransactionsScreen> {
                                   children: [
                                     Icon(
                                       Icons.warning_amber_rounded,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onErrorContainer,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onErrorContainer,
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
                                         state.invalidRangeMessage!,
                                         style: TextStyle(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onErrorContainer,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onErrorContainer,
                                         ),
                                       ),
                                     ),
@@ -204,10 +202,11 @@ class _AccountTransactionsScreenState extends State<AccountTransactionsScreen> {
                         const SizedBox(height: 12),
                         Text(
                           'Type',
-                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                         ),
                         const SizedBox(height: 8),
@@ -341,14 +340,20 @@ class _AccountTransactionsScreenState extends State<AccountTransactionsScreen> {
                               final items = snapshot.data!;
                               final totalExpense = items
                                   .where((i) => i.isExpense)
-                                  .fold<double>(0, (s, i) => s + i.entry.amount);
+                                  .fold<double>(
+                                    0,
+                                    (s, i) => s + i.entry.amount,
+                                  );
                               final totalIncome = items
                                   .where((i) => !i.isExpense)
-                                  .fold<double>(0, (s, i) => s + i.entry.amount);
+                                  .fold<double>(
+                                    0,
+                                    (s, i) => s + i.entry.amount,
+                                  );
                               final limitNote =
                                   state.limit == PeriodExpenseRowLimit.all
-                                      ? 'Newest first (all matching rows).'
-                                      : 'Up to ${state.limit.label} newest matching rows.';
+                                  ? 'Newest first (all matching rows).'
+                                  : 'Up to ${state.limit.label} newest matching rows.';
 
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -475,8 +480,8 @@ class _DateRow extends StatelessWidget {
               Text(
                 label,
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 4),
               Row(
@@ -503,10 +508,7 @@ class _DateRow extends StatelessWidget {
 }
 
 class _LimitRow extends StatelessWidget {
-  const _LimitRow({
-    required this.value,
-    required this.onChanged,
-  });
+  const _LimitRow({required this.value, required this.onChanged});
 
   final PeriodExpenseRowLimit value;
   final ValueChanged<PeriodExpenseRowLimit> onChanged;
@@ -519,8 +521,8 @@ class _LimitRow extends StatelessWidget {
         Text(
           'Row limit',
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: 8),
         SegmentedButton<PeriodExpenseRowLimit>(
@@ -543,8 +545,8 @@ class _LimitRow extends StatelessWidget {
         Text(
           'Smaller limits keep queries fast on large local databases.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       ],
     );
@@ -632,10 +634,7 @@ class _ErrorCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 16),
-            FilledButton(
-              onPressed: onRetry,
-              child: const Text('Try again'),
-            ),
+            FilledButton(onPressed: onRetry, child: const Text('Try again')),
           ],
         ),
       ),

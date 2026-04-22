@@ -10,7 +10,7 @@ class LocalDatabaseViewerScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-     // appBar: AppBar(title: const Text('Local database')),
+      // appBar: AppBar(title: const Text('Local database')),
       body: DriftDbViewer(FinanceDatabaseHolder.instance),
     );
   }

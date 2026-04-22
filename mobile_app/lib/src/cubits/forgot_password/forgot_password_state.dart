@@ -16,11 +16,11 @@ class ForgotPasswordState {
   final int toastNonce;
 
   const ForgotPasswordState.initial()
-      : isSubmitting = false,
-        message = null,
-        toastMessage = null,
-        toastIsError = false,
-        toastNonce = 0;
+    : isSubmitting = false,
+      message = null,
+      toastMessage = null,
+      toastIsError = false,
+      toastNonce = 0;
 
   ForgotPasswordState copyWith({
     bool? isSubmitting,
@@ -48,4 +48,3 @@ extension ForgotPasswordToast on ForgotPasswordState {
     );
   }
 }
-

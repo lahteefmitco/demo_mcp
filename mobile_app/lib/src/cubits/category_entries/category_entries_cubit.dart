@@ -8,13 +8,13 @@ class CategoryEntriesCubit extends Cubit<CategoryEntriesState> {
   CategoryEntriesCubit({
     required FinanceRepository repository,
     required FinanceCategory category,
-  })  : _repository = repository,
-        _category = category,
-        super(
-          CategoryEntriesState(
-            future: _load(repository: repository, category: category),
-          ),
-        );
+  }) : _repository = repository,
+       _category = category,
+       super(
+         CategoryEntriesState(
+           future: _load(repository: repository, category: category),
+         ),
+       );
 
   final FinanceRepository _repository;
   final FinanceCategory _category;
@@ -58,4 +58,3 @@ class CategoryEntriesCubit extends Cubit<CategoryEntriesState> {
     );
   }
 }
-
