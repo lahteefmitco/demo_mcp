@@ -290,7 +290,7 @@ class _AuthFormState extends State<_AuthForm> {
                   ? null
                   : () => context.read<AuthCubit>().signInWithGoogle(),
               icon: Image.network(
-                'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg',
+                'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png',
                 height: 24,
                 width: 24,
               ),

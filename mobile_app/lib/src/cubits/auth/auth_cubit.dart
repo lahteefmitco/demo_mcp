@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -87,6 +89,8 @@ class AuthCubit extends Cubit<AuthState> {
       final session = await _authApi.loginWithGoogle(idToken);
       await _onAuthenticated(session);
     } on GoogleSignInException catch (e) {
+      print('Google Sign-In failed: $e');
+      log('Google Sign-In failed: $e');
       if (e.code == GoogleSignInExceptionCode.canceled ||
           e.code == GoogleSignInExceptionCode.interrupted) {
         // User canceled the sign-in flow
@@ -96,6 +100,8 @@ class AuthCubit extends Cubit<AuthState> {
       emit(state.toastError('Google Sign-In failed: $e'));
       emit(state.copyWith(isSubmitting: false));
     } catch (e) {
+      print('Google Sign-In failed: $e');
+      log('Google Sign-In failed: $e');
       emit(state.toastError(e.toString().replaceFirst('Exception: ', '')));
       emit(state.copyWith(isSubmitting: false));
     }

@@ -19,8 +19,10 @@ Future<void> main() async {
   await setupServiceLocator();
   await BackgroundSync.initialize();
   await GoogleSignIn.instance.initialize(
-    clientId: const String.fromEnvironment('GOOGLE_CLIENT_ID'),
-    serverClientId: const String.fromEnvironment('GOOGLE_CLIENT_ID'),
+    // Hardcoded Web Client ID for both iOS and Web
+    clientId: '615058378594-1q5kj3k4gejecsm23i8nmd7ji413288b.apps.googleusercontent.com',
+    // Hardcoded Web Client ID used by Android/iOS to generate the backend token
+    serverClientId: '615058378594-timl7n0gna9800pdai3gdl8p8ijb8ge5.apps.googleusercontent.com',
   );
   runApp(
     Sizer(
