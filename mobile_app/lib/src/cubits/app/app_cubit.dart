@@ -1,5 +1,6 @@
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'dart:async';
 
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../api/auth_api.dart';
 import '../../auth/auth_storage.dart';
 import '../../database/finance_database_holder.dart';
@@ -81,7 +82,7 @@ class AppCubit extends Cubit<AppState> {
         return;
       }
 
-      await _importFinanceFromServer(session.token);
+      unawaited(_importFinanceFromServer(session.token));
       BackgroundSync.registerPeriodicSync();
       emit(AppAuthenticated(session: session, currency: storedCurrency));
     } catch (e, st) {
@@ -124,7 +125,7 @@ class AppCubit extends Cubit<AppState> {
         : state is AppUnauthenticated
         ? state.currency
         : defaultCurrency;
-    await _importFinanceFromServer(session.token);
+    unawaited(_importFinanceFromServer(session.token));
     BackgroundSync.registerPeriodicSync();
     emit(AppAuthenticated(session: session, currency: currency));
   }

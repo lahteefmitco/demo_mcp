@@ -50,7 +50,7 @@ class ExpenseMobileApp extends StatelessWidget {
       child: BlocBuilder<ThemeCubit, ThemeMode>(
         builder: (context, themeMode) {
           return MaterialApp(
-            title: 'Finance Mobile',
+            title: 'Gulfon finance',
             debugShowCheckedModeBanner: false,
             theme: ExpenseAppTheme.light(),
             darkTheme: ExpenseAppTheme.dark(),
