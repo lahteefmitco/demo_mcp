@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -20,7 +22,7 @@ Future<void> main() async {
   await BackgroundSync.initialize();
   await GoogleSignIn.instance.initialize(
     // iOS Client ID (ignored on Android, required on iOS)
-    clientId: '615058378594-va499j21oce2qr8raeu6pnr9qo11uv8u.apps.googleusercontent.com',
+    clientId: Platform.isIOS ? '615058378594-va499j21oce2qr8raeu6pnr9qo11uv8u.apps.googleusercontent.com' : '615058378594-1q5kj3k4gejecsm23i8nmd7ji413288b.apps.googleusercontent.com',
     // Hardcoded Web Client ID for both iOS and Web
     //clientId: '615058378594-1q5kj3k4gejecsm23i8nmd7ji413288b.apps.googleusercontent.com',
     // Hardcoded Web Client ID used by Android/iOS to generate the backend token
