@@ -30,7 +30,6 @@ class _ChatDbViewerScreenState extends State<ChatDbViewerScreen>
   void dispose() {
     _tabController.dispose();
     _cubit.close();
-    _database.close();
     super.dispose();
   }
 

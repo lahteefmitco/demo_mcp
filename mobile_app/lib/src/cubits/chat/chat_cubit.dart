@@ -39,7 +39,6 @@ class ChatCubit extends Cubit<ChatState> {
 
   @override
   Future<void> close() async {
-    await _database.close();
     return super.close();
   }
 

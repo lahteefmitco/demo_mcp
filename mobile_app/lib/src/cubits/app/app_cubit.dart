@@ -125,7 +125,7 @@ class AppCubit extends Cubit<AppState> {
         : state is AppUnauthenticated
         ? state.currency
         : defaultCurrency;
-    unawaited(_importFinanceFromServer(session.token));
+    await _importFinanceFromServer(session.token);
     BackgroundSync.registerPeriodicSync();
     emit(AppAuthenticated(session: session, currency: currency));
   }
