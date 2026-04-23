@@ -89,11 +89,11 @@ class FinanceLocalDashboard {
     final recentIncomes = [...incomes]..sort(_cmpIncomeRecentDesc);
 
     final recentExpenseModels = recentExpenses
-        .take(8)
+        .take(20)
         .map((e) => _expenseRowToEntry(e))
         .toList();
     final recentIncomeModels = recentIncomes
-        .take(8)
+        .take(20)
         .map((e) => _incomeRowToEntry(e))
         .toList();
 
