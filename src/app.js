@@ -9,6 +9,7 @@ import { runExpenseChat } from "./services/chat-service.js";
 import authRouter from "./routes/auth.js";
 import financeRouter from "./routes/finance.js";
 import ragRouter from "./routes/rag.js";
+import helpRouter from "./routes/help.js";
 
 dotenv.config({ quiet: true, override: false });
 
@@ -109,6 +110,7 @@ app.delete("/mcp", (_req, res) => {
 });
 
 app.use("/api/finance", requireAuth, financeRouter);
+app.use("/api/help", requireAuth, helpRouter);
 app.use("/api/rag", requireAuth, ragRouter);
 
 app.use((error, _req, res, _next) => {

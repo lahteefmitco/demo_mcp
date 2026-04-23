@@ -29,3 +29,28 @@ CREATE TRIGGER trigger_ai_documents_updated_at
 BEFORE UPDATE ON ai_documents
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
+
+-- Global docs for help/RAG (shared across all users; no user_id FK)
+CREATE TABLE IF NOT EXISTS ai_global_documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  document_key TEXT NOT NULL UNIQUE,
+  document_type TEXT NOT NULL,
+  source_id TEXT,
+  content TEXT NOT NULL,
+  embedding vector(1024) NOT NULL,
+  embedding_provider TEXT NOT NULL,
+  embedding_model TEXT NOT NULL,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_global_documents_document_type ON ai_global_documents (document_type);
+CREATE INDEX IF NOT EXISTS idx_ai_global_documents_embedding_hnsw ON ai_global_documents
+  USING hnsw (embedding vector_cosine_ops);
+
+DROP TRIGGER IF EXISTS trigger_ai_global_documents_updated_at ON ai_global_documents;
+CREATE TRIGGER trigger_ai_global_documents_updated_at
+BEFORE UPDATE ON ai_global_documents
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();

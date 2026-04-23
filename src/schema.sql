@@ -7,6 +7,7 @@ DROP FUNCTION IF EXISTS set_updated_at();
 
 DROP TABLE IF EXISTS auth_tokens;
 DROP TABLE IF EXISTS ai_documents;
+DROP TABLE IF EXISTS ai_global_documents;
 DROP TABLE IF EXISTS budgets;
 DROP TABLE IF EXISTS incomes;
 DROP TABLE IF EXISTS expenses;

@@ -1,6 +1,6 @@
 import { logger } from "../logger.js";
 import { mistralEmbedTexts } from "./mistral-embeddings.js";
-import { RAG_EMBEDDING_DIMENSION, searchSimilarDocuments } from "./rag-service.js";
+import { RAG_EMBEDDING_DIMENSION, searchSimilarDocuments, searchSimilarGlobalDocuments } from "./rag-service.js";
 
 let missingKeyLogged = false;
 
@@ -96,4 +96,24 @@ export async function ragSearchForUser(userId, queryText, limit = 8) {
   }
 
   return searchSimilarDocuments(userId, embedding, cap);
+}
+
+export async function ragSearchGlobal(queryText, limit = 8) {
+  if (!process.env.MISTRAL_API_KEY) {
+    throw new Error("MISTRAL_API_KEY is required for rag_search.");
+  }
+
+  const trimmed = (queryText || "").trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  const cap = Math.min(24, Math.max(1, Number(limit) || 8));
+  const [embedding] = await mistralEmbedTexts([trimmed]);
+
+  if (!embedding || embedding.length !== RAG_EMBEDDING_DIMENSION) {
+    throw new Error("Embedding generation failed.");
+  }
+
+  return searchSimilarGlobalDocuments(embedding, cap);
 }
