@@ -110,7 +110,7 @@ app.delete("/mcp", (_req, res) => {
 });
 
 app.use("/api/finance", requireAuth, financeRouter);
-app.use("/api/help", requireAuth, helpRouter);
+app.use("/api/help", helpRouter);
 app.use("/api/rag", requireAuth, ragRouter);
 
 app.use((error, _req, res, _next) => {

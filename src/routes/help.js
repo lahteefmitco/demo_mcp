@@ -2,10 +2,11 @@ import express from "express";
 import { runHelpChat } from "../services/help-chat-service.js";
 import { indexGlobalHelpDoc } from "../services/help-doc-index-service.js";
 import { logger } from "../logger.js";
+import { requireAuth } from "../middleware/auth-middleware.js";
 
 const router = express.Router();
 
-router.post("/chat", async (req, res, next) => {
+router.post("/chat", requireAuth, async (req, res, next) => {
   try {
     const { appVersion, messages, maxWords, screen } = req.body ?? {};
 
@@ -35,8 +36,23 @@ router.post("/chat", async (req, res, next) => {
   }
 });
 
-// Index or update the single global help document (admin-like action; still requires auth).
-router.post("/index", async (req, res, next) => {
+function requireHelpIndexKey(req, _res, next) {
+  const expected = String(process.env.HELP_INDEX_KEY || "1234").trim();
+  const provided = String(req.headers["x-help-index-key"] || "").trim();
+  if (!expected) {
+    return next();
+  }
+  if (provided && provided === expected) {
+    return next();
+  }
+  const error = new Error("Help index key required");
+  error.statusCode = 401;
+  return next(error);
+}
+
+// Index or update the single global help document using a simple key header.
+// Header: x-help-index-key: 1234 (or set HELP_INDEX_KEY env var)
+router.post("/index", requireHelpIndexKey, async (req, res, next) => {
   try {
     const { documentKey, title, content, sourceId } = req.body ?? {};
     const result = await indexGlobalHelpDoc({
