@@ -14,35 +14,41 @@ class SettingsCubit extends Cubit<SettingsState> {
        _toolsClient = toolsClient,
        super(
          SettingsState(
-           future: _loadInitial(repository, toolsClient),
+           future: _loadInitial(repository),
            toastNonce: 0,
            toastMessage: null,
            toastIsError: false,
          ),
-       );
+       ) {
+    _fetchToolsBackground();
+  }
 
   final FinanceRepository _repository;
   final FinanceMcpClient _toolsClient;
 
   static Future<SettingsData> _loadInitial(
     FinanceRepository repository,
-    FinanceMcpClient toolsClient,
   ) async {
     final now = DateTime.now();
     final month = now.month.toString().padLeft(2, '0');
     final monthYyyyMm = '${now.year}-$month';
-    final results = await Future.wait([
-      repository.fetchDashboard(monthYyyyMm),
-      toolsClient.listTools(),
-    ]);
-    return SettingsData(
-      dashboard: results[0] as FinanceDashboard,
-      tools: (results[1] as List).cast(),
-    );
+    final dashboard = await repository.fetchDashboard(monthYyyyMm);
+    return SettingsData(dashboard: dashboard);
+  }
+
+  void _fetchToolsBackground() async {
+    try {
+      final tools = await _toolsClient.listTools();
+      final currentData = await state.future;
+      emit(state.copyWith(future: Future.value(SettingsData(dashboard: currentData.dashboard, tools: tools))));
+    } catch (e, st) {
+      AppLogger.e('Failed to fetch tools in background', error: e, stackTrace: st);
+    }
   }
 
   Future<void> refresh() async {
-    emit(state.copyWith(future: _loadInitial(_repository, _toolsClient)));
+    emit(state.copyWith(future: _loadInitial(_repository)));
+    _fetchToolsBackground();
     try {
       await state.future;
     } catch (e, st) {

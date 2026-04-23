@@ -32,7 +32,7 @@ class SettingsState {
 }
 
 class SettingsData {
-  const SettingsData({required this.dashboard, required this.tools});
+  const SettingsData({required this.dashboard, this.tools = const []});
 
   final FinanceDashboard dashboard;
   final List<McpTool> tools;

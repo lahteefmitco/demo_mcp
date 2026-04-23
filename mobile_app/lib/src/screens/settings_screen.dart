@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -573,6 +575,7 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    log("Build SettingsScreen");
     final toolsClient = FinanceMcpClient(token: session.token);
     return BlocProvider(
       create: (_) => SettingsCubit(
@@ -621,7 +624,8 @@ class SettingsScreen extends StatelessWidget {
                 body: FutureBuilder<SettingsData>(
                   future: blocContext.watch<SettingsCubit>().state.future,
                   builder: (context, snapshot) {
-                    if (snapshot.connectionState != ConnectionState.done) {
+                    log("Snapshot: ${snapshot.connectionState}");
+                    if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
                       return const Center(child: CircularProgressIndicator());
                     }
 
