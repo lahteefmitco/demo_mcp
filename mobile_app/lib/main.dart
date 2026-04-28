@@ -21,11 +21,16 @@ Future<void> main() async {
   await setupServiceLocator();
   await BackgroundSync.initialize();
   await GoogleSignIn.instance.initialize(
-    // iOS Client ID (ignored on Android, required on iOS)
-    clientId: Platform.isIOS ? '615058378594-va499j21oce2qr8raeu6pnr9qo11uv8u.apps.googleusercontent.com' : '615058378594-1q5kj3k4gejecsm23i8nmd7ji413288b.apps.googleusercontent.com',
-    // Hardcoded Web Client ID for both iOS and Web
-    //clientId: '615058378594-1q5kj3k4gejecsm23i8nmd7ji413288b.apps.googleusercontent.com',
-    // Hardcoded Web Client ID used by Android/iOS to generate the backend token
+    // iOS requires a native client id.
+    // Android should use the Android OAuth client configured in Google Cloud for:
+    // - package name: com.gulfon.finanace
+    // - SHA-1: debug + release + (Play App Signing certificate SHA-1)
+    // so we intentionally omit the Android clientId here.
+    clientId:
+        Platform.isIOS
+            ? '615058378594-va499j21oce2qr8raeu6pnr9qo11uv8u.apps.googleusercontent.com'
+            : '615058378594-eciila121uj1n8bm97f6odqkr42aarp8.apps.googleusercontent.com',
+    // Web OAuth client id used by Android/iOS to mint an ID token for the backend.
     serverClientId: '615058378594-timl7n0gna9800pdai3gdl8p8ijb8ge5.apps.googleusercontent.com',
   );
   runApp(

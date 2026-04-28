@@ -71,6 +71,7 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   Future<void> signInWithGoogle() async {
+    log('signInWithGoogle');
     if (state.isSubmitting) return;
 
     emit(
@@ -78,9 +79,13 @@ class AuthCubit extends Cubit<AuthState> {
     );
 
     try {
+      log('authenticate');
       final account = await GoogleSignIn.instance.authenticate();
+      log('account: $account');
       final auth = account.authentication;
       final idToken = auth.idToken;
+
+      log('idToken: $idToken');
 
       if (idToken == null) {
         throw Exception('Failed to get Google ID token');
@@ -89,20 +94,26 @@ class AuthCubit extends Cubit<AuthState> {
       final session = await _authApi.loginWithGoogle(idToken);
       await _onAuthenticated(session);
     } on GoogleSignInException catch (e) {
-      print('Google Sign-In failed: $e');
-      log('Google Sign-In failed: $e');
       if (e.code == GoogleSignInExceptionCode.canceled ||
           e.code == GoogleSignInExceptionCode.interrupted) {
-        // User canceled the sign-in flow
-        emit(state.copyWith(isSubmitting: false));
+        // Treat as non-error: user dismissed, or the activity was interrupted.
+        log('Google Sign-In canceled/interrupted (code: ${e.code}).');
         return;
       }
-      emit(state.toastError('Google Sign-In failed: $e'));
-      emit(state.copyWith(isSubmitting: false));
+
+      log(
+        'Google Sign-In failed (code: ${e.code}).',
+        error: e,
+      );
+      emit(
+        state.toastError(
+          'Google Sign-In failed (${e.code}). Please try again.',
+        ),
+      );
     } catch (e) {
-      print('Google Sign-In failed: $e');
-      log('Google Sign-In failed: $e');
+      log('Google Sign-In failed.', error: e);
       emit(state.toastError(e.toString().replaceFirst('Exception: ', '')));
+    } finally {
       emit(state.copyWith(isSubmitting: false));
     }
   }
