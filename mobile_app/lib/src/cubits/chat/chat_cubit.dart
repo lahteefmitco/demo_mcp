@@ -32,6 +32,17 @@ class ChatCubit extends Cubit<ChatState> {
   };
 
   static const defaultProvider = 'gemini';
+  static const _apiAllowedProviders = {'gemini', 'mistral', 'openrouter'};
+
+  String _providerForApi(String selectedProvider) {
+    final normalized = selectedProvider.trim().toLowerCase();
+    if (_apiAllowedProviders.contains(normalized)) return normalized;
+
+    // Backend deployments may not support Sarvam as a provider; route it through a supported provider.
+    if (normalized == 'sarvam') return 'openrouter';
+
+    return defaultProvider;
+  }
 
   Future<void> initialize() async {
     await _restoreSelectedProvider();
@@ -157,7 +168,7 @@ class ChatCubit extends Cubit<ChatState> {
               .where((m) => m.chartData == null)
               .map((m) => ChatMessage(role: m.role, content: m.content))
               .toList(),
-          provider: state.selectedProvider,
+          provider: _providerForApi(state.selectedProvider),
         );
 
         final replyContent = reply.isEmpty ? 'Done.' : reply;

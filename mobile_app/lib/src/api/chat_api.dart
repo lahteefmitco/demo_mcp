@@ -18,11 +18,21 @@ class ChatApi {
   final String baseUrl;
   final String token;
 
+  String _normalizeProviderForBackend(String provider) {
+    final normalized = provider.trim().toLowerCase();
+    if (normalized == 'sarvam') return 'openrouter';
+    if (normalized == 'gemini' || normalized == 'mistral' || normalized == 'openrouter') {
+      return normalized;
+    }
+    return 'gemini';
+  }
+
   Future<String> sendMessage(
     List<ChatMessage> messages, {
     required String provider,
   }) async {
-    log('LLM Request: provider=$provider, messages=${messages.length}');
+    final backendProvider = _normalizeProviderForBackend(provider);
+    log('LLM Request: provider=$backendProvider, messages=${messages.length}');
 
     final response = await _client.post(
       Uri.parse('$baseUrl/api/chat'),
@@ -31,7 +41,7 @@ class ChatApi {
         'Authorization': 'Bearer $token',
       },
       body: jsonEncode({
-        'provider': provider,
+        'provider': backendProvider,
         'messages': messages.map((message) => message.toJson()).toList(),
       }),
     );
