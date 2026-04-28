@@ -25,6 +25,9 @@ const mistralApiBaseUrl = "https://api.mistral.ai/v1";
 const openRouterApiKey = process.env.OPENROUTER_API_KEY;
 const openRouterModel = process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini";
 const openRouterApiBaseUrl = "https://openrouter.ai/api/v1";
+const sarvamApiKey = process.env.SARVAM_API_KEY;
+const sarvamModel = process.env.SARVAM_MODEL || "sarvam-105b";
+const sarvamApiBaseUrl = "https://api.sarvam.ai/v1";
 
 const toolDefinitions = [
   {
@@ -280,6 +283,20 @@ export async function runExpenseChat(history, provider = "gemini", user) {
       apiKey: mistralApiKey,
       model: mistralModel,
       apiBaseUrl: mistralApiBaseUrl,
+      ragContext
+    });
+  }
+
+  if (normalizedProvider === "sarvam") {
+    if (!sarvamApiKey) {
+      throw new Error("SARVAM_API_KEY is required to use Sarvam chat.");
+    }
+
+    return runOpenAiCompatibleChat(history, user, {
+      provider: "sarvam",
+      apiKey: sarvamApiKey,
+      model: sarvamModel,
+      apiBaseUrl: sarvamApiBaseUrl,
       ragContext
     });
   }
@@ -593,11 +610,11 @@ function normalizeProvider(provider) {
   }
 
   const normalized = provider.trim().toLowerCase();
-  if (["gemini", "mistral", "openrouter"].includes(normalized)) {
+  if (["gemini", "mistral", "openrouter", "sarvam"].includes(normalized)) {
     return normalized;
   }
 
-  throw new Error("provider must be one of gemini, mistral, or openrouter");
+  throw new Error("provider must be one of gemini, mistral, sarvam, or openrouter");
 }
 
 async function executeTool(user, name, input) {

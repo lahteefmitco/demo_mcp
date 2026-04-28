@@ -28,6 +28,7 @@ class ChatCubit extends Cubit<ChatState> {
     'gemini': 'Gemini',
     'mistral': 'Mistral',
     'openrouter': 'OpenRouter',
+    'sarvam': 'Sarvam (105B)',
   };
 
   static const defaultProvider = 'gemini';
