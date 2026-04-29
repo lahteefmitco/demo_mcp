@@ -147,7 +147,19 @@ class FinanceDatabase extends _$FinanceDatabase {
   FinanceDatabase.memory() : super(openInMemoryExecutor());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (migrator, from, to) async {
+          if (from < 2) {
+            await migrator.addColumn(
+                localCategories, localCategories.parentId);
+            await migrator.addColumn(
+                localCategories, localCategories.level);
+          }
+        },
+      );
 
   /// Removes all synced finance rows from this device (accounts, categories,
   /// expenses, incomes, transfers, budgets).
