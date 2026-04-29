@@ -178,17 +178,17 @@ export async function createCategory(
     clientUuid
       ? `
       INSERT INTO categories (user_id, name, kind, color, icon, uuid, parent_id)
-      VALUES ($1, $2, $3, $4, $5::uuid, $6)
+      VALUES ($1, $2, $3, $4, $5, $6::uuid, $7)
       RETURNING id, uuid, name, kind, color, icon, parent_id, level, created_at, updated_at
     `
       : `
       INSERT INTO categories (user_id, name, kind, color, icon, parent_id)
-      VALUES ($1, $2, $3, $4, $5)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id, uuid, name, kind, color, icon, parent_id, level, created_at, updated_at
     `,
     clientUuid
       ? [userId, name, kind, color, icon, clientUuid, parentServerId]
-      : [userId, name, kind, color, parentServerId]
+      : [userId, name, kind, color, icon, parentServerId]
   );
 
   return normalizeCategory(rows[0]);
