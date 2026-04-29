@@ -147,7 +147,7 @@ class FinanceDatabase extends _$FinanceDatabase {
   FinanceDatabase.memory() : super(openInMemoryExecutor());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -157,6 +157,53 @@ class FinanceDatabase extends _$FinanceDatabase {
                 localCategories, localCategories.parentId);
             await migrator.addColumn(
                 localCategories, localCategories.level);
+          }
+          if (from < 3) {
+            // Add trigger for kind compatibility
+            await customStatement('''
+              CREATE TRIGGER IF NOT EXISTS check_category_kind_compatibility
+              BEFORE INSERT ON local_categories
+              FOR EACH ROW
+              WHEN NEW.parent_id IS NOT NULL
+              BEGIN
+                  SELECT CASE
+                      WHEN (SELECT kind FROM local_categories WHERE uuid = NEW.parent_id) IS NULL
+                      THEN RAISE(ABORT, 'Parent category not found')
+                      END;
+                  
+                  SELECT CASE
+                      WHEN NEW.kind = 'both'
+                      THEN NULL
+                      WHEN (SELECT kind FROM local_categories WHERE uuid = NEW.parent_id) = 'both'
+                      THEN NULL
+                      WHEN NEW.kind != (SELECT kind FROM local_categories WHERE uuid = NEW.parent_id)
+                      THEN RAISE(ABORT, 'Child category kind must match parent kind or be both')
+                      END;
+              END;
+            ''');
+            
+            // Add trigger for UPDATE
+            await customStatement('''
+              CREATE TRIGGER IF NOT EXISTS check_category_kind_compatibility_update
+              BEFORE UPDATE ON local_categories
+              FOR EACH ROW
+              WHEN NEW.parent_id IS NOT NULL AND (NEW.kind != OLD.kind OR NEW.parent_id != OLD.parent_id)
+              BEGIN
+                  SELECT CASE
+                      WHEN (SELECT kind FROM local_categories WHERE uuid = NEW.parent_id) IS NULL
+                      THEN RAISE(ABORT, 'Parent category not found')
+                      END;
+                  
+                  SELECT CASE
+                      WHEN NEW.kind = 'both'
+                      THEN NULL
+                      WHEN (SELECT kind FROM local_categories WHERE uuid = NEW.parent_id) = 'both'
+                      THEN NULL
+                      WHEN NEW.kind != (SELECT kind FROM local_categories WHERE uuid = NEW.parent_id)
+                      THEN RAISE(ABORT, 'Child category kind must match parent kind or be both')
+                      END;
+              END;
+            ''');
           }
         },
       );

@@ -152,6 +152,40 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION check_category_kind_compatibility()
+RETURNS TRIGGER AS $$
+DECLARE
+  parent_kind TEXT;
+BEGIN
+  IF NEW.parent_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT kind INTO parent_kind FROM categories WHERE id = NEW.parent_id AND user_id = NEW.user_id;
+
+  IF parent_kind IS NULL THEN
+    RAISE EXCEPTION 'Parent category not found';
+  END IF;
+
+  -- 'both' kind can have any parent
+  IF NEW.kind = 'both' THEN
+    RETURN NEW;
+  END IF;
+
+  -- Any child can have 'both' parent
+  IF parent_kind = 'both' THEN
+    RETURN NEW;
+  END IF;
+
+  -- Kind must match
+  IF NEW.kind != parent_kind THEN
+    RAISE EXCEPTION 'Child category kind (%) must match parent kind (%) or be both', NEW.kind, parent_kind;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TRIGGER trigger_users_updated_at
 BEFORE UPDATE ON users
 FOR EACH ROW
@@ -171,6 +205,11 @@ CREATE TRIGGER trigger_categories_circular_reference
 BEFORE INSERT OR UPDATE OF parent_id ON categories
 FOR EACH ROW
 EXECUTE FUNCTION check_category_circular_reference();
+
+CREATE TRIGGER trigger_categories_kind_compatibility
+BEFORE INSERT OR UPDATE OF kind, parent_id ON categories
+FOR EACH ROW
+EXECUTE FUNCTION check_category_kind_compatibility();
 
 CREATE TRIGGER trigger_expenses_updated_at
 BEFORE UPDATE ON expenses

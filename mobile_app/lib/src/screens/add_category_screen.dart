@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -6,9 +8,10 @@ import '../models/finance_models.dart';
 import '../repository/finance_repository.dart';
 
 class AddCategoryScreen extends StatelessWidget {
-  const AddCategoryScreen({super.key, this.category});
+  const AddCategoryScreen({super.key, this.category, this.repository});
 
   final FinanceCategory? category;
+  final FinanceRepository? repository;
 
   bool get isEditing => category != null;
 
@@ -77,11 +80,13 @@ class AddCategoryScreen extends StatelessWidget {
         initialColor: initialColor,
         initialParentId: initialParentId,
       ),
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(isEditing ? 'Edit Category' : 'Add Category'),
+      child: Builder(
+        builder: (blocContext) => Scaffold(
+          appBar: AppBar(
+            title: Text(isEditing ? 'Edit Category' : 'Add Category'),
+          ),
+          body: _AddCategoryForm(colorOptions: _colorOptions),
         ),
-        body: _AddCategoryForm(colorOptions: _colorOptions),
       ),
     );
   }
@@ -110,7 +115,9 @@ class _AddCategoryFormState extends State<_AddCategoryForm> {
     final category = screen.category;
     _nameController = TextEditingController(text: category?.name ?? '');
     _iconController = TextEditingController(text: category?.icon ?? 'tag');
-    _loadParentCategories();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadParentCategories();
+    });
   }
 
   @override
@@ -124,18 +131,27 @@ class _AddCategoryFormState extends State<_AddCategoryForm> {
     setState(() => _loadingParents = true);
     try {
       final repo = context.read<FinanceRepository>();
-      final categories = await repo.listCategoriesLocal();
+      final List<FinanceCategory> categories = await repo.listCategoriesLocal();
       final screen = context.findAncestorWidgetOfExactType<AddCategoryScreen>()!;
       final currentCategory = screen.category;
+      final state = context.read<AddCategoryCubit>().state;
 
       setState(() {
         _parentCategories = categories.where((cat) {
           if (currentCategory != null && cat.uuid == currentCategory.uuid) return false;
+          // Filter by kind compatibility
+          if (state.kind == 'expense') {
+            if (cat.kind != 'expense' && cat.kind != 'both') return false;
+          } else if (state.kind == 'income') {
+            if (cat.kind != 'income' && cat.kind != 'both') return false;
+          }
+          // 'both' kind can have any parent
           return true;
         }).toList();
         _loadingParents = false;
       });
     } catch (e) {
+      log("Error=> $e");
       setState(() => _loadingParents = false);
     }
   }
@@ -209,8 +225,11 @@ class _AddCategoryFormState extends State<_AddCategoryForm> {
               DropdownMenuItem(value: 'both', child: Text('Both')),
             ],
             onChanged: (value) {
-              if (value != null)
+              if (value != null) {
                 context.read<AddCategoryCubit>().setKind(value);
+                // Reload parent categories when kind changes
+                _loadParentCategories();
+              }
             },
           ),
           const SizedBox(height: 16),
@@ -218,7 +237,7 @@ class _AddCategoryFormState extends State<_AddCategoryForm> {
             const Center(child: CircularProgressIndicator())
           else
             DropdownButtonFormField<String?>(
-              value: state.parentId,
+              initialValue: state.parentId,
               decoration: const InputDecoration(
                 labelText: 'Parent Category (optional)',
               ),

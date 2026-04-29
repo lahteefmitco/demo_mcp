@@ -1,5 +1,8 @@
--- Migration: Add hierarchical categories support
--- Safe for existing Neon databases (no data loss)
+-- ============================================
+-- Neon Database Migration: Hierarchical Categories
+-- Includes: Parent-Child relationships, Levels, Kind Compatibility
+-- Idempotent: Safe to run multiple times
+-- ============================================
 
 -- 1. Add parent_id column if not exists
 DO $$
@@ -36,10 +39,10 @@ BEGIN
   END IF;
 END $$;
 
--- 4. Drop old unique constraint and add new one (user_id, parent_id, name)
+-- 4. Update Unique Constraint (Drop old, Add new)
 DO $$
 BEGIN
-  -- Find and drop the old unique constraint
+  -- Drop old unique constraint if it exists
   IF EXISTS (
     SELECT 1 FROM information_schema.table_constraints
     WHERE table_name = 'categories' AND constraint_name = 'categories_user_id_name_key'
@@ -57,7 +60,7 @@ BEGIN
   END IF;
 END $$;
 
--- 5. Create function to auto-set level
+-- 5. Create Function: Auto-set level based on parent
 CREATE OR REPLACE FUNCTION set_category_level()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -76,7 +79,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 6. Create function to check circular references
+-- 6. Create Function: Prevent circular references
 CREATE OR REPLACE FUNCTION check_category_circular_reference()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -102,7 +105,43 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 7. Create triggers (drop first if exists)
+-- 7. Create Function: Kind Compatibility Check
+-- Ensures parent and child kinds are compatible
+CREATE OR REPLACE FUNCTION check_category_kind_compatibility()
+RETURNS TRIGGER AS $$
+DECLARE
+  parent_kind TEXT;
+BEGIN
+  IF NEW.parent_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT kind INTO parent_kind FROM categories WHERE id = NEW.parent_id AND user_id = NEW.user_id;
+
+  IF parent_kind IS NULL THEN
+    RAISE EXCEPTION 'Parent category not found';
+  END IF;
+
+  -- 'both' kind can have any parent
+  IF NEW.kind = 'both' THEN
+    RETURN NEW;
+  END IF;
+
+  -- Any child can have 'both' parent
+  IF parent_kind = 'both' THEN
+    RETURN NEW;
+  END IF;
+
+  -- Kind must match
+  IF NEW.kind != parent_kind THEN
+    RAISE EXCEPTION 'Child category kind (%) must match parent kind (%) or be both', NEW.kind, parent_kind;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 8. Create Triggers (Drop first to allow updates)
 DROP TRIGGER IF EXISTS trigger_categories_level ON categories;
 CREATE TRIGGER trigger_categories_level
 BEFORE INSERT OR UPDATE OF parent_id ON categories
@@ -115,10 +154,15 @@ BEFORE INSERT OR UPDATE OF parent_id ON categories
 FOR EACH ROW
 EXECUTE FUNCTION check_category_circular_reference();
 
--- 8. Create indexes (if not exists)
+DROP TRIGGER IF EXISTS trigger_categories_kind_compatibility ON categories;
+CREATE TRIGGER trigger_categories_kind_compatibility
+BEFORE INSERT OR UPDATE OF kind, parent_id ON categories
+FOR EACH ROW
+EXECUTE FUNCTION check_category_kind_compatibility();
+
+-- 9. Create Indexes (if not exists)
 CREATE INDEX IF NOT EXISTS idx_categories_parent_id ON categories (parent_id);
 CREATE INDEX IF NOT EXISTS idx_categories_level ON categories (level);
 
--- 9. Backfill level for existing rows (set level based on parent hierarchy)
--- This is safe to run multiple times
+-- 10. Backfill level for existing rows (safe to run multiple times)
 UPDATE categories SET level = 0 WHERE parent_id IS NULL AND level != 0;

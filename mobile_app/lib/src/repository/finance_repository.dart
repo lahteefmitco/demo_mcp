@@ -1307,6 +1307,16 @@ class FinanceRepository {
     String? parentId,
   }) async {
     final id = _uuid.v4();
+    // Calculate level based on parent
+    int level = 0;
+    if (parentId != null) {
+      final parent = await (_db.select(_db.localCategories)
+            ..where((t) => t.uuid.equals(parentId)))
+          .getSingleOrNull();
+      if (parent != null) {
+        level = (parent.level ?? 0) + 1;
+      }
+    }
     await _db
         .into(_db.localCategories)
         .insert(
@@ -1317,7 +1327,7 @@ class FinanceRepository {
             color: color,
             icon: icon,
             parentId: Value(parentId),
-            level: const Value(0),
+            level: Value(level),
             isSynced: const Value(false),
           ),
         );
@@ -1332,6 +1342,16 @@ class FinanceRepository {
     required String icon,
     String? parentId,
   }) async {
+    // Calculate level based on parent
+    int level = 0;
+    if (parentId != null) {
+      final parent = await (_db.select(_db.localCategories)
+            ..where((t) => t.uuid.equals(parentId)))
+          .getSingleOrNull();
+      if (parent != null) {
+        level = (parent.level ?? 0) + 1;
+      }
+    }
     await (_db.update(
       _db.localCategories,
     )..where((t) => t.uuid.equals(uuid))).write(
@@ -1341,6 +1361,7 @@ class FinanceRepository {
         color: Value(color),
         icon: Value(icon),
         parentId: Value(parentId),
+        level: Value(level),
         isSynced: const Value(false),
       ),
     );
@@ -1357,7 +1378,7 @@ class FinanceRepository {
           if (parentId != null) 'parentId': parentId,
         });
         await (_db.update(_db.localCategories)
-              ..where((t) => t.uuid.equals(uuid)))
+            ..where((t) => t.uuid.equals(uuid)))
             .write(const LocalCategoriesCompanion(isSynced: Value(true)));
       } catch (_) {}
     }

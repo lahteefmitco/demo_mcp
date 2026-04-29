@@ -386,8 +386,9 @@ class SettingsScreen extends StatelessWidget {
     FinanceCategory category,
   ) async {
     final cubit = context.read<SettingsCubit>();
-    final payload = await Navigator.of(context).push<Map<String, dynamic>>(
-      MaterialPageRoute(builder: (_) => AddCategoryScreen(category: category)),
+    final payload = await pushRouteWithFinanceRepository<Map<String, dynamic>>(
+      context,
+      AddCategoryScreen(category: category, repository: context.read<FinanceRepository>()),
     );
 
     if (!context.mounted || payload == null) {
@@ -551,8 +552,9 @@ class SettingsScreen extends StatelessWidget {
     }
 
     if (action == 'category') {
-      final payload = await navigator.push<Map<String, dynamic>>(
-        MaterialPageRoute(builder: (_) => const AddCategoryScreen()),
+      final payload = await pushRouteWithFinanceRepository<Map<String, dynamic>>(
+        context,
+        AddCategoryScreen(repository: context.read<FinanceRepository>()),
       );
 
       if (!context.mounted) {
