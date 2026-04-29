@@ -119,26 +119,40 @@ export async function listCategories(userId, filters = {}) {
   const conditions = [];
 
   values.push(userId);
-  conditions.push(`user_id = $${values.length}`);
+  conditions.push(`c.user_id = $${values.length}`);
 
   if (filters.kind) {
     values.push(filters.kind);
-    conditions.push(`(kind = $${values.length} OR kind = 'both')`);
+    conditions.push(`(c.kind = $${values.length} OR c.kind = 'both')`);
   }
 
   const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const rows = await query(
     `
-      SELECT id, uuid, name, kind, color, icon, parent_id, level, created_at, updated_at
-      FROM categories
+      SELECT
+        c.id, c.uuid, c.name, c.kind, c.color, c.icon, c.level, c.created_at, c.updated_at,
+        p.uuid as parent_uuid
+      FROM categories c
+      LEFT JOIN categories p ON p.id = c.parent_id
       ${whereClause}
-      ORDER BY name ASC
+      ORDER BY c.name ASC
     `,
     values,
     { type: QueryTypes.SELECT }
   );
 
-  return rows.map(normalizeCategory);
+  return rows.map(row => ({
+    id: row.id,
+    uuid: formatUuid(row.uuid),
+    name: row.name,
+    kind: row.kind,
+    color: row.color,
+    icon: row.icon,
+    parentId: row.parent_uuid ? formatUuid(row.parent_uuid) : null,
+    level: row.level ?? 0,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  }));
 }
 
 export async function createCategory(

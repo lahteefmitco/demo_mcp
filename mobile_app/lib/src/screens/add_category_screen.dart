@@ -106,7 +106,7 @@ class _AddCategoryFormState extends State<_AddCategoryForm> {
   late final TextEditingController _nameController;
   late final TextEditingController _iconController;
   List<FinanceCategory> _parentCategories = [];
-  bool _loadingParents = false;
+  bool _loadingParents = true;
 
   @override
   void initState() {
@@ -237,6 +237,7 @@ class _AddCategoryFormState extends State<_AddCategoryForm> {
             const Center(child: CircularProgressIndicator())
           else
             DropdownButtonFormField<String?>(
+              key: ValueKey(_parentCategories.length),
               initialValue: state.parentId,
               decoration: const InputDecoration(
                 labelText: 'Parent Category (optional)',
