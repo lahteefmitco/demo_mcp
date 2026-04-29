@@ -400,6 +400,7 @@ class SettingsScreen extends StatelessWidget {
       kind: payload['kind'] as String,
       color: payload['color'] as String,
       icon: payload['icon'] as String,
+      parentId: payload['parentId'] as String?,
     );
   }
 
@@ -564,6 +565,7 @@ class SettingsScreen extends StatelessWidget {
           kind: payload['kind'] as String,
           color: payload['color'] as String,
           icon: payload['icon'] as String,
+          parentId: payload['parentId'] as String?,
         );
       }
     }

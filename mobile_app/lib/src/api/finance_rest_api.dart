@@ -98,7 +98,10 @@ class FinanceRestApi {
     final response = await _client.post(
       Uri.parse('$baseUrl/api/finance/categories'),
       headers: _headers,
-      body: jsonEncode(body),
+      body: jsonEncode({
+        ...body,
+        if (body['parentId'] != null) 'parentId': body['parentId'],
+      }),
     );
     _throwIfFailed(response);
     return jsonDecode(response.body) as Map<String, dynamic>;

@@ -18,6 +18,8 @@ function normalizeCategory(row) {
     kind: row.kind,
     color: row.color,
     icon: row.icon,
+    parentId: row.parent_id ? formatUuid(row.parent_id) : null,
+    level: row.level ?? 0,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -127,7 +129,7 @@ export async function listCategories(userId, filters = {}) {
   const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const rows = await query(
     `
-      SELECT id, uuid, name, kind, color, icon, created_at, updated_at
+      SELECT id, uuid, name, kind, color, icon, parent_id, level, created_at, updated_at
       FROM categories
       ${whereClause}
       ORDER BY name ASC
@@ -141,13 +143,13 @@ export async function listCategories(userId, filters = {}) {
 
 export async function createCategory(
   userId,
-  { name, kind = "expense", color = "#0E7490", icon = "tag" },
+  { name, kind = "expense", color = "#0E7490", icon = "tag", parentId = null },
   { clientUuid = null } = {}
 ) {
   if (clientUuid) {
     const existing = await query(
       `
-        SELECT id, uuid, name, kind, color, icon, created_at, updated_at
+        SELECT id, uuid, name, kind, color, icon, parent_id, level, created_at, updated_at
         FROM categories
         WHERE user_id = $1 AND uuid = $2::uuid
       `,
@@ -162,16 +164,18 @@ export async function createCategory(
   const rows = await query(
     clientUuid
       ? `
-      INSERT INTO categories (user_id, name, kind, color, icon, uuid)
-      VALUES ($1, $2, $3, $4, $5, $6::uuid)
-      RETURNING id, uuid, name, kind, color, icon, created_at, updated_at
+      INSERT INTO categories (user_id, name, kind, color, icon, uuid, parent_id)
+      VALUES ($1, $2, $3, $4, $5, $6::uuid, $7::uuid)
+      RETURNING id, uuid, name, kind, color, icon, parent_id, level, created_at, updated_at
     `
       : `
-      INSERT INTO categories (user_id, name, kind, color, icon)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, uuid, name, kind, color, icon, created_at, updated_at
+      INSERT INTO categories (user_id, name, kind, color, icon, parent_id)
+      VALUES ($1, $2, $3, $4, $5, $6::uuid)
+      RETURNING id, uuid, name, kind, color, icon, parent_id, level, created_at, updated_at
     `,
-    clientUuid ? [userId, name, kind, color, icon, clientUuid] : [userId, name, kind, color, icon]
+    clientUuid
+      ? [userId, name, kind, color, icon, clientUuid, parentId]
+      : [userId, name, kind, color, icon, parentId]
   );
 
   return normalizeCategory(rows[0]);
@@ -180,7 +184,7 @@ export async function createCategory(
 export async function updateCategory(
   userId,
   id,
-  { name, kind, color, icon }
+  { name, kind, color, icon, parentId = null }
 ) {
   const rows = await query(
     `
@@ -188,11 +192,12 @@ export async function updateCategory(
       SET name = $3,
           kind = $4,
           color = $5,
-          icon = $6
+          icon = $6,
+          parent_id = $${parentId ? "$7::uuid" : "NULL"}
       WHERE id = $1 AND user_id = $2
       RETURNING id
     `,
-    [id, userId, name, kind, color, icon]
+    parentId ? [id, userId, name, kind, color, icon, parentId] : [id, userId, name, kind, color, icon]
   );
 
   if (!rows[0]) {
@@ -205,7 +210,7 @@ export async function updateCategory(
 export async function getCategoryById(userId, id) {
   const rows = await query(
     `
-      SELECT id, uuid, name, kind, color, icon, created_at, updated_at
+      SELECT id, uuid, name, kind, color, icon, parent_id, level, created_at, updated_at
       FROM categories
       WHERE id = $1 AND user_id = $2
     `,

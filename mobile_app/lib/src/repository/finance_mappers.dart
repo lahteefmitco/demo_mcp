@@ -74,6 +74,8 @@ LocalCategoriesCompanion categoryFromServerJson(Map<String, dynamic> j) {
     kind: Value(j['kind']?.toString() ?? 'expense'),
     color: Value(j['color']?.toString() ?? '#0E7490'),
     icon: Value(j['icon']?.toString() ?? 'tag'),
+    parentId: Value(_s(j['parentId'])),
+    level: Value(_i(j['level']) ?? 0),
     createdAt: Value(_s(j['createdAt'])),
     updatedAt: Value(_s(j['updatedAt'])),
   );

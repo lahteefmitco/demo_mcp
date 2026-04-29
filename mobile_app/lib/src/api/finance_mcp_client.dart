@@ -326,12 +326,14 @@ class FinanceMcpClient {
     required String kind,
     required String color,
     required String icon,
+    String? parentId,
   }) async {
     await callTool('create_category', {
       'name': name,
       'kind': kind,
       'color': color,
       'icon': icon,
+      if (parentId != null) 'parentId': parentId,
     });
   }
 
@@ -341,6 +343,7 @@ class FinanceMcpClient {
     required String kind,
     required String color,
     required String icon,
+    String? parentId,
   }) async {
     try {
       await callTool('update_category', {
@@ -349,6 +352,7 @@ class FinanceMcpClient {
         'kind': kind,
         'color': color,
         'icon': icon,
+        if (parentId != null) 'parentId': parentId,
       });
     } catch (error) {
       if (!_isUnknownToolError(error, 'update_category')) {
@@ -363,6 +367,7 @@ class FinanceMcpClient {
           'kind': kind,
           'color': color,
           'icon': icon,
+          if (parentId != null) 'parentId': parentId,
         }),
       );
 

@@ -77,13 +77,23 @@ function validateCategoryPayload(payload) {
     errors.push("kind must be expense, income, or both");
   }
 
+  let parentId = null;
+  if (payload.parentId) {
+    if (typeof payload.parentId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.parentId.trim())) {
+      parentId = payload.parentId.trim();
+    } else {
+      errors.push("parentId must be a valid UUID");
+    }
+  }
+
   return {
     errors,
     value: {
       name: payload.name?.trim(),
       kind: payload.kind ?? "expense",
       color: payload.color?.trim() || "#0E7490",
-      icon: payload.icon?.trim() || "tag"
+      icon: payload.icon?.trim() || "tag",
+      parentId
     }
   };
 }

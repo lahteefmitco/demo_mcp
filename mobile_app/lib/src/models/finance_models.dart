@@ -6,6 +6,8 @@ class FinanceCategory {
     required this.kind,
     required this.color,
     required this.icon,
+    this.parentId,
+    this.level = 0,
   });
 
   final int id;
@@ -14,6 +16,8 @@ class FinanceCategory {
   final String kind;
   final String color;
   final String icon;
+  final String? parentId;
+  final int level;
 
   factory FinanceCategory.fromJson(Map<String, dynamic> json) {
     return FinanceCategory(
@@ -23,7 +27,21 @@ class FinanceCategory {
       kind: json['kind'] as String? ?? '',
       color: json['color'] as String? ?? '#0E7490',
       icon: json['icon'] as String? ?? 'tag',
+      parentId: json['parentId'] as String?,
+      level: json['level'] as int? ?? 0,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'uuid': uuid,
+      'name': name,
+      'kind': kind,
+      'color': color,
+      'icon': icon,
+      if (parentId != null) 'parentId': parentId,
+      'level': level,
+    };
   }
 }
 

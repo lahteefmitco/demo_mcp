@@ -32,6 +32,8 @@ class LocalCategories extends Table {
   TextColumn get kind => text()();
   TextColumn get color => text()();
   TextColumn get icon => text()();
+  TextColumn get parentId => text().nullable()();
+  IntColumn get level => integer().withDefault(const Constant(0))();
   TextColumn get createdAt => text().nullable()();
   TextColumn get updatedAt => text().nullable()();
 

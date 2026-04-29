@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../cubits/add_category/add_category_cubit.dart';
 import '../models/finance_models.dart';
+import '../repository/finance_repository.dart';
 
 class AddCategoryScreen extends StatelessWidget {
   const AddCategoryScreen({super.key, this.category});
@@ -68,11 +69,13 @@ class AddCategoryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final initialKind = category?.kind ?? 'expense';
     final initialColor = category?.color ?? '#0E7490';
+    final initialParentId = category?.parentId;
 
     return BlocProvider(
       create: (_) => AddCategoryCubit(
         initialKind: initialKind,
         initialColor: initialColor,
+        initialParentId: initialParentId,
       ),
       child: Scaffold(
         appBar: AppBar(
@@ -97,6 +100,8 @@ class _AddCategoryFormState extends State<_AddCategoryForm> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _iconController;
+  List<FinanceCategory> _parentCategories = [];
+  bool _loadingParents = false;
 
   @override
   void initState() {
@@ -105,6 +110,7 @@ class _AddCategoryFormState extends State<_AddCategoryForm> {
     final category = screen.category;
     _nameController = TextEditingController(text: category?.name ?? '');
     _iconController = TextEditingController(text: category?.icon ?? 'tag');
+    _loadParentCategories();
   }
 
   @override
@@ -112,6 +118,26 @@ class _AddCategoryFormState extends State<_AddCategoryForm> {
     _nameController.dispose();
     _iconController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadParentCategories() async {
+    setState(() => _loadingParents = true);
+    try {
+      final repo = context.read<FinanceRepository>();
+      final categories = await repo.listCategoriesLocal();
+      final screen = context.findAncestorWidgetOfExactType<AddCategoryScreen>()!;
+      final currentCategory = screen.category;
+
+      setState(() {
+        _parentCategories = categories.where((cat) {
+          if (currentCategory != null && cat.uuid == currentCategory.uuid) return false;
+          return true;
+        }).toList();
+        _loadingParents = false;
+      });
+    } catch (e) {
+      setState(() => _loadingParents = false);
+    }
   }
 
   Color _parseColor(String hex) {
@@ -146,6 +172,7 @@ class _AddCategoryFormState extends State<_AddCategoryForm> {
       'kind': state.kind,
       'color': state.selectedColor,
       'icon': _iconController.text.trim(),
+      if (state.parentId != null) 'parentId': state.parentId,
     };
     if (screen.isEditing) {
       result['uuid'] = screen.category!.uuid;
@@ -186,6 +213,32 @@ class _AddCategoryFormState extends State<_AddCategoryForm> {
                 context.read<AddCategoryCubit>().setKind(value);
             },
           ),
+          const SizedBox(height: 16),
+          if (_loadingParents)
+            const Center(child: CircularProgressIndicator())
+          else
+            DropdownButtonFormField<String?>(
+              value: state.parentId,
+              decoration: const InputDecoration(
+                labelText: 'Parent Category (optional)',
+              ),
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('None (Top-level)'),
+                ),
+                ..._parentCategories.map((cat) {
+                  final indent = '  ' * cat.level;
+                  return DropdownMenuItem<String?>(
+                    value: cat.uuid,
+                    child: Text('$indent${cat.name}'),
+                  );
+                }),
+              ],
+              onChanged: (value) {
+                context.read<AddCategoryCubit>().setParentId(value);
+              },
+            ),
           const SizedBox(height: 16),
           Text('Color', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),

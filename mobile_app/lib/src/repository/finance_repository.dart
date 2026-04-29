@@ -361,6 +361,8 @@ class FinanceRepository {
       kind: c.kind,
       color: c.color,
       icon: c.icon,
+      parentId: c.parentId,
+      level: c.level,
     );
   }
 
@@ -836,6 +838,7 @@ class FinanceRepository {
             'kind': row.kind,
             'color': row.color,
             'icon': row.icon,
+            if (row.parentId != null) 'parentId': row.parentId,
           });
           await (_db.update(_db.localCategories)
                 ..where((t) => t.uuid.equals(row.uuid)))
@@ -847,6 +850,7 @@ class FinanceRepository {
           'kind': row.kind,
           'color': row.color,
           'icon': row.icon,
+          if (row.parentId != null) 'parentId': row.parentId,
           'uuid': row.uuid,
         });
         final sid = res['id'] as int?;
@@ -1300,6 +1304,7 @@ class FinanceRepository {
     required String kind,
     required String color,
     required String icon,
+    String? parentId,
   }) async {
     final id = _uuid.v4();
     await _db
@@ -1311,6 +1316,8 @@ class FinanceRepository {
             kind: kind,
             color: color,
             icon: icon,
+            parentId: Value(parentId),
+            level: const Value(0),
             isSynced: const Value(false),
           ),
         );
@@ -1323,6 +1330,7 @@ class FinanceRepository {
     required String kind,
     required String color,
     required String icon,
+    String? parentId,
   }) async {
     await (_db.update(
       _db.localCategories,
@@ -1332,6 +1340,7 @@ class FinanceRepository {
         kind: Value(kind),
         color: Value(color),
         icon: Value(icon),
+        parentId: Value(parentId),
         isSynced: const Value(false),
       ),
     );
@@ -1345,6 +1354,7 @@ class FinanceRepository {
           'kind': kind,
           'color': color,
           'icon': icon,
+          if (parentId != null) 'parentId': parentId,
         });
         await (_db.update(_db.localCategories)
               ..where((t) => t.uuid.equals(uuid)))

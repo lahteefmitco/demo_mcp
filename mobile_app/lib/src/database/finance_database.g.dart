@@ -838,6 +838,27 @@ class $LocalCategoriesTable extends LocalCategories
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _parentIdMeta = const VerificationMeta(
+    'parentId',
+  );
+  @override
+  late final GeneratedColumn<String> parentId = GeneratedColumn<String>(
+    'parent_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _levelMeta = const VerificationMeta('level');
+  @override
+  late final GeneratedColumn<int> level = GeneratedColumn<int>(
+    'level',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -869,6 +890,8 @@ class $LocalCategoriesTable extends LocalCategories
     kind,
     color,
     icon,
+    parentId,
+    level,
     createdAt,
     updatedAt,
   ];
@@ -936,6 +959,18 @@ class $LocalCategoriesTable extends LocalCategories
     } else if (isInserting) {
       context.missing(_iconMeta);
     }
+    if (data.containsKey('parent_id')) {
+      context.handle(
+        _parentIdMeta,
+        parentId.isAcceptableOrUnknown(data['parent_id']!, _parentIdMeta),
+      );
+    }
+    if (data.containsKey('level')) {
+      context.handle(
+        _levelMeta,
+        level.isAcceptableOrUnknown(data['level']!, _levelMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -985,6 +1020,14 @@ class $LocalCategoriesTable extends LocalCategories
         DriftSqlType.string,
         data['${effectivePrefix}icon'],
       )!,
+      parentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parent_id'],
+      ),
+      level: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}level'],
+      )!,
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}created_at'],
@@ -1011,6 +1054,8 @@ class LocalCategoryRow extends DataClass
   final String kind;
   final String color;
   final String icon;
+  final String? parentId;
+  final int level;
   final String? createdAt;
   final String? updatedAt;
   const LocalCategoryRow({
@@ -1021,6 +1066,8 @@ class LocalCategoryRow extends DataClass
     required this.kind,
     required this.color,
     required this.icon,
+    this.parentId,
+    required this.level,
     this.createdAt,
     this.updatedAt,
   });
@@ -1036,6 +1083,10 @@ class LocalCategoryRow extends DataClass
     map['kind'] = Variable<String>(kind);
     map['color'] = Variable<String>(color);
     map['icon'] = Variable<String>(icon);
+    if (!nullToAbsent || parentId != null) {
+      map['parent_id'] = Variable<String>(parentId);
+    }
+    map['level'] = Variable<int>(level);
     if (!nullToAbsent || createdAt != null) {
       map['created_at'] = Variable<String>(createdAt);
     }
@@ -1056,6 +1107,10 @@ class LocalCategoryRow extends DataClass
       kind: Value(kind),
       color: Value(color),
       icon: Value(icon),
+      parentId: parentId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentId),
+      level: Value(level),
       createdAt: createdAt == null && nullToAbsent
           ? const Value.absent()
           : Value(createdAt),
@@ -1078,6 +1133,8 @@ class LocalCategoryRow extends DataClass
       kind: serializer.fromJson<String>(json['kind']),
       color: serializer.fromJson<String>(json['color']),
       icon: serializer.fromJson<String>(json['icon']),
+      parentId: serializer.fromJson<String?>(json['parentId']),
+      level: serializer.fromJson<int>(json['level']),
       createdAt: serializer.fromJson<String?>(json['createdAt']),
       updatedAt: serializer.fromJson<String?>(json['updatedAt']),
     );
@@ -1093,6 +1150,8 @@ class LocalCategoryRow extends DataClass
       'kind': serializer.toJson<String>(kind),
       'color': serializer.toJson<String>(color),
       'icon': serializer.toJson<String>(icon),
+      'parentId': serializer.toJson<String?>(parentId),
+      'level': serializer.toJson<int>(level),
       'createdAt': serializer.toJson<String?>(createdAt),
       'updatedAt': serializer.toJson<String?>(updatedAt),
     };
@@ -1106,6 +1165,8 @@ class LocalCategoryRow extends DataClass
     String? kind,
     String? color,
     String? icon,
+    Value<String?> parentId = const Value.absent(),
+    int? level,
     Value<String?> createdAt = const Value.absent(),
     Value<String?> updatedAt = const Value.absent(),
   }) => LocalCategoryRow(
@@ -1116,6 +1177,8 @@ class LocalCategoryRow extends DataClass
     kind: kind ?? this.kind,
     color: color ?? this.color,
     icon: icon ?? this.icon,
+    parentId: parentId.present ? parentId.value : this.parentId,
+    level: level ?? this.level,
     createdAt: createdAt.present ? createdAt.value : this.createdAt,
     updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
   );
@@ -1128,6 +1191,8 @@ class LocalCategoryRow extends DataClass
       kind: data.kind.present ? data.kind.value : this.kind,
       color: data.color.present ? data.color.value : this.color,
       icon: data.icon.present ? data.icon.value : this.icon,
+      parentId: data.parentId.present ? data.parentId.value : this.parentId,
+      level: data.level.present ? data.level.value : this.level,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -1143,6 +1208,8 @@ class LocalCategoryRow extends DataClass
           ..write('kind: $kind, ')
           ..write('color: $color, ')
           ..write('icon: $icon, ')
+          ..write('parentId: $parentId, ')
+          ..write('level: $level, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -1158,6 +1225,8 @@ class LocalCategoryRow extends DataClass
     kind,
     color,
     icon,
+    parentId,
+    level,
     createdAt,
     updatedAt,
   );
@@ -1172,6 +1241,8 @@ class LocalCategoryRow extends DataClass
           other.kind == this.kind &&
           other.color == this.color &&
           other.icon == this.icon &&
+          other.parentId == this.parentId &&
+          other.level == this.level &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -1184,6 +1255,8 @@ class LocalCategoriesCompanion extends UpdateCompanion<LocalCategoryRow> {
   final Value<String> kind;
   final Value<String> color;
   final Value<String> icon;
+  final Value<String?> parentId;
+  final Value<int> level;
   final Value<String?> createdAt;
   final Value<String?> updatedAt;
   final Value<int> rowid;
@@ -1195,6 +1268,8 @@ class LocalCategoriesCompanion extends UpdateCompanion<LocalCategoryRow> {
     this.kind = const Value.absent(),
     this.color = const Value.absent(),
     this.icon = const Value.absent(),
+    this.parentId = const Value.absent(),
+    this.level = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1207,6 +1282,8 @@ class LocalCategoriesCompanion extends UpdateCompanion<LocalCategoryRow> {
     required String kind,
     required String color,
     required String icon,
+    this.parentId = const Value.absent(),
+    this.level = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1223,6 +1300,8 @@ class LocalCategoriesCompanion extends UpdateCompanion<LocalCategoryRow> {
     Expression<String>? kind,
     Expression<String>? color,
     Expression<String>? icon,
+    Expression<String>? parentId,
+    Expression<int>? level,
     Expression<String>? createdAt,
     Expression<String>? updatedAt,
     Expression<int>? rowid,
@@ -1235,6 +1314,8 @@ class LocalCategoriesCompanion extends UpdateCompanion<LocalCategoryRow> {
       if (kind != null) 'kind': kind,
       if (color != null) 'color': color,
       if (icon != null) 'icon': icon,
+      if (parentId != null) 'parent_id': parentId,
+      if (level != null) 'level': level,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -1249,6 +1330,8 @@ class LocalCategoriesCompanion extends UpdateCompanion<LocalCategoryRow> {
     Value<String>? kind,
     Value<String>? color,
     Value<String>? icon,
+    Value<String?>? parentId,
+    Value<int>? level,
     Value<String?>? createdAt,
     Value<String?>? updatedAt,
     Value<int>? rowid,
@@ -1261,6 +1344,8 @@ class LocalCategoriesCompanion extends UpdateCompanion<LocalCategoryRow> {
       kind: kind ?? this.kind,
       color: color ?? this.color,
       icon: icon ?? this.icon,
+      parentId: parentId ?? this.parentId,
+      level: level ?? this.level,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -1291,6 +1376,12 @@ class LocalCategoriesCompanion extends UpdateCompanion<LocalCategoryRow> {
     if (icon.present) {
       map['icon'] = Variable<String>(icon.value);
     }
+    if (parentId.present) {
+      map['parent_id'] = Variable<String>(parentId.value);
+    }
+    if (level.present) {
+      map['level'] = Variable<int>(level.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<String>(createdAt.value);
     }
@@ -1313,6 +1404,8 @@ class LocalCategoriesCompanion extends UpdateCompanion<LocalCategoryRow> {
           ..write('kind: $kind, ')
           ..write('color: $color, ')
           ..write('icon: $icon, ')
+          ..write('parentId: $parentId, ')
+          ..write('level: $level, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -4987,6 +5080,8 @@ typedef $$LocalCategoriesTableCreateCompanionBuilder =
       required String kind,
       required String color,
       required String icon,
+      Value<String?> parentId,
+      Value<int> level,
       Value<String?> createdAt,
       Value<String?> updatedAt,
       Value<int> rowid,
@@ -5000,6 +5095,8 @@ typedef $$LocalCategoriesTableUpdateCompanionBuilder =
       Value<String> kind,
       Value<String> color,
       Value<String> icon,
+      Value<String?> parentId,
+      Value<int> level,
       Value<String?> createdAt,
       Value<String?> updatedAt,
       Value<int> rowid,
@@ -5046,6 +5143,16 @@ class $$LocalCategoriesTableFilterComposer
 
   ColumnFilters<String> get icon => $composableBuilder(
     column: $table.icon,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get parentId => $composableBuilder(
+    column: $table.parentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get level => $composableBuilder(
+    column: $table.level,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5104,6 +5211,16 @@ class $$LocalCategoriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get parentId => $composableBuilder(
+    column: $table.parentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get level => $composableBuilder(
+    column: $table.level,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -5144,6 +5261,12 @@ class $$LocalCategoriesTableAnnotationComposer
 
   GeneratedColumn<String> get icon =>
       $composableBuilder(column: $table.icon, builder: (column) => column);
+
+  GeneratedColumn<String> get parentId =>
+      $composableBuilder(column: $table.parentId, builder: (column) => column);
+
+  GeneratedColumn<int> get level =>
+      $composableBuilder(column: $table.level, builder: (column) => column);
 
   GeneratedColumn<String> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -5196,6 +5319,8 @@ class $$LocalCategoriesTableTableManager
                 Value<String> kind = const Value.absent(),
                 Value<String> color = const Value.absent(),
                 Value<String> icon = const Value.absent(),
+                Value<String?> parentId = const Value.absent(),
+                Value<int> level = const Value.absent(),
                 Value<String?> createdAt = const Value.absent(),
                 Value<String?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -5207,6 +5332,8 @@ class $$LocalCategoriesTableTableManager
                 kind: kind,
                 color: color,
                 icon: icon,
+                parentId: parentId,
+                level: level,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -5220,6 +5347,8 @@ class $$LocalCategoriesTableTableManager
                 required String kind,
                 required String color,
                 required String icon,
+                Value<String?> parentId = const Value.absent(),
+                Value<int> level = const Value.absent(),
                 Value<String?> createdAt = const Value.absent(),
                 Value<String?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -5231,6 +5360,8 @@ class $$LocalCategoriesTableTableManager
                 kind: kind,
                 color: color,
                 icon: icon,
+                parentId: parentId,
+                level: level,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
