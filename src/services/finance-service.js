@@ -161,21 +161,34 @@ export async function createCategory(
     }
   }
 
+  // Lookup parent_id server ID from UUID
+  let parentServerId = null;
+  if (parentId) {
+    const parentRows = await query(
+      'SELECT id FROM categories WHERE uuid = $1::uuid AND user_id = $2',
+      [parentId, userId],
+      { type: QueryTypes.SELECT }
+    );
+    if (parentRows[0]) {
+      parentServerId = parentRows[0].id;
+    }
+  }
+
   const rows = await query(
     clientUuid
       ? `
       INSERT INTO categories (user_id, name, kind, color, icon, uuid, parent_id)
-      VALUES ($1, $2, $3, $4, $5, $6::uuid, $7::uuid)
+      VALUES ($1, $2, $3, $4, $5::uuid, $6)
       RETURNING id, uuid, name, kind, color, icon, parent_id, level, created_at, updated_at
     `
       : `
       INSERT INTO categories (user_id, name, kind, color, icon, parent_id)
-      VALUES ($1, $2, $3, $4, $5, $6::uuid)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING id, uuid, name, kind, color, icon, parent_id, level, created_at, updated_at
     `,
     clientUuid
-      ? [userId, name, kind, color, icon, clientUuid, parentId]
-      : [userId, name, kind, color, icon, parentId]
+      ? [userId, name, kind, color, icon, clientUuid, parentServerId]
+      : [userId, name, kind, color, parentServerId]
   );
 
   return normalizeCategory(rows[0]);
@@ -186,6 +199,19 @@ export async function updateCategory(
   id,
   { name, kind, color, icon, parentId = null }
 ) {
+  // Lookup parent_id server ID from UUID
+  let parentServerId = null;
+  if (parentId) {
+    const parentRows = await query(
+      'SELECT id FROM categories WHERE uuid = $1::uuid AND user_id = $2',
+      [parentId, userId],
+      { type: QueryTypes.SELECT }
+    );
+    if (parentRows[0]) {
+      parentServerId = parentRows[0].id;
+    }
+  }
+
   const rows = await query(
     `
       UPDATE categories
@@ -193,11 +219,11 @@ export async function updateCategory(
           kind = $4,
           color = $5,
           icon = $6,
-          parent_id = $${parentId ? "$7::uuid" : "NULL"}
+          parent_id = $${parentServerId ? "$7" : "NULL"}
       WHERE id = $1 AND user_id = $2
       RETURNING id
     `,
-    parentId ? [id, userId, name, kind, color, icon, parentId] : [id, userId, name, kind, color, icon]
+    parentServerId ? [id, userId, name, kind, color, icon, parentServerId] : [id, userId, name, kind, color, icon]
   );
 
   if (!rows[0]) {

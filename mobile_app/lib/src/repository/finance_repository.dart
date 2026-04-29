@@ -833,6 +833,7 @@ class FinanceRepository {
     for (final row in unsyncedCategories) {
       try {
         if (row.serverId != null) {
+          log("Updating category: ${row.name}, serverId: ${row.serverId}, parentId: ${row.parentId}");
           await api.putCategory(row.serverId!, {
             'name': row.name,
             'kind': row.kind,
@@ -840,11 +841,13 @@ class FinanceRepository {
             'icon': row.icon,
             if (row.parentId != null) 'parentId': row.parentId,
           });
+          log("Updated category successfully");
           await (_db.update(_db.localCategories)
                 ..where((t) => t.uuid.equals(row.uuid)))
               .write(const LocalCategoriesCompanion(isSynced: Value(true)));
           continue;
         }
+        log("Syncing category: ${row.name}, parentId: ${row.parentId}");
         final res = await api.postCategory({
           'name': row.name,
           'kind': row.kind,
@@ -853,6 +856,7 @@ class FinanceRepository {
           if (row.parentId != null) 'parentId': row.parentId,
           'uuid': row.uuid,
         });
+        log("Synced category result: $res");
         final sid = res['id'] as int?;
         if (sid != null) {
           await (_db.update(
@@ -864,7 +868,9 @@ class FinanceRepository {
             ),
           );
         }
-      } catch (_) {}
+      } catch (e, st) {
+        log('Sync category failed: $e\n$st');
+      }
     }
 
     final unsyncedExpenses = await (_db.select(
