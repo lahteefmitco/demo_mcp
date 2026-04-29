@@ -1,7 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../api/finance_mcp_client.dart';
-import '../../models/finance_models.dart';
 import '../../repository/finance_repository.dart';
 import '../../utils/app_logger.dart';
 import 'settings_state.dart';
@@ -92,6 +91,7 @@ class SettingsCubit extends Cubit<SettingsState> {
     required String kind,
     required String color,
     required String icon,
+    String? parentId,
   }) async {
     try {
       await _repository.updateCategory(
@@ -100,6 +100,7 @@ class SettingsCubit extends Cubit<SettingsState> {
         kind: kind,
         color: color,
         icon: icon,
+        parentId: parentId,
       );
       emit(
         state.copyWith(
@@ -149,6 +150,7 @@ class SettingsCubit extends Cubit<SettingsState> {
     required String kind,
     required String color,
     required String icon,
+    String? parentId,
   }) async {
     try {
       await _repository.createCategory(
@@ -156,6 +158,7 @@ class SettingsCubit extends Cubit<SettingsState> {
         kind: kind,
         color: color,
         icon: icon,
+        parentId: parentId,
       );
       emit(
         state.copyWith(
