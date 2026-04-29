@@ -130,30 +130,68 @@ class _AddCategoryFormState extends State<_AddCategoryForm> {
   Future<void> _loadParentCategories() async {
     setState(() => _loadingParents = true);
     try {
+      final screen = context.findAncestorWidgetOfExactType<AddCategoryScreen>()!;
+      final cubit = context.read<AddCategoryCubit>();
       final repo = context.read<FinanceRepository>();
       final List<FinanceCategory> categories = await repo.listCategoriesLocal();
-      final screen = context.findAncestorWidgetOfExactType<AddCategoryScreen>()!;
+      if (!mounted) return;
       final currentCategory = screen.category;
-      final state = context.read<AddCategoryCubit>().state;
+      final state = cubit.state;
+      final normalizedParentId = _normalizeParentId(
+        parentId: state.parentId,
+        categories: categories,
+      );
+      final filteredCategories = categories.where((cat) {
+        if (currentCategory != null && cat.uuid == currentCategory.uuid) return false;
+        // Filter by kind compatibility
+        if (state.kind == 'expense') {
+          if (cat.kind != 'expense' && cat.kind != 'both') return false;
+        } else if (state.kind == 'income') {
+          if (cat.kind != 'income' && cat.kind != 'both') return false;
+        }
+        // 'both' kind can have any parent
+        return true;
+      }).toList();
+      final selectedParentStillValid = normalizedParentId == null ||
+          filteredCategories.any((cat) => cat.uuid == normalizedParentId);
 
       setState(() {
-        _parentCategories = categories.where((cat) {
-          if (currentCategory != null && cat.uuid == currentCategory.uuid) return false;
-          // Filter by kind compatibility
-          if (state.kind == 'expense') {
-            if (cat.kind != 'expense' && cat.kind != 'both') return false;
-          } else if (state.kind == 'income') {
-            if (cat.kind != 'income' && cat.kind != 'both') return false;
-          }
-          // 'both' kind can have any parent
-          return true;
-        }).toList();
+        _parentCategories = filteredCategories;
         _loadingParents = false;
       });
+
+      if (normalizedParentId != state.parentId) {
+        cubit.setParentId(normalizedParentId);
+      } else if (!selectedParentStillValid) {
+        cubit.setParentId(null);
+      }
     } catch (e) {
       log("Error=> $e");
       setState(() => _loadingParents = false);
     }
+  }
+
+  String? _normalizeParentId({
+    required String? parentId,
+    required List<FinanceCategory> categories,
+  }) {
+    if (parentId == null || parentId.isEmpty) {
+      return null;
+    }
+
+    for (final category in categories) {
+      if (category.uuid == parentId) {
+        return category.uuid;
+      }
+    }
+
+    for (final category in categories) {
+      if (category.id > 0 && category.id.toString() == parentId) {
+        return category.uuid;
+      }
+    }
+
+    return null;
   }
 
   Color _parseColor(String hex) {
@@ -237,8 +275,10 @@ class _AddCategoryFormState extends State<_AddCategoryForm> {
             const Center(child: CircularProgressIndicator())
           else
             DropdownButtonFormField<String?>(
-              key: ValueKey(_parentCategories.length),
-              initialValue: state.parentId,
+              key: ValueKey('${state.parentId}:${_parentCategories.length}'),
+              initialValue: _parentCategories.any((cat) => cat.uuid == state.parentId)
+                  ? state.parentId
+                  : null,
               decoration: const InputDecoration(
                 labelText: 'Parent Category (optional)',
               ),

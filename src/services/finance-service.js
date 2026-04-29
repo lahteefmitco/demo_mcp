@@ -18,7 +18,7 @@ function normalizeCategory(row) {
     kind: row.kind,
     color: row.color,
     icon: row.icon,
-    parentId: row.parent_id ? formatUuid(row.parent_id) : null,
+    parentId: row.parent_uuid ? formatUuid(row.parent_uuid) : null,
     level: row.level ?? 0,
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -163,9 +163,11 @@ export async function createCategory(
   if (clientUuid) {
     const existing = await query(
       `
-        SELECT id, uuid, name, kind, color, icon, parent_id, level, created_at, updated_at
+        SELECT c.id, c.uuid, c.name, c.kind, c.color, c.icon, c.parent_id, p.uuid AS parent_uuid, c.level, c.created_at, c.updated_at
         FROM categories
-        WHERE user_id = $1 AND uuid = $2::uuid
+        c
+        LEFT JOIN categories p ON p.id = c.parent_id
+        WHERE c.user_id = $1 AND c.uuid = $2::uuid
       `,
       [userId, clientUuid],
       { type: QueryTypes.SELECT }
@@ -256,9 +258,10 @@ export async function updateCategory(
 export async function getCategoryById(userId, id) {
   const rows = await query(
     `
-      SELECT id, uuid, name, kind, color, icon, parent_id, level, created_at, updated_at
-      FROM categories
-      WHERE id = $1 AND user_id = $2
+      SELECT c.id, c.uuid, c.name, c.kind, c.color, c.icon, c.parent_id, p.uuid AS parent_uuid, c.level, c.created_at, c.updated_at
+      FROM categories c
+      LEFT JOIN categories p ON p.id = c.parent_id
+      WHERE c.id = $1 AND c.user_id = $2
     `,
     [id, userId],
     { type: QueryTypes.SELECT }

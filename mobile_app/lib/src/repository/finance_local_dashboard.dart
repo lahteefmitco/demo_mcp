@@ -64,6 +64,8 @@ class FinanceLocalDashboard {
             kind: c.kind,
             color: c.color,
             icon: c.icon,
+            parentId: c.parentId,
+            level: c.level,
           ),
         )
         .toList();

@@ -9,11 +9,19 @@ class AddCategoryState {
   final String selectedColor;
   final String? parentId;
 
-  AddCategoryState copyWith({String? kind, String? selectedColor, String? parentId}) {
+  AddCategoryState copyWith({
+    String? kind,
+    String? selectedColor,
+    Object? parentId = _noChange,
+  }) {
     return AddCategoryState(
       kind: kind ?? this.kind,
       selectedColor: selectedColor ?? this.selectedColor,
-      parentId: parentId ?? this.parentId,
+      parentId: identical(parentId, _noChange)
+          ? this.parentId
+          : parentId as String?,
     );
   }
 }
+
+const Object _noChange = Object();
