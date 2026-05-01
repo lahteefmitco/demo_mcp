@@ -31,6 +31,7 @@ class ChatState {
   const ChatState({
     required this.messages,
     required this.isSending,
+    required this.isTranscribing,
     required this.selectedProvider,
     required this.currentSessionId,
     required this.isLoadingSessions,
@@ -41,6 +42,7 @@ class ChatState {
 
   final List<ChatUiMessage> messages;
   final bool isSending;
+  final bool isTranscribing;
   final String selectedProvider;
   final int? currentSessionId;
   final bool isLoadingSessions;
@@ -53,6 +55,7 @@ class ChatState {
   const ChatState.initial()
     : messages = const [],
       isSending = false,
+      isTranscribing = false,
       selectedProvider = 'gemini',
       currentSessionId = null,
       isLoadingSessions = false,
@@ -63,6 +66,7 @@ class ChatState {
   ChatState copyWith({
     List<ChatUiMessage>? messages,
     bool? isSending,
+    bool? isTranscribing,
     String? selectedProvider,
     int? currentSessionId,
     bool? isLoadingSessions,
@@ -73,6 +77,7 @@ class ChatState {
     return ChatState(
       messages: messages ?? this.messages,
       isSending: isSending ?? this.isSending,
+      isTranscribing: isTranscribing ?? this.isTranscribing,
       selectedProvider: selectedProvider ?? this.selectedProvider,
       currentSessionId: currentSessionId ?? this.currentSessionId,
       isLoadingSessions: isLoadingSessions ?? this.isLoadingSessions,

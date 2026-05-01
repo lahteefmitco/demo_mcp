@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -21,7 +22,9 @@ class ChatApi {
   String _normalizeProviderForBackend(String provider) {
     final normalized = provider.trim().toLowerCase();
     if (normalized == 'sarvam') return 'openrouter';
-    if (normalized == 'gemini' || normalized == 'mistral' || normalized == 'openrouter') {
+    if (normalized == 'gemini' ||
+        normalized == 'mistral' ||
+        normalized == 'openrouter') {
       return normalized;
     }
     return 'gemini';
@@ -54,5 +57,41 @@ class ChatApi {
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     log('LLM Response: ${jsonEncode(body)}');
     return body['reply'] as String? ?? '';
+  }
+
+  Future<String> transcribeAudio({
+    required Uint8List audioBytes,
+    required String mimeType,
+    String? languageCode,
+  }) async {
+    log(
+      'Speech transcription request: mimeType=$mimeType, bytes=${audioBytes.length}',
+    );
+
+    final response = await _client.post(
+      Uri.parse('$baseUrl/api/chat/transcribe'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'audioBase64': base64Encode(audioBytes),
+        'mimeType': mimeType,
+        if (languageCode != null && languageCode.trim().isNotEmpty)
+          'languageCode': languageCode.trim(),
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      log(
+        'Speech transcription error: ${response.statusCode} - ${response.body}',
+      );
+      throw Exception('Failed to transcribe speech: ${response.body}');
+    }
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final transcript = body['transcript'] as String? ?? '';
+    log('Speech transcription response: $transcript');
+    return transcript;
   }
 }

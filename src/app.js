@@ -6,6 +6,7 @@ import { authenticateRequest, requireAuth, unauthorizedJsonRpcResponse } from ".
 import { corsMiddleware } from "./middleware/cors.js";
 import { logger, requestLogger } from "./logger.js";
 import { runExpenseChat } from "./services/chat-service.js";
+import { transcribeSpeech } from "./services/speech-service.js";
 import authRouter from "./routes/auth.js";
 import financeRouter from "./routes/finance.js";
 import ragRouter from "./routes/rag.js";
@@ -16,7 +17,7 @@ dotenv.config({ quiet: true, override: false });
 const app = express();
 const port = Number(process.env.PORT || 3000);
 
-app.use(express.json());
+app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: false }));
 app.use(requestLogger());
 app.use(corsMiddleware());
@@ -44,6 +45,16 @@ app.use("/api", authRouter);
 app.post("/api/chat", requireAuth, async (req, res, next) => {
   try {
     const result = await runExpenseChat(req.body.messages, req.body.provider, req.user);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/chat/transcribe", requireAuth, async (req, res, next) => {
+  try {
+    const { audioBase64, mimeType, languageCode } = req.body ?? {};
+    const result = await transcribeSpeech({ audioBase64, mimeType, languageCode });
     res.json(result);
   } catch (error) {
     next(error);

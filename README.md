@@ -49,6 +49,7 @@ PORT=3000
 DATABASE_URL=postgresql://postgres:your_password@localhost:5432/expense_manager
 GEMINI_API_KEY=your_gemini_api_key
 GEMINI_MODEL=gemini-2.5-flash
+GEMINI_SPEECH_MODEL=gemini-2.5-flash
 ```
 
 ## Flutter Web + CORS
@@ -216,7 +217,7 @@ The app supports:
 
 ## Chat
 
-`POST /api/chat` uses Gemini with `gemini-2.5-flash` by default and gives the model access to your finance tools.
+`POST /api/chat` uses Gemini with `gemini-2.5-flash` by default and gives the model access to your finance tools. `POST /api/chat/transcribe` accepts recorded audio and uses Gemini to return text before the app sends it through the same chat flow.
 
 This lets the mobile chat tab handle prompts like:
 

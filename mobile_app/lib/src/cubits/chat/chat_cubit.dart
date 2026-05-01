@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -183,6 +184,26 @@ class ChatCubit extends Cubit<ChatState> {
     }
 
     emit(state.copyWith(isSending: false));
+  }
+
+  Future<void> sendSpeechMessage(Uint8List audioBytes, String mimeType) async {
+    if (state.isSending || state.isTranscribing) return;
+
+    emit(state.copyWith(isTranscribing: true));
+    try {
+      final transcript = await _chatApi.transcribeAudio(
+        audioBytes: audioBytes,
+        mimeType: mimeType,
+      );
+      emit(state.copyWith(isTranscribing: false));
+      await sendMessage(transcript);
+    } catch (e) {
+      emit(
+        state
+            .copyWith(isTranscribing: false)
+            .toastError(e.toString().replaceFirst('Exception: ', '')),
+      );
+    }
   }
 
   String? _detectChartPeriod(String text) {

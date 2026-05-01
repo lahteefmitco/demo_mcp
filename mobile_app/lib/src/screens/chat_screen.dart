@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:record/record.dart';
 
 import '../cubits/chat/chat_cubit.dart';
 import '../cubits/chat/chat_state.dart';
 import '../database/chat_database.dart';
 import '../models/auth_session.dart';
 import '../models/currency_option.dart';
+import '../utils/audio_recording_file.dart';
 import '../utils/toast.dart';
 
 class ChatScreen extends StatelessWidget {
@@ -42,6 +45,7 @@ class ChatScreen extends StatelessWidget {
           buildWhen: (p, n) =>
               p.messages != n.messages ||
               p.isSending != n.isSending ||
+              p.isTranscribing != n.isTranscribing ||
               p.selectedProvider != n.selectedProvider,
           builder: (context, state) {
             return Scaffold(
@@ -109,7 +113,10 @@ class ChatScreen extends StatelessWidget {
                     ),
                   ),
                   Expanded(child: _MessagesList(messages: state.messages)),
-                  _Composer(isSending: state.isSending),
+                  _Composer(
+                    isSending: state.isSending,
+                    isTranscribing: state.isTranscribing,
+                  ),
                 ],
               ),
             );
@@ -372,11 +379,11 @@ class _MessagesListState extends State<_MessagesList> {
             padding: const EdgeInsets.all(12),
             constraints: const BoxConstraints(maxWidth: 320),
             decoration: BoxDecoration(
-              color: isUser 
-                  ? const Color(0xFF0E7490) 
+              color: isUser
+                  ? const Color(0xFF0E7490)
                   : (Theme.of(context).brightness == Brightness.dark
-                      ? Theme.of(context).colorScheme.surfaceContainerHighest
-                      : Colors.grey.shade100),
+                        ? Theme.of(context).colorScheme.surfaceContainerHighest
+                        : Colors.grey.shade100),
               borderRadius: BorderRadius.circular(16),
             ),
             child: isUser
@@ -393,9 +400,10 @@ class _MessagesListState extends State<_MessagesList> {
 }
 
 class _Composer extends StatefulWidget {
-  const _Composer({required this.isSending});
+  const _Composer({required this.isSending, required this.isTranscribing});
 
   final bool isSending;
+  final bool isTranscribing;
 
   @override
   State<_Composer> createState() => _ComposerState();
@@ -403,17 +411,78 @@ class _Composer extends StatefulWidget {
 
 class _ComposerState extends State<_Composer> {
   final TextEditingController _controller = TextEditingController();
+  final AudioRecorder _recorder = AudioRecorder();
+  bool _isRecording = false;
 
   @override
   void dispose() {
+    _recorder.dispose();
     _controller.dispose();
     super.dispose();
   }
 
   Future<void> _send() async {
+    if (widget.isSending || widget.isTranscribing || _isRecording) return;
     final text = _controller.text;
     _controller.clear();
     await context.read<ChatCubit>().sendMessage(text);
+  }
+
+  Future<void> _toggleRecording() async {
+    if (widget.isSending || widget.isTranscribing) return;
+    if (kIsWeb) {
+      AppToast.error(
+        context,
+        'Speech recording is available in the mobile app.',
+      );
+      return;
+    }
+
+    if (_isRecording) {
+      try {
+        final path = await _recorder.stop();
+        if (mounted) {
+          setState(() => _isRecording = false);
+        }
+
+        if (path == null) return;
+        final audioBytes = await readAudioRecordingBytes(path);
+        if (!mounted) return;
+        await context.read<ChatCubit>().sendSpeechMessage(
+          audioBytes,
+          'audio/wav',
+        );
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isRecording = false);
+        AppToast.error(context, e.toString().replaceFirst('Exception: ', ''));
+      }
+      return;
+    }
+
+    final hasPermission = await _recorder.hasPermission();
+    if (!hasPermission) {
+      if (!mounted) return;
+      AppToast.error(context, 'Microphone permission is required.');
+      return;
+    }
+
+    final path = await buildAudioRecordingPath();
+
+    try {
+      await _recorder.start(
+        const RecordConfig(encoder: AudioEncoder.wav, sampleRate: 16000),
+        path: path,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      AppToast.error(context, e.toString().replaceFirst('Exception: ', ''));
+      return;
+    }
+
+    if (mounted) {
+      setState(() => _isRecording = true);
+    }
   }
 
   @override
@@ -434,8 +503,24 @@ class _ComposerState extends State<_Composer> {
             ),
           ),
           const SizedBox(width: 8),
+          IconButton.filledTonal(
+            onPressed: widget.isSending || widget.isTranscribing
+                ? null
+                : _toggleRecording,
+            tooltip: _isRecording ? 'Stop recording' : 'Record speech',
+            icon: widget.isTranscribing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(_isRecording ? Icons.stop : Icons.mic),
+          ),
+          const SizedBox(width: 8),
           IconButton.filled(
-            onPressed: widget.isSending ? null : _send,
+            onPressed: widget.isSending || widget.isTranscribing || _isRecording
+                ? null
+                : _send,
             icon: widget.isSending
                 ? const SizedBox(
                     width: 18,
