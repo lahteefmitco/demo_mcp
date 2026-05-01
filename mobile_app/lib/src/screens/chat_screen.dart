@@ -415,6 +415,7 @@ class _ComposerState extends State<_Composer>
   final AudioRecorder _recorder = AudioRecorder();
   late final AnimationController _recordingPulse;
   String? _recordingPath;
+  int? _recordingPointer;
   bool _isStartingRecording = false;
   bool _isRecording = false;
   bool _stopWhenRecordingStarts = false;
@@ -540,6 +541,22 @@ class _ComposerState extends State<_Composer>
     }
   }
 
+  void _handleRecordPointerDown(PointerDownEvent event) {
+    if (widget.isSending ||
+        widget.isTranscribing ||
+        _recordingPointer != null) {
+      return;
+    }
+    _recordingPointer = event.pointer;
+    _startRecording();
+  }
+
+  void _handleRecordPointerEnd(PointerEvent event) {
+    if (_recordingPointer != event.pointer) return;
+    _recordingPointer = null;
+    _stopRecordingAndTranscribe();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -610,28 +627,47 @@ class _ComposerState extends State<_Composer>
             ),
           ),
           const SizedBox(width: 8),
-          GestureDetector(
-            onTapDown: widget.isSending || widget.isTranscribing
-                ? null
-                : (_) => _startRecording(),
-            onTapUp: widget.isSending || widget.isTranscribing
-                ? null
-                : (_) => _stopRecordingAndTranscribe(),
-            onTapCancel: widget.isSending || widget.isTranscribing
-                ? null
-                : _stopRecordingAndTranscribe,
-            child: IconButton.filledTonal(
-              onPressed: widget.isSending || widget.isTranscribing
+          Tooltip(
+            message: 'Hold to record speech',
+            child: Listener(
+              onPointerDown: widget.isSending || widget.isTranscribing
                   ? null
-                  : () {},
-              tooltip: 'Hold to record speech',
-              icon: widget.isTranscribing
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Icon(_isRecording ? Icons.mic : Icons.mic_none),
+                  : _handleRecordPointerDown,
+              onPointerUp: widget.isSending || widget.isTranscribing
+                  ? null
+                  : _handleRecordPointerEnd,
+              onPointerCancel: widget.isSending || widget.isTranscribing
+                  ? null
+                  : _handleRecordPointerEnd,
+              child: SizedBox.square(
+                dimension: 48,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: widget.isSending || widget.isTranscribing
+                        ? Theme.of(
+                            context,
+                          ).disabledColor.withValues(alpha: 0.12)
+                        : Theme.of(context).colorScheme.secondaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: widget.isTranscribing
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(
+                            _isRecording ? Icons.mic : Icons.mic_none,
+                            color: widget.isSending || widget.isTranscribing
+                                ? Theme.of(context).disabledColor
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.onSecondaryContainer,
+                          ),
+                  ),
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 8),
