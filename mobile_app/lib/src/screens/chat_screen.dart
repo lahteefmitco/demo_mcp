@@ -409,13 +409,28 @@ class _Composer extends StatefulWidget {
   State<_Composer> createState() => _ComposerState();
 }
 
-class _ComposerState extends State<_Composer> {
+class _ComposerState extends State<_Composer>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final AudioRecorder _recorder = AudioRecorder();
+  late final AnimationController _recordingPulse;
+  String? _recordingPath;
+  bool _isStartingRecording = false;
   bool _isRecording = false;
+  bool _stopWhenRecordingStarts = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _recordingPulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 850),
+    );
+  }
 
   @override
   void dispose() {
+    _recordingPulse.dispose();
     _recorder.dispose();
     _controller.dispose();
     super.dispose();
@@ -428,43 +443,18 @@ class _ComposerState extends State<_Composer> {
     await context.read<ChatCubit>().sendMessage(text);
   }
 
-  Future<void> _toggleRecording() async {
-    if (widget.isSending || widget.isTranscribing) return;
+  Future<void> _startRecording() async {
+    if (widget.isSending ||
+        widget.isTranscribing ||
+        _isStartingRecording ||
+        _isRecording) {
+      return;
+    }
     if (kIsWeb) {
       AppToast.error(
         context,
         'Speech recording is available in the mobile app.',
       );
-      return;
-    }
-
-    if (_isRecording) {
-      try {
-        final path = await _recorder.stop();
-        if (mounted) {
-          setState(() => _isRecording = false);
-        }
-
-        if (path == null) return;
-        final audioBytes = await readAudioRecordingBytes(path);
-        if (!mounted) return;
-        final transcript = await context.read<ChatCubit>().transcribeSpeech(
-          audioBytes,
-          'audio/mp4',
-        );
-        if (!mounted || transcript == null || transcript.trim().isEmpty) {
-          return;
-        }
-        _controller
-          ..text = transcript.trim()
-          ..selection = TextSelection.collapsed(
-            offset: transcript.trim().length,
-          );
-      } catch (e) {
-        if (!mounted) return;
-        setState(() => _isRecording = false);
-        AppToast.error(context, e.toString().replaceFirst('Exception: ', ''));
-      }
       return;
     }
 
@@ -475,7 +465,9 @@ class _ComposerState extends State<_Composer> {
       return;
     }
 
-    final path = await buildAudioRecordingPath();
+    _isStartingRecording = true;
+    _stopWhenRecordingStarts = false;
+    _recordingPath = await buildAudioRecordingPath();
 
     try {
       await _recorder.start(
@@ -484,16 +476,67 @@ class _ComposerState extends State<_Composer> {
           bitRate: 64000,
           sampleRate: 16000,
         ),
-        path: path,
+        path: _recordingPath!,
       );
     } catch (e) {
       if (!mounted) return;
+      _isStartingRecording = false;
+      _recordingPath = null;
       AppToast.error(context, e.toString().replaceFirst('Exception: ', ''));
       return;
     }
 
+    _isStartingRecording = false;
     if (mounted) {
       setState(() => _isRecording = true);
+      _recordingPulse.repeat(reverse: true);
+    }
+    if (_stopWhenRecordingStarts) {
+      _stopWhenRecordingStarts = false;
+      await _stopRecordingAndTranscribe();
+    }
+  }
+
+  Future<void> _stopRecordingAndTranscribe() async {
+    if (_isStartingRecording) {
+      _stopWhenRecordingStarts = true;
+      return;
+    }
+    if (!_isRecording) return;
+
+    try {
+      final path = await _recorder.stop();
+      _recordingPulse.stop();
+      _recordingPulse.reset();
+      if (mounted) {
+        setState(() => _isRecording = false);
+      }
+
+      final audioPath = path ?? _recordingPath;
+      _recordingPath = null;
+      if (audioPath == null) return;
+
+      final audioBytes = await readAudioRecordingBytes(audioPath);
+      if (!mounted) return;
+      final transcript = await context.read<ChatCubit>().transcribeSpeech(
+        audioBytes,
+        'audio/mp4',
+      );
+      final trimmed = transcript?.trim();
+      if (!mounted || trimmed == null || trimmed.isEmpty) return;
+
+      _controller
+        ..text = trimmed
+        ..selection = TextSelection.collapsed(offset: trimmed.length);
+    } catch (e) {
+      _recordingPulse.stop();
+      _recordingPulse.reset();
+      _recordingPath = null;
+      _isStartingRecording = false;
+      _stopWhenRecordingStarts = false;
+      if (!mounted) return;
+      setState(() => _isRecording = false);
+      AppToast.error(context, e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -504,29 +547,92 @@ class _ComposerState extends State<_Composer> {
       child: Row(
         children: [
           Expanded(
-            child: TextField(
-              controller: _controller,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => _send(),
-              decoration: const InputDecoration(
-                hintText: 'Ask something...',
-                border: OutlineInputBorder(),
-              ),
+            child: Stack(
+              alignment: Alignment.centerLeft,
+              children: [
+                TextField(
+                  controller: _controller,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _send(),
+                  decoration: const InputDecoration(
+                    hintText: 'Ask something...',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                if (_isRecording)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface,
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          children: [
+                            AnimatedBuilder(
+                              animation: _recordingPulse,
+                              builder: (context, child) {
+                                return Container(
+                                  width: 10 + (_recordingPulse.value * 7),
+                                  height: 10 + (_recordingPulse.value * 7),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.error
+                                        .withValues(
+                                          alpha:
+                                              0.45 +
+                                              (_recordingPulse.value * 0.45),
+                                        ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Recording...',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
           const SizedBox(width: 8),
-          IconButton.filledTonal(
-            onPressed: widget.isSending || widget.isTranscribing
+          GestureDetector(
+            onTapDown: widget.isSending || widget.isTranscribing
                 ? null
-                : _toggleRecording,
-            tooltip: _isRecording ? 'Stop recording' : 'Record speech',
-            icon: widget.isTranscribing
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(_isRecording ? Icons.stop : Icons.mic),
+                : (_) => _startRecording(),
+            onTapUp: widget.isSending || widget.isTranscribing
+                ? null
+                : (_) => _stopRecordingAndTranscribe(),
+            onTapCancel: widget.isSending || widget.isTranscribing
+                ? null
+                : _stopRecordingAndTranscribe,
+            child: IconButton.filledTonal(
+              onPressed: widget.isSending || widget.isTranscribing
+                  ? null
+                  : () {},
+              tooltip: 'Hold to record speech',
+              icon: widget.isTranscribing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(_isRecording ? Icons.mic : Icons.mic_none),
+            ),
           ),
           const SizedBox(width: 8),
           IconButton.filled(
