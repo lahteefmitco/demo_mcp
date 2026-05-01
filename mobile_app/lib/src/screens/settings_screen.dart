@@ -28,6 +28,7 @@ import 'add_category_screen.dart';
 import 'category_entries_screen.dart';
 import 'chat_db_viewer_screen.dart';
 import 'local_database_viewer_screen.dart';
+import 'manage_categories_screen.dart';
 import 'period_expenses_screen.dart';
 import 'period_incomes_screen.dart';
 import 'transfer_screen.dart';
@@ -85,6 +86,18 @@ class SettingsScreen extends StatelessWidget {
     await pushRouteWithFinanceRepository<void>(
       context,
       AccountsScreen(session: session, currency: currency),
+    );
+    await cubit.refresh();
+  }
+
+  Future<void> _openCategories(BuildContext context) async {
+    final cubit = context.read<SettingsCubit>();
+    await pushRouteWithFinanceRepository<void>(
+      context,
+      BlocProvider<SettingsCubit>.value(
+        value: cubit,
+        child: const ManageCategoriesScreen(),
+      ),
     );
     await cubit.refresh();
   }
@@ -381,60 +394,6 @@ class SettingsScreen extends StatelessWidget {
     await context.read<ThemeCubit>().setThemeMode(selected);
   }
 
-  Future<void> _editCategory(
-    BuildContext context,
-    FinanceCategory category,
-  ) async {
-    final cubit = context.read<SettingsCubit>();
-    final payload = await pushRouteWithFinanceRepository<Map<String, dynamic>>(
-      context,
-      AddCategoryScreen(category: category, repository: context.read<FinanceRepository>()),
-    );
-
-    if (!context.mounted || payload == null) {
-      return;
-    }
-
-    await cubit.updateCategory(
-      uuid: payload['uuid'] as String,
-      name: payload['name'] as String,
-      kind: payload['kind'] as String,
-      color: payload['color'] as String,
-      icon: payload['icon'] as String,
-      parentId: payload['parentId'] as String?,
-    );
-  }
-
-  Future<void> _deleteCategory(
-    BuildContext context,
-    FinanceCategory category,
-  ) async {
-    final cubit = context.read<SettingsCubit>();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Category'),
-        content: Text('Are you sure you want to delete "${category.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-
-    if (!context.mounted || confirmed != true) {
-      return;
-    }
-
-    await cubit.deleteCategoryByUuid(category.uuid);
-  }
-
   Future<void> _editBudget(
     BuildContext context,
     BudgetItem budget,
@@ -497,6 +456,7 @@ class SettingsScreen extends StatelessWidget {
   Future<void> _openActionSheet(BuildContext context, SettingsData data) async {
     final cubit = context.read<SettingsCubit>();
     final navigator = Navigator.of(context);
+    final repository = context.read<FinanceRepository>();
     final action = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -552,9 +512,13 @@ class SettingsScreen extends StatelessWidget {
     }
 
     if (action == 'category') {
-      final payload = await pushRouteWithFinanceRepository<Map<String, dynamic>>(
-        context,
-        AddCategoryScreen(repository: context.read<FinanceRepository>()),
+      final payload = await navigator.push<Map<String, dynamic>>(
+        MaterialPageRoute(
+          builder: (_) => RepositoryProvider<FinanceRepository>.value(
+            value: repository,
+            child: AddCategoryScreen(repository: repository),
+          ),
+        ),
       );
 
       if (!context.mounted) {
@@ -914,17 +878,19 @@ class SettingsScreen extends StatelessWidget {
                             subtitle: '${dashboard.categories.length} total',
                           ),
                           const SizedBox(height: 8),
-                          if (dashboard.categories.isEmpty)
-                            const _EmptyCard(message: 'No categories found.')
-                          else
-                            ...dashboard.categories.map(
-                              (category) => _CategoryTile(
-                                category: category,
-                                onEdit: () => _editCategory(context, category),
-                                onDelete: () =>
-                                    _deleteCategory(context, category),
+                          Card(
+                            child: ListTile(
+                              leading: const Icon(Icons.category_outlined),
+                              title: const Text('Manage Categories'),
+                              subtitle: Text(
+                                dashboard.categories.isEmpty
+                                    ? 'Add, edit, or delete categories'
+                                    : 'Add, edit, or delete ${dashboard.categories.length} categories',
                               ),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () => _openCategories(context),
                             ),
+                          ),
                           if (kDebugMode) ...[
                             const SizedBox(height: 16),
                             _SectionTitle(
@@ -1519,52 +1485,6 @@ class _EmptyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(padding: const EdgeInsets.all(18), child: Text(message)),
-    );
-  }
-}
-
-class _CategoryTile extends StatelessWidget {
-  const _CategoryTile({
-    required this.category,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  final FinanceCategory category;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-
-  Color _parseColor(String hex) {
-    final normalized = hex.replaceFirst('#', '');
-    return Color(int.parse('FF$normalized', radix: 16));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: _parseColor(category.color).withValues(alpha: 0.2),
-          child: Icon(Icons.tag, color: _parseColor(category.color)),
-        ),
-        title: Text(category.name),
-        subtitle: Text(category.kind),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: onEdit,
-              tooltip: 'Edit',
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              onPressed: onDelete,
-              tooltip: 'Delete',
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
