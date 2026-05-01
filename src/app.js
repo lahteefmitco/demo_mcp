@@ -17,7 +17,7 @@ dotenv.config({ quiet: true, override: false });
 const app = express();
 const port = Number(process.env.PORT || 3000);
 
-app.use(express.json({ limit: "25mb" }));
+app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: false }));
 app.use(requestLogger());
 app.use(corsMiddleware());

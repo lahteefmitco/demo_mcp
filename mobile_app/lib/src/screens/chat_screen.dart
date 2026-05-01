@@ -448,10 +448,18 @@ class _ComposerState extends State<_Composer> {
         if (path == null) return;
         final audioBytes = await readAudioRecordingBytes(path);
         if (!mounted) return;
-        await context.read<ChatCubit>().sendSpeechMessage(
+        final transcript = await context.read<ChatCubit>().transcribeSpeech(
           audioBytes,
-          'audio/wav',
+          'audio/mp4',
         );
+        if (!mounted || transcript == null || transcript.trim().isEmpty) {
+          return;
+        }
+        _controller
+          ..text = transcript.trim()
+          ..selection = TextSelection.collapsed(
+            offset: transcript.trim().length,
+          );
       } catch (e) {
         if (!mounted) return;
         setState(() => _isRecording = false);
@@ -471,7 +479,11 @@ class _ComposerState extends State<_Composer> {
 
     try {
       await _recorder.start(
-        const RecordConfig(encoder: AudioEncoder.wav, sampleRate: 16000),
+        const RecordConfig(
+          encoder: AudioEncoder.aacLc,
+          bitRate: 64000,
+          sampleRate: 16000,
+        ),
         path: path,
       );
     } catch (e) {

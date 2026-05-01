@@ -186,8 +186,11 @@ class ChatCubit extends Cubit<ChatState> {
     emit(state.copyWith(isSending: false));
   }
 
-  Future<void> sendSpeechMessage(Uint8List audioBytes, String mimeType) async {
-    if (state.isSending || state.isTranscribing) return;
+  Future<String?> transcribeSpeech(
+    Uint8List audioBytes,
+    String mimeType,
+  ) async {
+    if (state.isSending || state.isTranscribing) return null;
 
     emit(state.copyWith(isTranscribing: true));
     try {
@@ -196,13 +199,14 @@ class ChatCubit extends Cubit<ChatState> {
         mimeType: mimeType,
       );
       emit(state.copyWith(isTranscribing: false));
-      await sendMessage(transcript);
+      return transcript;
     } catch (e) {
       emit(
         state
             .copyWith(isTranscribing: false)
             .toastError(e.toString().replaceFirst('Exception: ', '')),
       );
+      return null;
     }
   }
 
