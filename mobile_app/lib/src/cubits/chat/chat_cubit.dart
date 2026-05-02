@@ -33,14 +33,16 @@ class ChatCubit extends Cubit<ChatState> {
   };
 
   static const defaultProvider = 'gemini';
-  static const _apiAllowedProviders = {'gemini', 'mistral', 'openrouter'};
+  static const _apiAllowedProviders = {
+    'gemini',
+    'mistral',
+    'openrouter',
+    'sarvam',
+  };
 
   String _providerForApi(String selectedProvider) {
     final normalized = selectedProvider.trim().toLowerCase();
     if (_apiAllowedProviders.contains(normalized)) return normalized;
-
-    // Backend deployments may not support Sarvam as a provider; route it through a supported provider.
-    if (normalized == 'sarvam') return 'openrouter';
 
     return defaultProvider;
   }

@@ -435,7 +435,10 @@ async function runOpenAiCompatibleChat(
   { provider, apiKey, model, apiBaseUrl, extraHeaders = {}, ragContext = "" }
 ) {
   const messages = [
-    { role: "system", content: buildSystemInstruction({ ragContext }) },
+    {
+      role: "system",
+      content: buildSystemInstruction({ ragContext, openAiProvider: provider })
+    },
     ...normalizeOpenAiChatHistory(history)
   ];
 
@@ -573,7 +576,7 @@ function extractOpenAiText(message) {
   return "";
 }
 
-function buildSystemInstruction({ ragContext = "" } = {}) {
+function buildSystemInstruction({ ragContext = "", openAiProvider } = {}) {
   const now = new Date();
   const today = formatProjectDate(now);
   const currentMonth = `${String(now.getUTCMonth() + 1).padStart(2, "0")}-${now.getUTCFullYear()}`;
@@ -588,12 +591,23 @@ function buildSystemInstruction({ ragContext = "" } = {}) {
     "For month-only filters in finance_dashboard and period_summary, convert the month internally to YYYY-MM."
   ].join(" ");
 
+  const sarvamLanguageBlock =
+    openAiProvider === "sarvam"
+      ? [
+          "",
+          "Language (Sarvam): The user works only in English or Malayalam (മലയാളം).",
+          "Match the user's language in every reply: English questions → English answers; Malayalam questions → Malayalam answers (Malayalam script).",
+          "Do not answer in Hindi, Tamil, Kannada, or other languages unless the user explicitly asks for them.",
+          "Tool calls must still follow the schemas (dates, numbers, IDs); narrate results to the user in English or Malayalam only, matching the conversation."
+        ].join(" ")
+      : "";
+
   const trimmedRag = typeof ragContext === "string" ? ragContext.trim() : "";
   if (!trimmedRag) {
-    return base;
+    return `${base}${sarvamLanguageBlock}`;
   }
 
-  return `${base}\n\n${trimmedRag}`;
+  return `${base}${sarvamLanguageBlock}\n\n${trimmedRag}`;
 }
 
 function normalizeFunctionResponse(value) {

@@ -4,6 +4,9 @@ const geminiSpeechModel =
 const geminiApiBaseUrl = "https://generativelanguage.googleapis.com/v1beta";
 const sarvamApiKey = process.env.SARVAM_API_KEY;
 const sarvamSpeechModel = process.env.SARVAM_SPEECH_MODEL || "saaras:v3";
+/** BCP-47 hint when the client omits languageCode, e.g. ml-IN, en-IN, or unknown (auto-detect). */
+const sarvamSpeechDefaultLanguageCode = (process.env.SARVAM_SPEECH_DEFAULT_LANGUAGE_CODE || "")
+  .trim();
 const speechProvider = (process.env.SPEECH_TO_TEXT_PROVIDER || "sarvam").trim().toLowerCase();
 const sarvamSpeechApiUrl = "https://api.sarvam.ai/speech-to-text";
 
@@ -77,8 +80,12 @@ async function transcribeWithSarvam({ audioBase64, mimeType, languageCode }) {
   const formData = new FormData();
   formData.set("model", sarvamSpeechModel);
   formData.set("mode", "transcribe");
-  if (typeof languageCode === "string" && languageCode.trim().length > 0) {
-    formData.set("language_code", languageCode.trim());
+  const resolvedLanguage =
+    typeof languageCode === "string" && languageCode.trim().length > 0
+      ? languageCode.trim()
+      : sarvamSpeechDefaultLanguageCode;
+  if (resolvedLanguage.length > 0) {
+    formData.set("language_code", resolvedLanguage);
   }
   formData.set(
     "file",

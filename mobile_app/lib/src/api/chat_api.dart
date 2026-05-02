@@ -29,10 +29,10 @@ class ChatApi {
 
   String _normalizeProviderForBackend(String provider) {
     final normalized = provider.trim().toLowerCase();
-    if (normalized == 'sarvam') return 'openrouter';
     if (normalized == 'gemini' ||
         normalized == 'mistral' ||
-        normalized == 'openrouter') {
+        normalized == 'openrouter' ||
+        normalized == 'sarvam') {
       return normalized;
     }
     return 'gemini';
