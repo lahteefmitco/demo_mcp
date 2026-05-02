@@ -17,20 +17,17 @@ import '../models/app_lock_config.dart';
 import '../models/auth_session.dart';
 import '../repository/finance_repository.dart';
 import '../models/currency_option.dart';
-import '../models/finance_models.dart';
 import '../utils/currency_utils.dart';
 import '../utils/finance_repository_scope.dart';
 import '../utils/toast.dart';
+import '../widgets/finance_report_widgets.dart';
 import 'accounts_screen.dart';
 import 'about_screen.dart';
 import 'add_budget_screen.dart';
 import 'add_category_screen.dart';
-import 'category_entries_screen.dart';
 import 'chat_db_viewer_screen.dart';
 import 'local_database_viewer_screen.dart';
 import 'manage_categories_screen.dart';
-import 'period_expenses_screen.dart';
-import 'period_incomes_screen.dart';
 import 'transfer_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -60,20 +57,6 @@ class SettingsScreen extends StatelessWidget {
   final Future<bool> Function(String pin) onRemovePin;
   final Future<bool> Function(bool enabled) onBiometricsChanged;
   final Future<void> Function() onOpenProfile;
-
-  Future<void> _openCategoryEntries(
-    BuildContext context,
-    FinanceCategory category,
-  ) async {
-    await pushRouteWithFinanceRepository<void>(
-      context,
-      CategoryEntriesScreen(
-        session: session,
-        category: category,
-        currency: currency,
-      ),
-    );
-  }
 
   Future<void> _openChatDbViewer(BuildContext context) async {
     await Navigator.of(
@@ -194,20 +177,6 @@ class SettingsScreen extends StatelessWidget {
       MaterialPageRoute<void>(
         builder: (_) => const LocalDatabaseViewerScreen(),
       ),
-    );
-  }
-
-  Future<void> _openPeriodExpenses(BuildContext context) async {
-    await pushRouteWithFinanceRepository<void>(
-      context,
-      PeriodExpensesScreen(currency: currency),
-    );
-  }
-
-  Future<void> _openPeriodIncomes(BuildContext context) async {
-    await pushRouteWithFinanceRepository<void>(
-      context,
-      PeriodIncomesScreen(currency: currency),
     );
   }
 
@@ -394,65 +363,6 @@ class SettingsScreen extends StatelessWidget {
     await context.read<ThemeCubit>().setThemeMode(selected);
   }
 
-  Future<void> _editBudget(
-    BuildContext context,
-    BudgetItem budget,
-    SettingsData data,
-  ) async {
-    final cubit = context.read<SettingsCubit>();
-    final categories = data.dashboard.categories
-        .where(
-          (category) => category.kind == 'expense' || category.kind == 'both',
-        )
-        .toList();
-    final payload = await Navigator.of(context).push<Map<String, dynamic>>(
-      MaterialPageRoute(
-        builder: (_) => AddBudgetScreen(categories: categories, budget: budget),
-      ),
-    );
-
-    if (!context.mounted || payload == null) {
-      return;
-    }
-
-    await cubit.updateBudget(
-      uuid: payload['uuid'] as String,
-      name: payload['name'] as String,
-      amount: payload['amount'] as double,
-      period: payload['period'] as String,
-      startDate: payload['startDate'] as String,
-      categoryUuid: payload['categoryUuid'] as String?,
-      notes: payload['notes'] as String? ?? '',
-    );
-  }
-
-  Future<void> _deleteBudget(BuildContext context, BudgetItem budget) async {
-    final cubit = context.read<SettingsCubit>();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Budget'),
-        content: Text('Are you sure you want to delete "${budget.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-
-    if (!context.mounted || confirmed != true) {
-      return;
-    }
-
-    await cubit.deleteBudgetByUuid(budget.uuid);
-  }
-
   Future<void> _openActionSheet(BuildContext context, SettingsData data) async {
     final cubit = context.read<SettingsCubit>();
     final navigator = Navigator.of(context);
@@ -632,27 +542,6 @@ class SettingsScreen extends StatelessWidget {
 
                     final data = snapshot.data!;
                     final dashboard = data.dashboard;
-                    final topExpenseCategories = dashboard
-                        .summary
-                        .expenseByCategory
-                        .take(5)
-                        .map(
-                          (item) => (
-                            spend: item,
-                            category: dashboard.categories.firstWhere(
-                              (category) => category.name == item.category,
-                              orElse: () => FinanceCategory(
-                                id: -1,
-                                uuid: '',
-                                name: item.category,
-                                kind: 'expense',
-                                color: item.color,
-                                icon: 'tag',
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList();
 
                     return RefreshIndicator(
                       onRefresh: () => context.read<SettingsCubit>().refresh(),
@@ -733,32 +622,6 @@ class SettingsScreen extends StatelessWidget {
                                   ),
                                   ListTile(
                                     contentPadding: EdgeInsets.zero,
-                                    leading: const Icon(
-                                      Icons.date_range_outlined,
-                                    ),
-                                    title: const Text(
-                                      'View Expenses by Period',
-                                    ),
-                                    subtitle: const Text(
-                                      'Browse local expense rows by date range (works offline).',
-                                    ),
-                                    onTap: () {
-                                      _openPeriodExpenses(context);
-                                    },
-                                  ),
-                                  ListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    leading: const Icon(Icons.savings_outlined),
-                                    title: const Text('View Incomes by Period'),
-                                    subtitle: const Text(
-                                      'Browse local income rows by date range (works offline).',
-                                    ),
-                                    onTap: () {
-                                      _openPeriodIncomes(context);
-                                    },
-                                  ),
-                                  ListTile(
-                                    contentPadding: EdgeInsets.zero,
                                     leading: const Icon(Icons.info_outline),
                                     title: const Text('About'),
                                     subtitle: const Text(
@@ -786,7 +649,7 @@ class SettingsScreen extends StatelessWidget {
                           ),
                           if (kDebugMode) ...[
                             const SizedBox(height: 16),
-                            _SectionTitle(
+                            FinanceSectionTitle(
                               title: 'Automation',
                               subtitle: '${data.tools.length} MCP tools',
                             ),
@@ -798,49 +661,7 @@ class SettingsScreen extends StatelessWidget {
                             ),
                           ],
                           const SizedBox(height: 16),
-                          _SectionTitle(
-                            title: 'Top Expense Categories',
-                            subtitle: '${topExpenseCategories.length} items',
-                          ),
-                          const SizedBox(height: 8),
-                          if (topExpenseCategories.isEmpty)
-                            const _EmptyCard(
-                              message: 'No category spending yet.',
-                            )
-                          else
-                            ...topExpenseCategories.map(
-                              (item) => _CategoryTotalTile(
-                                category: item.category,
-                                currency: currency,
-                                spend: item.spend,
-                                onTap: item.category.id == -1
-                                    ? null
-                                    : () => _openCategoryEntries(
-                                        context,
-                                        item.category,
-                                      ),
-                              ),
-                            ),
-                          const SizedBox(height: 16),
-                          _SectionTitle(
-                            title: 'Budgets',
-                            subtitle: '${dashboard.budgets.length} total',
-                          ),
-                          const SizedBox(height: 8),
-                          if (dashboard.budgets.isEmpty)
-                            const _EmptyCard(message: 'No budgets set yet.')
-                          else
-                            ...dashboard.budgets.map(
-                              (budget) => _BudgetTile(
-                                budget: budget,
-                                currency: currency,
-                                onEdit: () =>
-                                    _editBudget(context, budget, data),
-                                onDelete: () => _deleteBudget(context, budget),
-                              ),
-                            ),
-                          const SizedBox(height: 16),
-                          _SectionTitle(
+                          FinanceSectionTitle(
                             title: 'Accounts',
                             subtitle: '${dashboard.accounts.length} total',
                           ),
@@ -873,7 +694,7 @@ class SettingsScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          _SectionTitle(
+                          FinanceSectionTitle(
                             title: 'Categories',
                             subtitle: '${dashboard.categories.length} total',
                           ),
@@ -893,7 +714,7 @@ class SettingsScreen extends StatelessWidget {
                           ),
                           if (kDebugMode) ...[
                             const SizedBox(height: 16),
-                            _SectionTitle(
+                            FinanceSectionTitle(
                               title: 'Developer',
                               subtitle: 'Debug tools',
                             ),
@@ -946,29 +767,6 @@ class SettingsScreen extends StatelessWidget {
 }
 
 // _SettingsData moved to cubit layer as SettingsData.
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-      ],
-    );
-  }
-}
 
 class _InfoCard extends StatelessWidget {
   const _InfoCard({required this.icon, required this.text});
@@ -1361,130 +1159,3 @@ class _PinChangeResult {
 }
 
 bool _isValidPin(String pin) => RegExp(r'^\d{4}$').hasMatch(pin);
-
-class _BudgetTile extends StatelessWidget {
-  const _BudgetTile({
-    required this.budget,
-    required this.currency,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  final BudgetItem budget;
-  final CurrencyOption currency;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = budget.amount == 0
-        ? 0.0
-        : (budget.spent / budget.amount).clamp(0, 1).toDouble();
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    budget.name,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '${formatMoney(currency, budget.remaining)} left',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined, size: 20),
-                      onPressed: onEdit,
-                      tooltip: 'Edit',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 20),
-                      onPressed: onDelete,
-                      tooltip: 'Delete',
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '${budget.period} • ${budget.categoryName ?? 'All categories'}',
-            ),
-            const SizedBox(height: 12),
-            LinearProgressIndicator(value: progress),
-            const SizedBox(height: 8),
-            Text(
-              'Spent ${formatMoney(currency, budget.spent)} of ${formatMoney(currency, budget.amount)}',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CategoryTotalTile extends StatelessWidget {
-  const _CategoryTotalTile({
-    required this.category,
-    required this.currency,
-    required this.spend,
-    this.onTap,
-  });
-
-  final FinanceCategory category;
-  final CurrencyOption currency;
-  final CategorySpend spend;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        onTap: onTap,
-        leading: CircleAvatar(
-          backgroundColor: const Color(0xFFDFF7F4),
-          child: Text(
-            category.name.isEmpty ? '?' : category.name[0].toUpperCase(),
-            style: const TextStyle(
-              color: Color(0xFF0F766E),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        title: Text(spend.category),
-        subtitle: Text(
-          onTap == null
-              ? 'Category details unavailable'
-              : 'Tap to view entries',
-        ),
-        trailing: Text(
-          formatMoney(currency, spend.total),
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyCard extends StatelessWidget {
-  const _EmptyCard({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(padding: const EdgeInsets.all(18), child: Text(message)),
-    );
-  }
-}

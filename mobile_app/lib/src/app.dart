@@ -21,6 +21,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/report_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/splash_screen.dart';
 import 'services/app_lock_service.dart';
@@ -28,6 +29,7 @@ import 'sync/background_sync.dart';
 import 'theme/app_theme.dart';
 import 'utils/app_logger.dart';
 import 'utils/app_responsive.dart';
+import 'widgets/grouped_shell_navigation.dart';
 
 class ExpenseMobileApp extends StatelessWidget {
   const ExpenseMobileApp({super.key});
@@ -333,20 +335,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                 session: widget.session,
                 currency: widget.selectedCurrency,
               ),
-              ChatScreen(
+              ReportScreen(
                 session: widget.session,
                 currency: widget.selectedCurrency,
-                isActiveTab: selectedIndex == 2,
-                onOpenProfile: () async {
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => ProfileScreen(
-                        session: widget.session,
-                        onSessionUpdated: widget.onSessionUpdated,
-                      ),
-                    ),
-                  );
-                },
               ),
               SettingsScreen(
                 session: widget.session,
@@ -359,6 +350,21 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                 onChangePin: _changePin,
                 onRemovePin: _removePin,
                 onBiometricsChanged: _setBiometricsEnabled,
+                onOpenProfile: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ProfileScreen(
+                        session: widget.session,
+                        onSessionUpdated: widget.onSessionUpdated,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              ChatScreen(
+                session: widget.session,
+                currency: widget.selectedCurrency,
+                isActiveTab: selectedIndex == 4,
                 onOpenProfile: () async {
                   await Navigator.of(context).push(
                     MaterialPageRoute(
@@ -383,35 +389,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                   wide
                       ? Row(
                           children: [
-                            NavigationRail(
+                            GroupedShellNavigationRail(
                               selectedIndex: selectedIndex,
+                              extended: railExtended,
                               onDestinationSelected: (index) {
                                 context.read<ShellCubit>().selectTab(index);
                               },
-                              labelType: NavigationRailLabelType.all,
-                              extended: railExtended,
-                              destinations: const [
-                                NavigationRailDestination(
-                                  icon: Icon(Icons.home_outlined),
-                                  selectedIcon: Icon(Icons.home),
-                                  label: Text('Home'),
-                                ),
-                                NavigationRailDestination(
-                                  icon: Icon(Icons.dashboard_outlined),
-                                  selectedIcon: Icon(Icons.dashboard),
-                                  label: Text('Dashboard'),
-                                ),
-                                NavigationRailDestination(
-                                  icon: Icon(Icons.chat_bubble_outline),
-                                  selectedIcon: Icon(Icons.chat_bubble),
-                                  label: Text('Chat'),
-                                ),
-                                NavigationRailDestination(
-                                  icon: Icon(Icons.settings_outlined),
-                                  selectedIcon: Icon(Icons.settings),
-                                  label: Text('Settings'),
-                                ),
-                              ],
                             ),
                             const VerticalDivider(width: 1, thickness: 1),
                             Expanded(
@@ -435,33 +418,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               ),
               bottomNavigationBar: wide
                   ? null
-                  : NavigationBar(
+                  : GroupedShellBottomNavigationBar(
                       selectedIndex: selectedIndex,
                       onDestinationSelected: (index) {
                         context.read<ShellCubit>().selectTab(index);
                       },
-                      destinations: const [
-                        NavigationDestination(
-                          icon: Icon(Icons.home_outlined),
-                          selectedIcon: Icon(Icons.home),
-                          label: 'Home',
-                        ),
-                        NavigationDestination(
-                          icon: Icon(Icons.dashboard_outlined),
-                          selectedIcon: Icon(Icons.dashboard),
-                          label: 'Dashboard',
-                        ),
-                        NavigationDestination(
-                          icon: Icon(Icons.chat_bubble_outline),
-                          selectedIcon: Icon(Icons.chat_bubble),
-                          label: 'Chat',
-                        ),
-                        NavigationDestination(
-                          icon: Icon(Icons.settings_outlined),
-                          selectedIcon: Icon(Icons.settings),
-                          label: 'Settings',
-                        ),
-                      ],
                     ),
             );
           },
