@@ -52,10 +52,7 @@ class ChatCubit extends Cubit<ChatState> {
     startNewSession();
   }
 
-  @override
-  Future<void> close() async {
-    return super.close();
-  }
+  
 
   Future<List<ChatSessionData>> getAllSessions() => _database.getAllSessions();
 
