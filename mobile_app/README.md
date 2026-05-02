@@ -30,6 +30,9 @@ For the chat tab:
 
 - `GEMINI_API_KEY`
 - `GEMINI_MODEL=gemini-2.5-flash`
+- `SARVAM_API_KEY`
+- `SPEECH_TO_TEXT_PROVIDER=sarvam`
+- `SARVAM_SPEECH_MODEL=saaras:v3`
 
 ## Run
 

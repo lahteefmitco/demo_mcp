@@ -473,7 +473,7 @@ class _ComposerState extends State<_Composer>
     try {
       await _recorder.start(
         const RecordConfig(
-          encoder: AudioEncoder.aacLc,
+          encoder: AudioEncoder.wav,
           bitRate: 64000,
           sampleRate: 16000,
         ),
@@ -521,7 +521,7 @@ class _ComposerState extends State<_Composer>
       if (!mounted) return;
       final transcript = await context.read<ChatCubit>().transcribeSpeech(
         audioBytes,
-        'audio/mp4',
+        'audio/wav',
       );
       final trimmed = transcript?.trim();
       if (!mounted || trimmed == null || trimmed.isEmpty) return;

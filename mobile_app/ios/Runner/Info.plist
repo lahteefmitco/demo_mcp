@@ -29,7 +29,7 @@
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use Face ID to unlock Gulfon Finance faster.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Record voice prompts so Gemini can transcribe them for chat.</string>
+	<string>Record voice prompts so Sarvam can transcribe them for chat.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

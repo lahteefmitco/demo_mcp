@@ -25,7 +25,7 @@
 	<key>NSHumanReadableCopyright</key>
 	<string>$(PRODUCT_COPYRIGHT)</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Record voice prompts so Gemini can transcribe them for chat.</string>
+	<string>Record voice prompts so Sarvam can transcribe them for chat.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
