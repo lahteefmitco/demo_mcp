@@ -305,6 +305,21 @@ class $ChatMessagesTable extends ChatMessages
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _isErrorMeta = const VerificationMeta(
+    'isError',
+  );
+  @override
+  late final GeneratedColumn<bool> isError = GeneratedColumn<bool>(
+    'is_error',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_error" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -322,6 +337,7 @@ class $ChatMessagesTable extends ChatMessages
     sessionId,
     role,
     content,
+    isError,
     createdAt,
   ];
   @override
@@ -363,6 +379,12 @@ class $ChatMessagesTable extends ChatMessages
     } else if (isInserting) {
       context.missing(_contentMeta);
     }
+    if (data.containsKey('is_error')) {
+      context.handle(
+        _isErrorMeta,
+        isError.isAcceptableOrUnknown(data['is_error']!, _isErrorMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -396,6 +418,10 @@ class $ChatMessagesTable extends ChatMessages
         DriftSqlType.string,
         data['${effectivePrefix}content'],
       )!,
+      isError: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_error'],
+      )!,
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -414,12 +440,14 @@ class ChatMessageData extends DataClass implements Insertable<ChatMessageData> {
   final int sessionId;
   final String role;
   final String content;
+  final bool isError;
   final DateTime createdAt;
   const ChatMessageData({
     required this.id,
     required this.sessionId,
     required this.role,
     required this.content,
+    required this.isError,
     required this.createdAt,
   });
   @override
@@ -429,6 +457,7 @@ class ChatMessageData extends DataClass implements Insertable<ChatMessageData> {
     map['session_id'] = Variable<int>(sessionId);
     map['role'] = Variable<String>(role);
     map['content'] = Variable<String>(content);
+    map['is_error'] = Variable<bool>(isError);
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -439,6 +468,7 @@ class ChatMessageData extends DataClass implements Insertable<ChatMessageData> {
       sessionId: Value(sessionId),
       role: Value(role),
       content: Value(content),
+      isError: Value(isError),
       createdAt: Value(createdAt),
     );
   }
@@ -453,6 +483,7 @@ class ChatMessageData extends DataClass implements Insertable<ChatMessageData> {
       sessionId: serializer.fromJson<int>(json['sessionId']),
       role: serializer.fromJson<String>(json['role']),
       content: serializer.fromJson<String>(json['content']),
+      isError: serializer.fromJson<bool>(json['isError']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -464,6 +495,7 @@ class ChatMessageData extends DataClass implements Insertable<ChatMessageData> {
       'sessionId': serializer.toJson<int>(sessionId),
       'role': serializer.toJson<String>(role),
       'content': serializer.toJson<String>(content),
+      'isError': serializer.toJson<bool>(isError),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -473,12 +505,14 @@ class ChatMessageData extends DataClass implements Insertable<ChatMessageData> {
     int? sessionId,
     String? role,
     String? content,
+    bool? isError,
     DateTime? createdAt,
   }) => ChatMessageData(
     id: id ?? this.id,
     sessionId: sessionId ?? this.sessionId,
     role: role ?? this.role,
     content: content ?? this.content,
+    isError: isError ?? this.isError,
     createdAt: createdAt ?? this.createdAt,
   );
   ChatMessageData copyWithCompanion(ChatMessagesCompanion data) {
@@ -487,6 +521,7 @@ class ChatMessageData extends DataClass implements Insertable<ChatMessageData> {
       sessionId: data.sessionId.present ? data.sessionId.value : this.sessionId,
       role: data.role.present ? data.role.value : this.role,
       content: data.content.present ? data.content.value : this.content,
+      isError: data.isError.present ? data.isError.value : this.isError,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -498,13 +533,15 @@ class ChatMessageData extends DataClass implements Insertable<ChatMessageData> {
           ..write('sessionId: $sessionId, ')
           ..write('role: $role, ')
           ..write('content: $content, ')
+          ..write('isError: $isError, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, sessionId, role, content, createdAt);
+  int get hashCode =>
+      Object.hash(id, sessionId, role, content, isError, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -513,6 +550,7 @@ class ChatMessageData extends DataClass implements Insertable<ChatMessageData> {
           other.sessionId == this.sessionId &&
           other.role == this.role &&
           other.content == this.content &&
+          other.isError == this.isError &&
           other.createdAt == this.createdAt);
 }
 
@@ -521,12 +559,14 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageData> {
   final Value<int> sessionId;
   final Value<String> role;
   final Value<String> content;
+  final Value<bool> isError;
   final Value<DateTime> createdAt;
   const ChatMessagesCompanion({
     this.id = const Value.absent(),
     this.sessionId = const Value.absent(),
     this.role = const Value.absent(),
     this.content = const Value.absent(),
+    this.isError = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   ChatMessagesCompanion.insert({
@@ -534,6 +574,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageData> {
     required int sessionId,
     required String role,
     required String content,
+    this.isError = const Value.absent(),
     required DateTime createdAt,
   }) : sessionId = Value(sessionId),
        role = Value(role),
@@ -544,6 +585,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageData> {
     Expression<int>? sessionId,
     Expression<String>? role,
     Expression<String>? content,
+    Expression<bool>? isError,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
@@ -551,6 +593,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageData> {
       if (sessionId != null) 'session_id': sessionId,
       if (role != null) 'role': role,
       if (content != null) 'content': content,
+      if (isError != null) 'is_error': isError,
       if (createdAt != null) 'created_at': createdAt,
     });
   }
@@ -560,6 +603,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageData> {
     Value<int>? sessionId,
     Value<String>? role,
     Value<String>? content,
+    Value<bool>? isError,
     Value<DateTime>? createdAt,
   }) {
     return ChatMessagesCompanion(
@@ -567,6 +611,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageData> {
       sessionId: sessionId ?? this.sessionId,
       role: role ?? this.role,
       content: content ?? this.content,
+      isError: isError ?? this.isError,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -586,6 +631,9 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageData> {
     if (content.present) {
       map['content'] = Variable<String>(content.value);
     }
+    if (isError.present) {
+      map['is_error'] = Variable<bool>(isError.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -599,6 +647,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageData> {
           ..write('sessionId: $sessionId, ')
           ..write('role: $role, ')
           ..write('content: $content, ')
+          ..write('isError: $isError, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -887,6 +936,7 @@ typedef $$ChatMessagesTableCreateCompanionBuilder =
       required int sessionId,
       required String role,
       required String content,
+      Value<bool> isError,
       required DateTime createdAt,
     });
 typedef $$ChatMessagesTableUpdateCompanionBuilder =
@@ -895,6 +945,7 @@ typedef $$ChatMessagesTableUpdateCompanionBuilder =
       Value<int> sessionId,
       Value<String> role,
       Value<String> content,
+      Value<bool> isError,
       Value<DateTime> createdAt,
     });
 
@@ -944,6 +995,11 @@ class $$ChatMessagesTableFilterComposer
 
   ColumnFilters<String> get content => $composableBuilder(
     column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isError => $composableBuilder(
+    column: $table.isError,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1000,6 +1056,11 @@ class $$ChatMessagesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isError => $composableBuilder(
+    column: $table.isError,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -1046,6 +1107,9 @@ class $$ChatMessagesTableAnnotationComposer
 
   GeneratedColumn<String> get content =>
       $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<bool> get isError =>
+      $composableBuilder(column: $table.isError, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -1106,12 +1170,14 @@ class $$ChatMessagesTableTableManager
                 Value<int> sessionId = const Value.absent(),
                 Value<String> role = const Value.absent(),
                 Value<String> content = const Value.absent(),
+                Value<bool> isError = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => ChatMessagesCompanion(
                 id: id,
                 sessionId: sessionId,
                 role: role,
                 content: content,
+                isError: isError,
                 createdAt: createdAt,
               ),
           createCompanionCallback:
@@ -1120,12 +1186,14 @@ class $$ChatMessagesTableTableManager
                 required int sessionId,
                 required String role,
                 required String content,
+                Value<bool> isError = const Value.absent(),
                 required DateTime createdAt,
               }) => ChatMessagesCompanion.insert(
                 id: id,
                 sessionId: sessionId,
                 role: role,
                 content: content,
+                isError: isError,
                 createdAt: createdAt,
               ),
           withReferenceMapper: (p0) => p0

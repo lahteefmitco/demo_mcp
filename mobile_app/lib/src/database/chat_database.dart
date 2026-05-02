@@ -1,4 +1,6 @@
 import 'package:drift/drift.dart';
+
+import '../cubits/chat/chat_state.dart';
 import 'drift_executor.dart';
 
 part 'chat_database.g.dart';
@@ -16,6 +18,7 @@ class ChatMessages extends Table {
   IntColumn get sessionId => integer().references(ChatSessions, #id)();
   TextColumn get role => text()();
   TextColumn get content => text()();
+  BoolColumn get isError => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
 }
 
@@ -27,7 +30,16 @@ class ChatDatabase extends _$ChatDatabase {
   factory ChatDatabase() => _instance;
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (migrator, from, to) async {
+      if (from < 2) {
+        await migrator.addColumn(chatMessages, chatMessages.isError);
+      }
+    },
+  );
 
   Future<int> createSession(String model) async {
     return into(chatSessions).insert(
@@ -35,12 +47,18 @@ class ChatDatabase extends _$ChatDatabase {
     );
   }
 
-  Future<int> addMessage(int sessionId, String role, String content) async {
+  Future<int> addMessage(
+    int sessionId,
+    String role,
+    String content, {
+    bool isError = false,
+  }) async {
     return into(chatMessages).insert(
       ChatMessagesCompanion.insert(
         sessionId: sessionId,
         role: role,
         content: content,
+        isError: Value(isError),
         createdAt: DateTime.now(),
       ),
     );
@@ -57,6 +75,19 @@ class ChatDatabase extends _$ChatDatabase {
           ..where((t) => t.sessionId.equals(sessionId))
           ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
         .get();
+  }
+
+  Future<List<ChatUiMessage>> getMessagesForSessionAsUi(int sessionId) async {
+    final messages = await getMessagesForSession(sessionId);
+    return messages
+        .map(
+          (m) => ChatUiMessage(
+            role: m.role,
+            content: m.content,
+            isError: m.isError,
+          ),
+        )
+        .toList();
   }
 
   Stream<List<ChatSessionData>> watchAllSessions() {

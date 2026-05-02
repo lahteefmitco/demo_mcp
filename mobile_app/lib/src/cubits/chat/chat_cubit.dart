@@ -77,27 +77,19 @@ class ChatCubit extends Cubit<ChatState> {
   Future<void> reloadCurrentSessionFromLocalDb() async {
     final id = state.currentSessionId;
     if (id == null) return;
-    final rows = await _database.getMessagesForSession(id);
-    emit(
-      state.copyWith(
-        messages: rows
-            .map((m) => ChatUiMessage(role: m.role, content: m.content))
-            .toList(),
-      ),
-    );
+    final messages = await _database.getMessagesForSessionAsUi(id);
+    emit(state.copyWith(messages: messages));
   }
 
   Future<void> loadSession(ChatSessionData session) async {
     emit(state.copyWith(isLoadingSessions: true));
 
-    final messages = await _database.getMessagesForSession(session.id);
+    final messages = await _database.getMessagesForSessionAsUi(session.id);
     emit(
       state.copyWith(
         currentSessionId: session.id,
         selectedProvider: session.model,
-        messages: messages
-            .map((m) => ChatUiMessage(role: m.role, content: m.content))
-            .toList(),
+        messages: messages,
         isLoadingSessions: false,
       ),
     );
@@ -164,7 +156,7 @@ class ChatCubit extends Cubit<ChatState> {
       );
     } else if (chartData == null) {
       try {
-        final reply = await _chatApi.sendMessage(
+        final result = await _chatApi.sendMessage(
           state.messages
               .where((m) => m.chartData == null)
               .map((m) => ChatMessage(role: m.role, content: m.content))
@@ -172,12 +164,41 @@ class ChatCubit extends Cubit<ChatState> {
           provider: _providerForApi(state.selectedProvider),
         );
 
-        final replyContent = reply.isEmpty ? 'Done.' : reply;
-        final msg = ChatUiMessage(role: 'assistant', content: replyContent);
+        final replyContent = result.reply.isEmpty
+            ? (result.isError ? 'Something went wrong.' : 'Done.')
+            : result.reply;
+        final msg = ChatUiMessage(
+          role: 'assistant',
+          content: replyContent,
+          isError: result.isError,
+        );
         emit(state.copyWith(messages: [...state.messages, msg]));
-        await _database.addMessage(sessionId, 'assistant', replyContent);
+        await _database.addMessage(
+          sessionId,
+          'assistant',
+          replyContent,
+          isError: result.isError,
+        );
       } catch (e) {
-        emit(state.toastError(e.toString().replaceFirst('Exception: ', '')));
+        final errorMsg = e.toString().replaceFirst('Exception: ', '');
+        final msg = ChatUiMessage(
+          role: 'assistant',
+          content: errorMsg,
+          isError: true,
+        );
+        emit(
+          state.copyWith(
+            messages: [...state.messages, msg],
+            isSending: false,
+          ),
+        );
+        await _database.addMessage(
+          sessionId,
+          'assistant',
+          errorMsg,
+          isError: true,
+        );
+        return;
       }
     } else {
       await _database.addMessage(sessionId, 'assistant', chartData.title);

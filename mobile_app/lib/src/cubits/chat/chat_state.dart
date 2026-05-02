@@ -23,8 +23,14 @@ class ChatUiMessage {
   final String role;
   final String content;
   final ChatChartData? chartData;
+  final bool isError;
 
-  ChatUiMessage({required this.role, required this.content, this.chartData});
+  ChatUiMessage({
+    required this.role,
+    required this.content,
+    this.chartData,
+    this.isError = false,
+  });
 }
 
 class ChatState {

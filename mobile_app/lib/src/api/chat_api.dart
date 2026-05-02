@@ -6,6 +6,14 @@ import 'package:http/http.dart' as http;
 
 import '../models/chat_message.dart';
 
+/// Successful `/api/chat` response (HTTP 200).
+class ChatSendResult {
+  const ChatSendResult({required this.reply, this.isError = false});
+
+  final String reply;
+  final bool isError;
+}
+
 class ChatApi {
   ChatApi({required this.token, http.Client? client})
     : _client = client ?? http.Client(),
@@ -30,7 +38,7 @@ class ChatApi {
     return 'gemini';
   }
 
-  Future<String> sendMessage(
+  Future<ChatSendResult> sendMessage(
     List<ChatMessage> messages, {
     required String provider,
   }) async {
@@ -56,7 +64,18 @@ class ChatApi {
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     log('LLM Response: ${jsonEncode(body)}');
-    return body['reply'] as String? ?? '';
+
+    var isError = body['isError'] == true;
+    var reply = body['reply'] as String? ?? '';
+    final errorField = body['error'];
+    if (errorField is String && errorField.trim().isNotEmpty) {
+      if (reply.trim().isEmpty) {
+        reply = errorField.trim();
+        isError = true;
+      }
+    }
+
+    return ChatSendResult(reply: reply, isError: isError);
   }
 
   Future<String> transcribeAudio({

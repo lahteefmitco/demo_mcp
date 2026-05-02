@@ -13,6 +13,33 @@ import '../models/currency_option.dart';
 import '../utils/audio_recording_file.dart';
 import '../utils/toast.dart';
 
+MarkdownStyleSheet _markdownStyleAssistantError(BuildContext context) {
+  final theme = Theme.of(context);
+  final color = theme.colorScheme.error;
+  final base = MarkdownStyleSheet.fromTheme(theme);
+  TextStyle? tinted(TextStyle? s) => s?.copyWith(color: color);
+  return base.copyWith(
+    a: tinted(base.a),
+    p: tinted(base.p),
+    code: tinted(base.code),
+    h1: tinted(base.h1),
+    h2: tinted(base.h2),
+    h3: tinted(base.h3),
+    h4: tinted(base.h4),
+    h5: tinted(base.h5),
+    h6: tinted(base.h6),
+    em: tinted(base.em),
+    strong: tinted(base.strong),
+    del: tinted(base.del),
+    blockquote: tinted(base.blockquote),
+    img: tinted(base.img),
+    checkbox: tinted(base.checkbox),
+    listBullet: tinted(base.listBullet),
+    tableHead: tinted(base.tableHead),
+    tableBody: tinted(base.tableBody),
+  );
+}
+
 class ChatScreen extends StatelessWidget {
   const ChatScreen({
     required this.session,
@@ -331,7 +358,8 @@ class _MessagesListState extends State<_MessagesList> {
     final n = newList.last;
     return o.role != n.role ||
         o.content != n.content ||
-        o.chartData != n.chartData;
+        o.chartData != n.chartData ||
+        o.isError != n.isError;
   }
 
   void _scrollToBottom() {
@@ -372,6 +400,12 @@ class _MessagesListState extends State<_MessagesList> {
           return _ExpenseChart(chartData: message.chartData!);
         }
 
+        final isError = message.isError;
+        final theme = Theme.of(context);
+        final assistantBubbleColor = theme.brightness == Brightness.dark
+            ? theme.colorScheme.surfaceContainerHighest
+            : Colors.grey.shade100;
+
         return Align(
           alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
           child: Container(
@@ -381,9 +415,7 @@ class _MessagesListState extends State<_MessagesList> {
             decoration: BoxDecoration(
               color: isUser
                   ? const Color(0xFF0E7490)
-                  : (Theme.of(context).brightness == Brightness.dark
-                        ? Theme.of(context).colorScheme.surfaceContainerHighest
-                        : Colors.grey.shade100),
+                  : assistantBubbleColor,
               borderRadius: BorderRadius.circular(16),
             ),
             child: isUser
@@ -391,7 +423,13 @@ class _MessagesListState extends State<_MessagesList> {
                     message.content,
                     style: const TextStyle(color: Colors.white),
                   )
-                : MarkdownBody(data: message.content, selectable: true),
+                : MarkdownBody(
+                    data: message.content,
+                    selectable: true,
+                    styleSheet: isError
+                        ? _markdownStyleAssistantError(context)
+                        : null,
+                  ),
           ),
         );
       },
