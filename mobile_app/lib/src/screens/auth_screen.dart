@@ -11,6 +11,73 @@ import '../utils/toast.dart';
 import 'forgot_password_screen.dart';
 import 'local_database_viewer_screen.dart';
 
+class _AuthSubmittingProgress extends StatelessWidget {
+  const _AuthSubmittingProgress({
+    required this.theme,
+    required this.isLogin,
+  });
+
+  final ThemeData theme;
+  final bool isLogin;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = theme.colorScheme;
+    final label = isLogin ? 'Signing you in…' : 'Creating your account…';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.2,
+                color: cs.primary,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: cs.primary,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.15,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: cs.outlineVariant.withValues(alpha: 0.35),
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: SizedBox(
+              height: 6,
+              child: LinearProgressIndicator(
+                minHeight: 6,
+                backgroundColor: Colors.transparent,
+                color: cs.primary,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class AuthScreen extends StatelessWidget {
   const AuthScreen({required this.onAuthenticated, super.key});
 
@@ -175,6 +242,20 @@ class _AuthFormState extends State<_AuthForm> {
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: state.isSubmitting
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 20),
+                    child: _AuthSubmittingProgress(
+                      theme: theme,
+                      isLogin: state.isLogin,
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ),
           if (state.infoMessage != null) ...[
             const SizedBox(height: 16),
