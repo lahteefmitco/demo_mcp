@@ -7,6 +7,66 @@ This folder has its **own** `Dockerfile` and `.dockerignore`. The Express API at
 | **API (Node)** | `/Dockerfile` | repo root `.` |
 | **Web (Flutter)** | `/mobile_app/Dockerfile` | `mobile_app/` |
 
+**Fixed API URL (baked into the web build):** `https://demo-mcp-615058378594.europe-west1.run.app` — set in `Dockerfile` `ARG API_BASE_URL`; no override needed unless you change backends.
+
+---
+
+## Quick start
+
+### Local Docker
+
+```bash
+cd mobile_app
+docker build -t finance-web:local .
+docker run --rm -p 8081:8080 finance-web:local
+```
+
+On **Apple Silicon**, add `--platform linux/amd64` when building images for **Cloud Run** (see troubleshooting below).
+
+Open `http://localhost:8081`. The app calls the Cloud Run API above.
+
+### Push to Google Artifact Registry + Cloud Run (GCR-style)
+
+```bash
+cd mobile_app
+chmod +x deploy-gcr.sh
+export GCP_PROJECT_ID=YOUR_PROJECT_ID   # string id from: gcloud projects list
+./deploy-gcr.sh
+```
+
+Uses region **`europe-west1`**, repository **`finance-apps`**, service **`finance-web`**. Override with env vars (`REGION`, `REPOSITORY`, `SERVICE_NAME`, `TAG`) if needed.
+
+### Push to Docker Hub
+
+```bash
+cd mobile_app
+chmod +x deploy-dockerhub.sh
+docker login
+export DOCKERHUB_USER=latheefoxdo   # must match the account from docker login
+./deploy-dockerhub.sh
+```
+
+### Change web app icon and redeploy
+
+1. Replace **`assets/app_icon.png`** with your new icon (square, **1024×1024 PNG** recommended).
+2. Regenerate favicon and PWA icons:
+
+```bash
+cd mobile_app
+./update-icons.sh
+```
+
+3. Rebuild and push:
+
+```bash
+export DOCKERHUB_USER=latheefoxdo
+./deploy-dockerhub.sh
+```
+
+4. Redeploy Cloud Run with the new image.
+
+Hard refresh the browser (**Cmd+Shift+R**) — favicons are cached aggressively.
+
 ---
 
 ## Prerequisites
@@ -204,6 +264,7 @@ In the browser: open the web URL, sign in, and confirm network calls go to the A
 | Blank DB / Drift errors | Missing wasm assets in image | Ensure `web/sqlite3.wasm` and `web/drift_worker.js` exist before `docker build` |
 | API calls wrong host | Stale build | Rebuild with correct `API_BASE_URL` |
 | 404 on refresh deep link | SPA routing | nginx template already uses `try_files … /index.html` |
+| Cloud Run: manifest must support amd64/linux | Image built on Mac as arm64 only | Rebuild with `--platform linux/amd64` and push again (`deploy-dockerhub.sh` / `deploy-gcr.sh` do this by default) |
 
 ---
 
