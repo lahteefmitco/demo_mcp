@@ -197,9 +197,15 @@ docker build -t finance-api:local .
 docker run --rm -p 8080:8080 --env-file .env finance-api:local
 ```
 
+## Flutter web on Cloud Run
+
+The Flutter **web** client has a separate Docker image under [`mobile_app/Dockerfile`](mobile_app/Dockerfile). The root [`Dockerfile`](Dockerfile) is still only for the Express API.
+
+Full steps (local Docker test, deploy web + API, CORS, Google Sign-In): **[mobile_app/DEPLOY_CLOUD_RUN.md](mobile_app/DEPLOY_CLOUD_RUN.md)**.
+
 ## Flutter App
 
-The Flutter client lives in [mobile_app](/Users/mictco/Desktop/demo_mcp/mobile_app).
+The Flutter client lives in [`mobile_app/`](mobile_app/).
 
 Run it with:
 

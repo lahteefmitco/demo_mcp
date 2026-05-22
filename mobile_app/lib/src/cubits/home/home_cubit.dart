@@ -42,6 +42,8 @@ class HomeCubit extends Cubit<HomeState> {
       AppLogger.e('Home refresh failed', error: e, stackTrace: st);
       emit(
         state.copyWith(
+          isLoading: false,
+          errorMessage: e.toString(),
           toastNonce: state.toastNonce + 1,
           toastMessage: 'Refresh failed',
           toastIsError: true,

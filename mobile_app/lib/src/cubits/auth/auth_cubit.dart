@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:developer';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -13,10 +15,23 @@ class AuthCubit extends Cubit<AuthState> {
     required Future<void> Function(AuthSession session) onAuthenticated,
   }) : _authApi = authApi,
        _onAuthenticated = onAuthenticated,
-       super(const AuthState.initial());
+       super(const AuthState.initial()) {
+    if (kIsWeb) {
+      _googleAuthSubscription = GoogleSignIn.instance.authenticationEvents.listen(
+        _onGoogleAuthenticationEvent,
+        onError: (Object e, StackTrace st) {
+          log('Google Sign-In stream error.', error: e, stackTrace: st);
+          if (!isClosed) {
+            emit(state.toastError(e.toString().replaceFirst('Exception: ', '')));
+          }
+        },
+      );
+    }
+  }
 
   final AuthApi _authApi;
   final Future<void> Function(AuthSession session) _onAuthenticated;
+  StreamSubscription<GoogleSignInAuthenticationEvent>? _googleAuthSubscription;
 
   void toggleMode() {
     emit(
@@ -70,8 +85,11 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
+  /// Mobile/desktop: starts the platform authenticate flow.
   Future<void> signInWithGoogle() async {
-    log('signInWithGoogle');
+    if (kIsWeb) {
+      return;
+    }
     if (state.isSubmitting) return;
 
     emit(
@@ -79,32 +97,16 @@ class AuthCubit extends Cubit<AuthState> {
     );
 
     try {
-      log('authenticate');
       final account = await GoogleSignIn.instance.authenticate();
-      log('account: $account');
-      final auth = account.authentication;
-      final idToken = auth.idToken;
-
-      log('idToken: $idToken');
-
-      if (idToken == null) {
-        throw Exception('Failed to get Google ID token');
-      }
-
-      final session = await _authApi.loginWithGoogle(idToken);
-      await _onAuthenticated(session);
+      await _completeGoogleSignIn(account);
     } on GoogleSignInException catch (e) {
       if (e.code == GoogleSignInExceptionCode.canceled ||
           e.code == GoogleSignInExceptionCode.interrupted) {
-        // Treat as non-error: user dismissed, or the activity was interrupted.
         log('Google Sign-In canceled/interrupted (code: ${e.code}).');
         return;
       }
 
-      log(
-        'Google Sign-In failed (code: ${e.code}).',
-        error: e,
-      );
+      log('Google Sign-In failed (code: ${e.code}).', error: e);
       emit(
         state.toastError(
           'Google Sign-In failed (${e.code}). Please try again.',
@@ -116,5 +118,58 @@ class AuthCubit extends Cubit<AuthState> {
     } finally {
       emit(state.copyWith(isSubmitting: false));
     }
+  }
+
+  Future<void> _onGoogleAuthenticationEvent(
+    GoogleSignInAuthenticationEvent event,
+  ) async {
+    switch (event) {
+      case GoogleSignInAuthenticationEventSignIn():
+        if (state.isSubmitting) return;
+        emit(
+          state.copyWith(
+            isSubmitting: true,
+            infoMessage: null,
+            toastMessage: null,
+          ),
+        );
+        try {
+          await _completeGoogleSignIn(event.user);
+        } on GoogleSignInException catch (e) {
+          if (e.code == GoogleSignInExceptionCode.canceled ||
+              e.code == GoogleSignInExceptionCode.interrupted) {
+            return;
+          }
+          emit(
+            state.toastError(
+              'Google Sign-In failed (${e.code}). Please try again.',
+            ),
+          );
+        } catch (e) {
+          emit(state.toastError(e.toString().replaceFirst('Exception: ', '')));
+        } finally {
+          if (!isClosed) {
+            emit(state.copyWith(isSubmitting: false));
+          }
+        }
+      case GoogleSignInAuthenticationEventSignOut():
+        break;
+    }
+  }
+
+  Future<void> _completeGoogleSignIn(GoogleSignInAccount account) async {
+    final idToken = account.authentication.idToken;
+    if (idToken == null) {
+      throw Exception('Failed to get Google ID token');
+    }
+
+    final session = await _authApi.loginWithGoogle(idToken);
+    await _onAuthenticated(session);
+  }
+
+  @override
+  Future<void> close() {
+    unawaited(_googleAuthSubscription?.cancel());
+    return super.close();
   }
 }

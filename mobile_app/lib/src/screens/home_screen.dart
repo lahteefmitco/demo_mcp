@@ -486,7 +486,9 @@ class _HomeBody extends StatelessWidget {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (state.errorMessage != null) {
+    if (state.errorMessage != null || state.dashboard == null) {
+      final message = state.errorMessage ??
+          'Finance data is not available yet. Pull to refresh or try again.';
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -500,7 +502,7 @@ class _HomeBody extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 8),
-              Text(state.errorMessage!, textAlign: TextAlign.center),
+              Text(message, textAlign: TextAlign.center),
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: () => context.read<HomeCubit>().load(month),

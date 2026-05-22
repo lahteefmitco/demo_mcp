@@ -1,0 +1,24 @@
+# Flutter web image — only send what the web build needs.
+.git
+.gitignore
+.dart_tool
+.packages
+build
+.flutter-plugins
+.flutter-plugins-dependencies
+
+android
+ios
+linux
+macos
+windows
+test
+
+.idea
+*.iml
+.vscode
+.DS_Store
+*.log
+
+# Docs/scripts are not needed in the image
+DEPLOY_CLOUD_RUN.md

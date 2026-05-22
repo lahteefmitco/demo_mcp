@@ -7,6 +7,7 @@ import '../cubits/auth/auth_cubit.dart';
 import '../cubits/auth/auth_state.dart';
 import '../di/service_locator.dart';
 import '../models/auth_session.dart';
+import '../utils/google_sign_in_web_button.dart';
 import '../utils/toast.dart';
 import 'forgot_password_screen.dart';
 import 'local_database_viewer_screen.dart';
@@ -367,23 +368,26 @@ class _AuthFormState extends State<_AuthForm> {
             ],
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: state.isSubmitting
-                  ? null
-                  : () => context.read<AuthCubit>().signInWithGoogle(),
-              icon: Image.network(
-                'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png',
-                height: 24,
-                width: 24,
-              ),
-              label: const Text('Continue with Google'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
+          if (buildGoogleSignInWebButton() case final webButton?)
+            SizedBox(width: double.infinity, child: webButton)
+          else
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: state.isSubmitting
+                    ? null
+                    : () => context.read<AuthCubit>().signInWithGoogle(),
+                icon: Image.network(
+                  'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png',
+                  height: 24,
+                  width: 24,
+                ),
+                label: const Text('Continue with Google'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
               ),
             ),
-          ),
           if (state.isLogin) ...[
             const SizedBox(height: 8),
             Center(

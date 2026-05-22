@@ -133,7 +133,10 @@ class GroupedShellNavigationRail extends StatelessWidget {
       extended: extended,
       selectedIndex: railIndex,
       onDestinationSelected: onDestinationSelected,
-      labelType: NavigationRailLabelType.all,
+      // extended rail shows labels inline; Material disallows labelType.all here.
+      labelType: extended
+          ? NavigationRailLabelType.none
+          : NavigationRailLabelType.all,
       destinations: const [
         NavigationRailDestination(
           icon: Icon(Icons.home_outlined),

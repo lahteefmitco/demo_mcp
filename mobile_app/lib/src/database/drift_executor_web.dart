@@ -1,15 +1,22 @@
 import 'package:drift/drift.dart';
-import 'package:drift/web.dart';
+import 'package:drift/wasm.dart';
 
-QueryExecutor openFinanceExecutorImpl() {
-  return WebDatabase('finance');
+const _sqlite3Wasm = 'sqlite3.wasm';
+const _driftWorker = 'drift_worker.js';
+
+QueryExecutor _openWasmExecutor(String databaseName) {
+  return LazyDatabase(() async {
+    final result = await WasmDatabase.open(
+      databaseName: databaseName,
+      sqlite3Uri: Uri.parse(_sqlite3Wasm),
+      driftWorkerUri: Uri.parse(_driftWorker),
+    );
+    return result.resolvedExecutor;
+  });
 }
 
-QueryExecutor openChatExecutorImpl() {
-  return WebDatabase('chat_history');
-}
+QueryExecutor openFinanceExecutorImpl() => _openWasmExecutor('finance');
 
-QueryExecutor openInMemoryExecutorImpl() {
-  // WebDatabase persists in IndexedDB; good enough for tests in web contexts.
-  return WebDatabase('test_db');
-}
+QueryExecutor openChatExecutorImpl() => _openWasmExecutor('chat_history');
+
+QueryExecutor openInMemoryExecutorImpl() => _openWasmExecutor('test_db');
